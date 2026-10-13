@@ -1,5 +1,6 @@
 // ポインタ（タッチ・マウス）とキーボードを 1 つの入力状態にまとめる。
 // ゲームは毎フレーム input.down / input.pressed / input.x / input.y を読むだけでよい。
+// 複数ボタンの同時押し用に、押している全ポインタを input.pointers（配列）で参照できる。
 const ACTION_KEYS = new Set([' ', 'Enter', 'ArrowUp', 'z', 'Z']);
 
 export class Input {
@@ -9,7 +10,7 @@ export class Input {
     this.H = H;
     this.x = W / 2;
     this.y = H / 2;
-    this.pointerDown = false;
+    this._pointers = new Map(); // pointerId -> {x, y}
     this.keyAction = false;
     this.pressed = false; // このフレームで押された（1 フレームだけ true）
     this.keys = new Set();
@@ -18,15 +19,27 @@ export class Input {
     canvas.addEventListener('pointerdown', (e) => {
       e.preventDefault();
       canvas.setPointerCapture(e.pointerId);
-      this._move(e);
-      this.pointerDown = true;
+      const p = this._pos(e);
+      this._pointers.set(e.pointerId, p);
+      this.x = p.x;
+      this.y = p.y;
       this.pressed = true;
       this._gesture();
     });
-    canvas.addEventListener('pointermove', (e) => this._move(e));
-    const up = () => { this.pointerDown = false; };
+    canvas.addEventListener('pointermove', (e) => {
+      const p = this._pos(e);
+      if (this._pointers.has(e.pointerId)) this._pointers.set(e.pointerId, p);
+      this.x = p.x;
+      this.y = p.y;
+    });
+    const up = (e) => { this._pointers.delete(e.pointerId); };
     canvas.addEventListener('pointerup', up);
     canvas.addEventListener('pointercancel', up);
+    window.addEventListener('blur', () => {
+      this._pointers.clear();
+      this.keys.clear();
+      this.keyAction = false;
+    });
 
     window.addEventListener('keydown', (e) => {
       if (e.repeat) return;
@@ -44,14 +57,18 @@ export class Input {
     });
   }
 
+  get pointerDown() { return this._pointers.size > 0; }
+  get pointers() { return Array.from(this._pointers.values()); }
   get down() { return this.pointerDown || this.keyAction; }
   get left() { return this.keys.has('ArrowLeft') || this.keys.has('a'); }
   get right() { return this.keys.has('ArrowRight') || this.keys.has('d'); }
 
-  _move(e) {
+  _pos(e) {
     const r = this.canvas.getBoundingClientRect();
-    this.x = ((e.clientX - r.left) * this.W) / r.width;
-    this.y = ((e.clientY - r.top) * this.H) / r.height;
+    return {
+      x: ((e.clientX - r.left) * this.W) / r.width,
+      y: ((e.clientY - r.top) * this.H) / r.height,
+    };
   }
 
   _gesture() {

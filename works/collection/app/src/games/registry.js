@@ -6,4 +6,5 @@ export const GAMES = [
   { id: 'poyo-jump', title: 'ポヨジャンプ', desc: 'ドラッグで足場を登る', load: () => import('./poyo-jump.js') },
   { id: 'madam-fly', title: 'マダム飛行', desc: '長押しで上昇', load: () => import('./madam-fly.js') },
   { id: 'beach-volley', title: '砂浜バレー', desc: '3タッチで打ち返す', load: () => import('./beach-volley.js') },
+  { id: 'mari-adventure', title: 'マリさんの冒険', desc: '横スクロール 全3面', load: () => import('./mari-adventure.js') },
 ];
