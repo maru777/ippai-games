@@ -1,0 +1,13 @@
+# 使い捨て・この PC 固有
+works/*/scratch/
+/tools/*
+!/tools/README.md
+/backup/*
+!/backup/README.md
+/release/*
+!/release/README.md
+
+# 機密・依存物
+.env
+node_modules/
+*.log

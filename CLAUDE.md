@@ -1,0 +1,27 @@
+# ケータイゲーム集（2000 年代リバイバル）
+
+## 概要
+2000 年代半ばのガラケー（i アプリ）・Flash ゲーム風のミニゲームを多数収録した Web アプリ。
+スマホ（タッチ）優先、PC はキーボード対応。仕様・収録リストは [docs/design-notes.md](docs/design-notes.md)。
+
+## 設計原則
+- 面倒になる機能は入れない。小さく作って完成させる。
+- ゲームは 1 ファイル 1 モジュール。`src/games/registry.js` に 1 行足せば追加できる。
+- 名称・キャラ・画像・音は既存作品を流用しない（ゲーム性だけを参考にしたオリジナル）。
+- 依存パッケージなし（素の HTML + JS + Canvas）。追加する場合は事前確認。
+
+## 構成
+- `docs/`: 設計メモ
+- `works/collection/app/`: 本体（`index.html` が入口。`src/core/` 共通、`src/games/` 各ゲーム）
+- `works/<セッション名>/scratch/`: 実験・一時ファイル（Git 管理外）
+
+## 環境・実行
+- ビルド不要。`works/collection/app/` で `python serve.py`（Windows で .js が text/plain になるのを補正）→ http://localhost:8000
+- ES Modules を使うため、`file://` 直開きでは動かない。
+- 画面は論理 240×320（縦長）。配色は 4 色パレット（`src/core/draw.js` の `C`）。
+- lint / test は未整備。検証は構文チェック（`node --check`）とブラウザでの動作確認。
+
+## ゲーム追加の手順
+1. `src/games/<id>.js` を作り、`export default function create(env)` で
+   `{ reset(), update(dt), draw(g), get score() }` を返す。終了時は `env.end()` を呼ぶ。
+2. `src/games/registry.js` の該当行の `load` を設定する。
