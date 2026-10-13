@@ -123,6 +123,7 @@ function drawOver() {
   text(g, `スコア ${finalScore}`, W / 2, 118, 16, C.dark, 'center');
   text(g, `ベスト ${best}`, W / 2, 142, 12, C.mid, 'center');
   if (newBest) text(g, 'NEW RECORD!', W / 2, 162, 12, C.dark, 'center');
+  if (game.award) text(g, `表彰: ${game.award}`, W / 2, 178, 11, C.mid, 'center');
   for (const [r, label] of [[BTN_RETRY, 'もう一度'], [BTN_MENU, 'メニュー']]) {
     rect(g, r.x, r.y, r.w, r.h, C.dark);
     text(g, label, r.x + r.w / 2, r.y + 8, 14, C.bg, 'center');
