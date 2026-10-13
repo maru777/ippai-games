@@ -6,6 +6,8 @@ html, body {
   overscroll-behavior: none;
 }
 body {
+  height: 100vh;
+  height: 100dvh; /* スマホのアドレスバーを除いた実表示高さ */
   display: flex;
   align-items: center;
   justify-content: center;
@@ -13,6 +15,7 @@ body {
 #screen {
   /* 240:320 を保ったまま画面に収める */
   height: min(100vh, 100vw * 4 / 3);
+  height: min(100dvh, 100vw * 4 / 3);
   aspect-ratio: 3 / 4;
   image-rendering: pixelated;
   touch-action: none;
