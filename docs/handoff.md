@@ -4,7 +4,7 @@
 
 ## 現状
 - 公開中: https://maru777.github.io/ippai-games/ （GitHub Pages。`main` へ push すると Actions で自動再公開）
-- リポジトリ: https://github.com/maru777/ippai-games （ローカル: `D:\AIroot\claude\keitai-games`）
+- リポジトリ: https://github.com/maru777/ippai-games （ローカル: `D:\AIroot\claude\ippai-games`）
 - 収録 7 本（すべて実装済み）: 洞窟ヘリ / 坂道ダッシュ / 糸通し / ポヨジャンプ / マダム飛行 / 砂浜バレー / マリさんの冒険
 - 本体: `works/collection/app/`（素の HTML + JS + Canvas、依存なし、論理解像度 240×320）
 - ホーム画面追加（manifest・アイコン）対応済み。アイコンは `works/collection/make_icons.py` で再生成できる。
@@ -67,7 +67,7 @@ http://localhost:8000 を開く（Windows で `.js` が text/plain になるの�
 
 ## 新セッション用プロンプト（そのまま貼る）
 ```
-D:\AIroot\claude\keitai-games を作業フォルダにして続きをやりたい。
+D:\AIroot\claude\ippai-games を作業フォルダにして続きをやりたい。
 まず docs/handoff.md と docs/design-notes.md、CLAUDE.md を読んで現状を把握して。
 その上で、次の作業は「（遊んだ感想の反映 / オンライン対戦 / ゲーム追加 のどれか）」。
 ```
