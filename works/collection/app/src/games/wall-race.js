@@ -45,7 +45,7 @@ export default function create(env) {
 
   // menu | level | join | wait | play | done
   let mode, room, code, entered, notice, seat, s, tool, cand, wins, award, ended;
-  let vsCpu, level, thinkT;
+  let vsCpu, level, thinkT, first;
 
   function disposeRoom() {
     if (room) {
@@ -70,14 +70,19 @@ export default function create(env) {
     vsCpu = false;
     level = 'normal';
     thinkT = 0;
+    first = 0;
   }
+
+  // 先手・後手はランダム（座席 0 / 1 のどちらが先に指すか）
+  const randomFirst = () => (Math.random() < 0.5 ? 0 : 1);
 
   function startCpu(lv) {
     disposeRoom();
     vsCpu = true;
     level = lv;
     seat = 0;
-    s = newState();
+    first = randomFirst();
+    s = newState(first);
     thinkT = CPU_THINK;
     begin();
   }
@@ -95,8 +100,9 @@ export default function create(env) {
     room.onpeerjoin = () => {
       // 先に入室していた側（座席 0）が盤面を作って開始を知らせる
       if (seat === 0 && mode === 'wait') {
-        s = newState();
-        room.send({ k: 'start' });
+        first = randomFirst();
+        s = newState(first);
+        room.send({ k: 'start', first });
         begin();
       }
     };
@@ -110,7 +116,8 @@ export default function create(env) {
     room.onmessage = (d) => {
       if (!d) return;
       if (d.k === 'start' && mode === 'wait') {
-        s = newState();
+        first = d.first === 1 ? 1 : 0;
+        s = newState(first);
         begin();
       } else if (d.k === 'act' && mode === 'play') {
         const next = apply(s, 1 - seat, d.a);
@@ -374,7 +381,8 @@ export default function create(env) {
   function drawPlay(g) {
     rect(g, 0, 0, W, H, C.bg);
     const lv = LEVELS.find((l) => l.id === level);
-    text(g, vsCpu ? `CPU（${lv.label}）` : `部屋 ${code}`, 6, 4, 10, C.mid);
+    const order = first === seat ? '先手' : '後手';
+    text(g, `${vsCpu ? `CPU（${lv.label}）` : `部屋 ${code}`}  あなたは${order}`, 6, 4, 10, C.mid);
     text(g, `${vsCpu ? 'CPU' : 'あいて'} 壁 ${s.left[1 - seat]}`, 6, 18, 11, C.dark);
     const turnTxt = s.winner !== -1 ? '決着' : myTurn() ? 'あなたの番' : 'あいての番';
     text(g, turnTxt, W - 6, 18, 11, C.dark, 'right');
