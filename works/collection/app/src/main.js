@@ -33,7 +33,7 @@ let newBest = false;
 let finalScore = 0;
 let overAge = 0;
 
-const MENU_ROWS = GAMES.map((_, i) => ({ x: 12, y: 46 + i * 37, w: 216, h: 33 }));
+const MENU_ROWS = GAMES.map((_, i) => ({ x: 12, y: 46 + i * 33, w: 216, h: 30 }));
 const BTN_RETRY = { x: 30, y: 196, w: 180, h: 30 };
 const BTN_MENU = { x: 30, y: 234, w: 180, h: 30 };
 
@@ -58,6 +58,7 @@ function finish() {
 }
 
 function toMenu() {
+  if (game && game.dispose) game.dispose(); // 通信などの後始末
   state = 'menu';
   game = null;
   def = null;
@@ -80,9 +81,9 @@ function drawMenu() {
     rect(g, r.x, r.y, r.w, r.h, on ? C.light : C.bg);
     frame(g, r.x, r.y, r.w, r.h, on ? C.dark : C.mid);
     text(g, `${i + 1}`, r.x + 6, r.y + 8, 14, on ? C.dark : C.mid);
-    text(g, item.title, r.x + 24, r.y + 4, 13, on ? C.dark : C.mid);
+    text(g, item.title, r.x + 24, r.y + 3, 13, on ? C.dark : C.mid);
     const sub = on ? `${item.desc}  ベスト ${Store.best(item.id)}` : '準備中';
-    text(g, sub, r.x + 24, r.y + 19, 10, on ? C.mid : C.mid);
+    text(g, sub, r.x + 24, r.y + 17, 10, on ? C.mid : C.mid);
   });
 }
 

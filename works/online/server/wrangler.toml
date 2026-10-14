@@ -1,0 +1,14 @@
+name = "ippai-games-relay"
+main = "src/worker.js"
+compatibility_date = "2026-10-01"
+
+[durable_objects]
+bindings = [{ name = "ROOM", class_name = "Room" }]
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["Room"]
+
+[vars]
+# 接続を許可するページの Origin（「,」区切り）。空だと制限なし（ローカル開発用）。
+ALLOWED_ORIGINS = "https://maru777.github.io,http://localhost:8000"
