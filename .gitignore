@@ -11,3 +11,6 @@ works/*/scratch/
 .env
 node_modules/
 *.log
+
+# Claude Code の個人設定（許可ルール）
+.claude/settings.local.json
