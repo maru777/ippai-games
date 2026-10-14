@@ -1,4 +1,4 @@
-# keitai-games
+# ippai-games
 
 2000 年代ケータイゲーム風のミニゲーム集（Web）。
 
