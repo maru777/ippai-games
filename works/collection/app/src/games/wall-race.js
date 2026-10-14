@@ -1,8 +1,11 @@
 // かべレース: 2 人のオンライン対戦。9×9 の盤で、先に向かい側の端へ着いた方の勝ち。
 // 自分の番に「コマを 1 マス動かす」か「壁を 1 枚置いて相手の進路を伸ばす」（壁で道を完全に塞ぐのは禁止）。
-// 部屋コード（4 桁）で入室する。ルールは wall-race-rules.js、通信は core/net.js。
+// 部屋コード（4 桁）で入室する。CPU と対戦（3 段階）もできる。
+// ルールは wall-race-rules.js、CPU は wall-race-cpu.js、通信は core/net.js。
 import { C, rect, text, frame, inside } from '../core/draw.js';
 import { Room, newCode, relayUrl } from '../core/net.js';
+import { Store } from '../core/storage.js';
+import { chooseAction, LEVELS } from './wall-race-cpu.js';
 import { N, newState, legalMoves, canPlaceWall, apply } from './wall-race-rules.js';
 
 const CELL = 20;
@@ -11,8 +14,11 @@ const PITCH = CELL + GAP;
 const X0 = 14;
 const Y0 = 46;
 
-const BTN_CREATE = { x: 30, y: 110, w: 180, h: 34 };
-const BTN_JOIN = { x: 30, y: 156, w: 180, h: 34 };
+const BTN_CPU = { x: 30, y: 92, w: 180, h: 34 };
+const BTN_CREATE = { x: 30, y: 136, w: 180, h: 34 };
+const BTN_JOIN = { x: 30, y: 180, w: 180, h: 34 };
+const LEVEL_BTNS = LEVELS.map((_, i) => ({ x: 30, y: 90 + i * 48, w: 180, h: 40 }));
+const CPU_THINK = 0.6; // CPU が指すまでの間（秒）
 const BTN_CANCEL = { x: 60, y: 250, w: 120, h: 30 };
 const BTN_MOVE = { x: 6, y: 288, w: 52, h: 26 };
 const BTN_WALL = { x: 62, y: 288, w: 52, h: 26 };
@@ -37,8 +43,9 @@ const REASONS = {
 export default function create(env) {
   const { W, H, input, sound } = env;
 
-  // menu | join | wait | play | done
+  // menu | level | join | wait | play | done
   let mode, room, code, entered, notice, seat, s, tool, cand, wins, award, ended;
+  let vsCpu, level, thinkT;
 
   function disposeRoom() {
     if (room) {
@@ -60,6 +67,19 @@ export default function create(env) {
     wins = 0;
     award = '';
     ended = false;
+    vsCpu = false;
+    level = 'normal';
+    thinkT = 0;
+  }
+
+  function startCpu(lv) {
+    disposeRoom();
+    vsCpu = true;
+    level = lv;
+    seat = 0;
+    s = newState();
+    thinkT = CPU_THINK;
+    begin();
   }
 
   function connect(c) {
@@ -124,6 +144,10 @@ export default function create(env) {
     if (mode === 'done') return;
     mode = 'done';
     wins = winner === seat ? 1 : 0;
+    if (vsCpu && winner === seat) {
+      const id = `wall-race-${level}`;
+      Store.submit(id, Store.best(id) + 1); // CPU 戦は難易度別の勝ち数をベストとして残す
+    }
     award = winner === seat ? `勝ち！ ${why || ''}`.trim() : '負け…';
     disposeRoom();
     if (!ended) {
@@ -144,10 +168,11 @@ export default function create(env) {
     const next = apply(s, seat, action);
     if (!next) return;
     s = next;
-    room.send({ k: 'act', a: action });
+    if (room) room.send({ k: 'act', a: action });
     sound.beep(action.k === 'wall' ? 220 : 440, 0.05);
     tool = 'move';
     cand = null;
+    thinkT = CPU_THINK;
     checkWin();
   }
 
@@ -209,7 +234,10 @@ export default function create(env) {
     if (!input.pressed) return;
     const px = input.x;
     const py = input.y;
-    if (inside(px, py, BTN_CREATE)) {
+    if (inside(px, py, BTN_CPU)) {
+      notice = '';
+      mode = 'level';
+    } else if (inside(px, py, BTN_CREATE)) {
       if (!relayUrl()) {
         notice = REASONS['no-server'];
         return;
@@ -253,11 +281,38 @@ export default function create(env) {
     }
   }
 
-  function update() {
+  function updateLevel() {
+    if (!input.pressed) return;
+    if (inside(input.x, input.y, BTN_CANCEL)) {
+      mode = 'menu';
+      return;
+    }
+    LEVEL_BTNS.forEach((b, i) => {
+      if (inside(input.x, input.y, b)) startCpu(LEVELS[i].id);
+    });
+  }
+
+  function updateCpu(dt) {
+    if (!vsCpu || s.winner !== -1 || s.turn !== 1) return;
+    thinkT -= dt;
+    if (thinkT > 0) return;
+    const next = apply(s, 1, chooseAction(s, 1, level));
+    if (next) {
+      s = next;
+      sound.beep(330, 0.05);
+    }
+    checkWin();
+  }
+
+  function update(dt) {
     if (mode === 'menu') updateMenu();
+    else if (mode === 'level') updateLevel();
     else if (mode === 'join') updateJoin();
     else if (mode === 'wait') updateWait();
-    else if (mode === 'play') updatePlay();
+    else if (mode === 'play') {
+      updatePlay();
+      if (mode === 'play') updateCpu(dt);
+    }
   }
 
   // ---- 描画 ----
@@ -318,8 +373,9 @@ export default function create(env) {
 
   function drawPlay(g) {
     rect(g, 0, 0, W, H, C.bg);
-    text(g, `部屋 ${code}`, 6, 4, 10, C.mid);
-    text(g, `あいて 壁 ${s.left[1 - seat]}`, 6, 18, 11, C.dark);
+    const lv = LEVELS.find((l) => l.id === level);
+    text(g, vsCpu ? `CPU（${lv.label}）` : `部屋 ${code}`, 6, 4, 10, C.mid);
+    text(g, `${vsCpu ? 'CPU' : 'あいて'} 壁 ${s.left[1 - seat]}`, 6, 18, 11, C.dark);
     const turnTxt = s.winner !== -1 ? '決着' : myTurn() ? 'あなたの番' : 'あいての番';
     text(g, turnTxt, W - 6, 18, 11, C.dark, 'right');
     drawBoard(g);
@@ -339,12 +395,23 @@ export default function create(env) {
     rect(g, 0, 0, W, H, C.bg);
     rect(g, 0, 0, W, 38, C.dark);
     text(g, 'かべレース', W / 2, 11, 16, C.bg, 'center');
-    text(g, 'オンライン 2 人対戦', W / 2, 56, 12, C.dark, 'center');
-    text(g, '先に向こう側へ着いたら勝ち', W / 2, 74, 10, C.mid, 'center');
-    button(g, BTN_CREATE, '部屋をつくる');
-    button(g, BTN_JOIN, '部屋に入る');
-    if (notice) text(g, notice, W / 2, 210, 11, C.dark, 'center');
+    text(g, '先に向こう側へ着いたら勝ち', W / 2, 60, 11, C.mid, 'center');
+    button(g, BTN_CPU, 'CPU と対戦');
+    button(g, BTN_CREATE, '部屋をつくる（2 人）');
+    button(g, BTN_JOIN, '部屋に入る（2 人）');
+    if (notice) text(g, notice, W / 2, 226, 11, C.dark, 'center');
     text(g, '※ 2 人とも同じページを開いて遊びます', W / 2, 290, 9, C.mid, 'center');
+  }
+
+  function drawLevel(g) {
+    rect(g, 0, 0, W, H, C.bg);
+    text(g, 'CPU の強さ', W / 2, 20, 14, C.dark, 'center');
+    text(g, 'ベスト = その強さに勝った回数', W / 2, 44, 10, C.mid, 'center');
+    LEVEL_BTNS.forEach((b, i) => {
+      button(g, b, LEVELS[i].label);
+      text(g, `勝ち ${Store.best(`wall-race-${LEVELS[i].id}`)}`, b.x + b.w - 6, b.y + b.h - 13, 9, C.mid, 'right');
+    });
+    button(g, BTN_CANCEL, 'もどる');
   }
 
   function drawJoin(g) {
@@ -369,6 +436,7 @@ export default function create(env) {
 
   function draw(g) {
     if (mode === 'menu') drawMenu(g);
+    else if (mode === 'level') drawLevel(g);
     else if (mode === 'join') drawJoin(g);
     else if (mode === 'wait') drawWait(g);
     else if (s) drawPlay(g);
