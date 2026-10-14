@@ -6,12 +6,13 @@
 export const N = 9;
 export const WALLS_EACH = 10;
 
-export function newState() {
+// first: 最初に指す座席（0 か 1）。先手・後手は呼び出し側がランダムに決める。
+export function newState(first = 0) {
   return {
     pawns: [{ x: 4, y: 8 }, { x: 4, y: 0 }],
     walls: [],
     left: [WALLS_EACH, WALLS_EACH],
-    turn: 0,
+    turn: first === 1 ? 1 : 0,
     winner: -1,
   };
 }

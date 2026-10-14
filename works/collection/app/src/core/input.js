@@ -43,6 +43,7 @@ export class Input {
 
     window.addEventListener('keydown', (e) => {
       if (e.repeat) return;
+      if (e.target && e.target.tagName === 'INPUT') return; // チャット入力中はゲーム操作にしない
       this.keys.add(e.key);
       if (ACTION_KEYS.has(e.key)) {
         e.preventDefault();
