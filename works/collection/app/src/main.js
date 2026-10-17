@@ -13,6 +13,15 @@ canvas.height = H;
 const g = canvas.getContext('2d');
 g.imageSmoothingEnabled = false;
 
+// 解像度の切り替え。ゲームが hiRes（倍率）を持つときは高解像度で描く（光の表現用）。論理座標は常に 240×320。
+function setRes(scale) {
+  canvas.width = W * scale;
+  canvas.height = H * scale;
+  g.setTransform(scale, 0, 0, scale, 0, 0);
+  g.imageSmoothingEnabled = scale > 1;
+  canvas.style.imageRendering = scale > 1 ? 'auto' : '';
+}
+
 const input = new Input(canvas, W, H);
 input.onFirstGesture = () => Sound.unlock();
 
@@ -43,8 +52,10 @@ async function startGame(item) {
   def = item;
   game = mod.default(env);
   best = Store.best(item.id);
+  setRes(game.hiRes || 1);
   game.reset();
-  state = 'ready';
+  input.pressed = false; // メニューで押したタップをゲーム側に渡さない
+  state = game.skipReady ? 'play' : 'ready';
 }
 
 function finish() {
@@ -54,11 +65,12 @@ function finish() {
   best = Store.best(def.id);
   overAge = 0;
   state = 'over';
-  Sound.fall();
+  if (!game.silentOver) Sound.fall();
 }
 
 function toMenu() {
   if (game && game.dispose) game.dispose(); // 通信などの後始末
+  setRes(1);
   state = 'menu';
   game = null;
   def = null;
@@ -88,6 +100,7 @@ function drawMenu() {
 }
 
 function drawHud() {
+  if (game.noHud) return;
   text(g, `${game.score}`, W - 6, 4, 14, C.dark, 'right');
 }
 
@@ -108,10 +121,12 @@ function drawReady() {
 
 function updateOver(dt) {
   overAge += dt;
+  if (game.tick) game.tick(dt); // 結果画面でも演出を動かす
   if (!input.pressed || overAge < 0.6) return;
   if (inside(input.x, input.y, BTN_RETRY)) {
     game.reset();
-    state = 'ready';
+    input.pressed = false;
+    state = game.skipReady ? 'play' : 'ready';
   } else if (inside(input.x, input.y, BTN_MENU)) {
     toMenu();
   }
@@ -119,6 +134,10 @@ function updateOver(dt) {
 
 function drawOver() {
   game.draw(g);
+  if (game.drawOver) {
+    game.drawOver(g, { retry: BTN_RETRY, menu: BTN_MENU, score: finalScore, best, newBest, age: overAge });
+    return;
+  }
   overlayBox(70, 210);
   text(g, 'GAME OVER', W / 2, 84, 18, C.dark, 'center');
   text(g, `スコア ${finalScore}`, W / 2, 118, 16, C.dark, 'center');
