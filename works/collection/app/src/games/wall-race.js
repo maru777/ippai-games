@@ -2,7 +2,10 @@
 // 自分の番に「コマを 1 マス動かす」か「壁を 1 枚置いて相手の進路を伸ばす」（壁で道を完全に塞ぐのは禁止）。
 // 部屋コード（4 桁）で入室する。CPU と対戦（3 段階）もできる。
 // ルールは wall-race-rules.js、CPU は wall-race-cpu.js、通信は core/net.js。
-import { C, rect, text, frame, inside } from '../core/draw.js';
+import { inside } from '../core/draw.js';
+import {
+  T, alpha, rr, ntext, drawBg, panel, nbutton, pips, drawPawn, measure, Particles,
+} from './wall-race-theme.js';
 import { Room, newCode, relayUrl } from '../core/net.js';
 import { Store } from '../core/storage.js';
 import { chooseAction, LEVELS } from './wall-race-cpu.js';
@@ -12,7 +15,7 @@ const CELL = 20;
 const GAP = 4;
 const PITCH = CELL + GAP;
 const X0 = 14;
-const Y0 = 62; // 盤面の上端（上部にステータスとチャットログを置くため下げている）
+const Y0 = 68; // 盤面の上端（上部にステータスとチャットログを置くため下げている）
 
 const BTN_CPU = { x: 30, y: 92, w: 180, h: 34 };
 const BTN_CREATE = { x: 30, y: 136, w: 180, h: 34 };
@@ -29,11 +32,11 @@ const STAMP_BTNS = STAMPS.map((_, i) => ({ x: 34 + (i % 4) * 44, y: 96 + Math.fl
 const BTN_FREE = { x: 28, y: 200, w: 90, h: 24 };
 const BTN_MUTE = { x: 122, y: 200, w: 90, h: 24 };
 const BTN_CHAT_CLOSE = { x: 60, y: 232, w: 120, h: 22 };
-const LOG_BOX = { x: 4, y: 29, w: 196, h: 33 }; // ログ 3 行
-const STAMP_BOX = { x: 204, y: 29, w: 32, h: 32 }; // 直近のスタンプ（3 秒）
+const LOG_BOX = { x: 4, y: 29, w: 196, h: 31 }; // ログ 3 行
+const STAMP_BOX = { x: 204, y: 29, w: 32, h: 31 }; // 直近のスタンプ（3 秒）
 const LOG_LINES = 3;
-const LOG_PITCH = 11;
-const LOG_WRAP = 17; // 1 行の最大文字数
+const LOG_PITCH = 10;
+const LOG_WRAP = 19; // 1 行の最大文字数
 const LOG_KEEP = 120; // 保持する行数（約 50 件）
 const CHAT_MAX = 30;
 const SEND_GAP = 1000; // 送信の間隔（ミリ秒）。連打・荒らし防止
@@ -67,6 +70,8 @@ export default function create(env) {
   let mode, room, code, entered, notice, seat, s, tool, cand, wins, award, ended;
   let vsCpu, level, thinkT, first;
   let chatOpen, logLines, logOff, stampShow, muteOpp, lastSent, lastRecv, chatBox, dragY;
+  let clock = 0; // 演出用の時計（秒）
+  let fxWalls, trails, disp, parts; // 壁の出現演出・コマの残像と表示位置・粒
 
   function disposeRoom() {
     if (room) {
@@ -97,6 +102,10 @@ export default function create(env) {
     logOff = 0;
     stampShow = null;
     dragY = null;
+    fxWalls = [];
+    trails = [[], []];
+    disp = null;
+    parts = new Particles();
     muteOpp = false;
     lastSent = 0;
     lastRecv = 0;
@@ -153,11 +162,7 @@ export default function create(env) {
         receiveChat(d);
       } else if (d.k === 'act' && mode === 'play') {
         const next = apply(s, 1 - seat, d.a);
-        if (next) {
-          s = next;
-          sound.beep(330, 0.05);
-          checkWin();
-        }
+        if (next) commit(next, 1 - seat, d.a);
       }
     };
     room.onclose = (reason) => {
@@ -176,7 +181,11 @@ export default function create(env) {
     tool = 'move';
     cand = null;
     notice = '';
-    sound.beep(660, 0.08);
+    fxWalls = [];
+    trails = [[], []];
+    disp = [null, null];
+    sound.beep(660, 0.08, 'sine', 0.07);
+    sound.beep(990, 0.1, 'sine', 0.05);
   }
 
   function finish(winner, why) {
@@ -190,6 +199,11 @@ export default function create(env) {
       Store.submit(id, Store.best(id) + 1); // CPU 戦は難易度別の勝ち数をベストとして残す
     }
     award = winner === seat ? `勝ち！ ${why || ''}`.trim() : '負け…';
+    const won = winner === seat;
+    parts.burst(W / 2, 120, won ? [T.me, T.gold, T.white] : [T.op, T.dim], won ? 70 : 24, won ? 120 : 60, 60);
+    (won ? [523, 659, 784, 1047] : [330, 262, 196]).forEach((f, i) => {
+      setTimeout(() => sound.beep(f, 0.16, won ? 'sine' : 'sawtooth', 0.07), i * 130);
+    });
     disposeRoom();
     if (!ended) {
       ended = true;
@@ -201,6 +215,21 @@ export default function create(env) {
     if (s && s.winner !== -1) finish(s.winner, '');
   }
 
+  // 手を確定する共通処理（状態更新・演出・音）。who は手を指した座席。
+  function commit(next, who, action) {
+    s = next;
+    if (action.k === 'wall') {
+      fxWalls.push({ who, t: 0 });
+      const r = wallRect(vw(action.x), vw(action.y), action.o);
+      parts.burst(r.x + r.w / 2, r.y + r.h / 2, [who === seat ? T.me : T.op, T.white], 12, 60);
+      sound.beep(who === seat ? 200 : 170, 0.14, 'sawtooth', 0.05);
+      sound.beep(who === seat ? 520 : 440, 0.07, 'square', 0.035);
+    } else {
+      sound.beep(who === seat ? 620 : 480, 0.06, 'sine', 0.08);
+    }
+    checkWin();
+  }
+
   // 盤面の向き: 座席 1 は 180 度回して、自分のコマが常に下に見えるようにする
   const vc = (v) => (seat === 1 ? N - 1 - v : v);
   const vw = (v) => (seat === 1 ? N - 2 - v : v);
@@ -208,13 +237,11 @@ export default function create(env) {
   function submit(action) {
     const next = apply(s, seat, action);
     if (!next) return;
-    s = next;
     if (room) room.send({ k: 'act', a: action });
-    sound.beep(action.k === 'wall' ? 220 : 440, 0.05);
     tool = 'move';
     cand = null;
     thinkT = CPU_THINK;
-    checkWin();
+    commit(next, seat, action);
   }
 
   function myTurn() {
@@ -372,39 +399,37 @@ export default function create(env) {
 
   function drawChat(g) {
     if (vsCpu) return;
-    button(g, BTN_CHAT, '話す', mode === 'play');
+    nbutton(g, BTN_CHAT, '話す', { on: mode === 'play', color: T.op });
     // ログ（上部。新しい行が下）
-    rect(g, LOG_BOX.x, LOG_BOX.y, LOG_BOX.w, LOG_BOX.h, C.light);
-    frame(g, LOG_BOX.x, LOG_BOX.y, LOG_BOX.w, LOG_BOX.h, C.mid);
+    panel(g, LOG_BOX, { radius: 4 });
     const end = logLines.length - logOff;
     const shown = logLines.slice(Math.max(0, end - LOG_LINES), end);
     shown.forEach((ln, i) => {
-      text(g, ln.line, LOG_BOX.x + 3, LOG_BOX.y + 1 + i * LOG_PITCH, 10, ln.who === 'op' ? C.dark : C.mid);
+      ntext(g, ln.line, LOG_BOX.x + 4, LOG_BOX.y + 1 + i * LOG_PITCH, 9, ln.who === 'op' ? T.op : T.me);
     });
-    if (logLines.length === 0) text(g, 'チャット（「話す」で送信）', LOG_BOX.x + 3, LOG_BOX.y + 11, 10, C.mid);
-    if (logOff < maxLogOff()) text(g, '▲', LOG_BOX.x + LOG_BOX.w - 4, LOG_BOX.y, 8, C.dark, 'right');
-    if (logOff > 0) text(g, '▼', LOG_BOX.x + LOG_BOX.w - 4, LOG_BOX.y + LOG_BOX.h - 10, 8, C.dark, 'right');
+    if (logLines.length === 0) ntext(g, 'チャット（「話す」で送信）', LOG_BOX.x + 4, LOG_BOX.y + 11, 9, T.dim);
+    if (logOff < maxLogOff()) ntext(g, '▲', LOG_BOX.x + LOG_BOX.w - 4, LOG_BOX.y + 1, 8, T.gold, 'right');
+    if (logOff > 0) ntext(g, '▼', LOG_BOX.x + LOG_BOX.w - 4, LOG_BOX.y + LOG_BOX.h - 10, 8, T.gold, 'right');
     // 直近のスタンプ枠
-    rect(g, STAMP_BOX.x, STAMP_BOX.y, STAMP_BOX.w, STAMP_BOX.h, C.light);
-    frame(g, STAMP_BOX.x, STAMP_BOX.y, STAMP_BOX.w, STAMP_BOX.h, C.mid);
+    const sc = stampShow ? (stampShow.who === 'op' ? T.op : T.me) : T.line;
+    panel(g, STAMP_BOX, { stroke: sc, glow: stampShow ? sc : null, blur: 8, radius: 4 });
     if (stampShow) {
-      text(g, stampShow.e, STAMP_BOX.x + STAMP_BOX.w / 2, STAMP_BOX.y + 2, 20, C.dark, 'center');
-      text(g, stampShow.who === 'op' ? 'あいて' : 'あなた', STAMP_BOX.x + STAMP_BOX.w / 2, STAMP_BOX.y + 23, 8, C.mid, 'center');
+      ntext(g, stampShow.e, STAMP_BOX.x + STAMP_BOX.w / 2, STAMP_BOX.y + 2, 20, T.white, 'center');
+      ntext(g, stampShow.who === 'op' ? 'あいて' : 'あなた', STAMP_BOX.x + STAMP_BOX.w / 2, STAMP_BOX.y + 23, 8, sc, 'center');
     }
     if (chatOpen) {
-      rect(g, 20, 70, 200, 190, C.bg);
-      frame(g, 20, 70, 200, 190, C.dark);
-      frame(g, 22, 72, 196, 186, C.dark);
-      text(g, 'スタンプ', W / 2, 78, 12, C.dark, 'center');
+      g.fillStyle = 'rgba(2, 4, 16, 0.65)';
+      g.fillRect(0, 0, W, H);
+      panel(g, { x: 20, y: 70, w: 200, h: 190 }, { stroke: T.me, glow: T.me, blur: 12, radius: 8, lw: 1.5 });
+      ntext(g, 'スタンプ', W / 2, 78, 12, T.me, 'center', 6);
       STAMP_BTNS.forEach((b, i) => {
-        rect(g, b.x, b.y, b.w, b.h, C.light);
-        frame(g, b.x, b.y, b.w, b.h, C.dark);
-        text(g, STAMPS[i].e, b.x + b.w / 2, b.y + 4, 20, C.dark, 'center');
-        text(g, STAMPS[i].t, b.x + b.w / 2, b.y + 30, 8, C.mid, 'center');
+        panel(g, b, { fill: alpha(T.me, 0.08), stroke: alpha(T.me, 0.7), radius: 5 });
+        ntext(g, STAMPS[i].e, b.x + b.w / 2, b.y + 4, 20, T.white, 'center');
+        ntext(g, STAMPS[i].t, b.x + b.w / 2, b.y + 30, 8, T.dim, 'center');
       });
-      button(g, BTN_FREE, '自由入力');
-      button(g, BTN_MUTE, muteOpp ? '文字:非表示' : '文字:表示');
-      button(g, BTN_CHAT_CLOSE, 'とじる');
+      nbutton(g, BTN_FREE, '自由入力', { color: T.gold });
+      nbutton(g, BTN_MUTE, muteOpp ? '文字:非表示' : '文字:表示', { color: muteOpp ? T.bad : T.dim });
+      nbutton(g, BTN_CHAT_CLOSE, 'とじる', { color: T.dim });
     }
   }
 
@@ -520,15 +545,34 @@ export default function create(env) {
     if (!vsCpu || s.winner !== -1 || s.turn !== 1) return;
     thinkT -= dt;
     if (thinkT > 0) return;
-    const next = apply(s, 1, chooseAction(s, 1, level));
-    if (next) {
-      s = next;
-      sound.beep(330, 0.05);
+    const act = chooseAction(s, 1, level);
+    const next = apply(s, 1, act);
+    if (next) commit(next, 1, act);
+  }
+
+  // 演出の時間を進める（結果画面でもシェルから呼ばれる）
+  function tick(dt) {
+    clock += dt;
+    parts.update(dt);
+    for (const f of fxWalls) f.t += dt;
+    if (!s || !disp || (mode !== 'play' && mode !== 'done')) return;
+    for (const who of [0, 1]) {
+      const c = cellCenter(vc(s.pawns[who].x), vc(s.pawns[who].y));
+      if (!disp[who]) disp[who] = { x: c.x, y: c.y };
+      const d = disp[who];
+      const k = Math.min(1, dt * 16);
+      const x0 = d.x;
+      const y0 = d.y;
+      d.x += (c.x - d.x) * k;
+      d.y += (c.y - d.y) * k;
+      if (Math.hypot(d.x - x0, d.y - y0) > 0.4) trails[who].push({ x: d.x, y: d.y, life: 0.25, max: 0.25 });
+      for (const p of trails[who]) p.life -= dt;
+      trails[who] = trails[who].filter((p) => p.life > 0);
     }
-    checkWin();
   }
 
   function update(dt) {
+    tick(dt);
     if (stampShow) {
       stampShow.t -= dt;
       if (stampShow.t <= 0) stampShow = null;
@@ -543,15 +587,13 @@ export default function create(env) {
     }
   }
 
-  // ---- 描画 ----
-  function button(g, r, label, on = true, active = false) {
-    rect(g, r.x, r.y, r.w, r.h, active ? C.dark : on ? C.light : C.bg);
-    frame(g, r.x, r.y, r.w, r.h, on ? C.dark : C.mid);
-    text(g, label, r.x + r.w / 2, r.y + r.h / 2 - 6, 12, active ? C.bg : on ? C.dark : C.mid, 'center');
-  }
-
+  // ---- 描画（ネオン調）----
   function cellXY(col, row) {
     return { x: X0 + col * PITCH, y: Y0 + row * PITCH };
+  }
+
+  function cellCenter(col, row) {
+    return { x: X0 + col * PITCH + CELL / 2, y: Y0 + row * PITCH + CELL / 2 };
   }
 
   function wallRect(x, y, o) {
@@ -563,101 +605,194 @@ export default function create(env) {
   }
 
   function drawBoard(g) {
-    const moves = myTurn() && tool === 'move' ? legalMoves(s, seat) : [];
+    const mine = myTurn();
+    const pulse = 0.5 + 0.5 * Math.sin(clock * 5);
+    const edge = s.winner !== -1 ? T.gold : mine ? T.me : T.op;
+    const span = N * PITCH - GAP;
+    panel(g, { x: X0 - 6, y: Y0 - 6, w: span + 12, h: span + 12 }, {
+      fill: 'rgba(6, 10, 32, 0.9)',
+      stroke: alpha(edge, mine ? 0.55 + 0.45 * pulse : 0.4),
+      glow: edge,
+      blur: mine ? 6 + 8 * pulse : 3,
+      radius: 8,
+      lw: 1.5,
+    });
+    // マス（上段 = 自分のゴール、下段 = 相手のゴール）
     for (let row = 0; row < N; row++) {
       for (let col = 0; col < N; col++) {
         const p = cellXY(col, row);
-        rect(g, p.x, p.y, CELL, CELL, C.light);
-        if (row === 0) frame(g, p.x, p.y, CELL, CELL, C.dark);
-        else if (row === N - 1) frame(g, p.x, p.y, CELL, CELL, C.mid);
+        rr(g, p.x, p.y, CELL, CELL, 3);
+        g.fillStyle = row === 0 ? alpha(T.me, 0.16) : row === N - 1 ? alpha(T.op, 0.16) : 'rgba(90, 120, 255, 0.08)';
+        g.fill();
+        g.lineWidth = 0.8;
+        g.strokeStyle = 'rgba(110, 140, 255, 0.25)';
+        g.stroke();
       }
     }
-    for (const m of moves) {
-      const p = cellXY(vc(m.x), vc(m.y));
-      rect(g, p.x + 6, p.y + 6, CELL - 12, CELL - 12, C.mid);
+    // ゴールライン
+    g.save();
+    g.lineWidth = 2;
+    for (const [y, c] of [[Y0 - 6, T.me], [Y0 + span + 6, T.op]]) {
+      g.shadowColor = c;
+      g.shadowBlur = 10;
+      g.strokeStyle = c;
+      g.beginPath();
+      g.moveTo(X0 - 2, y);
+      g.lineTo(X0 + span + 2, y);
+      g.stroke();
     }
-    for (const w of s.walls) {
+    g.restore();
+    // 動ける升
+    if (mine && tool === 'move') {
+      for (const m of legalMoves(s, seat)) {
+        const c = cellCenter(vc(m.x), vc(m.y));
+        g.save();
+        g.shadowColor = T.me;
+        g.shadowBlur = 8;
+        g.strokeStyle = alpha(T.me, 0.45 + 0.5 * pulse);
+        g.lineWidth = 1.3;
+        g.beginPath();
+        g.arc(c.x, c.y, 4 + pulse * 1.5, 0, Math.PI * 2);
+        g.stroke();
+        g.restore();
+      }
+    }
+    // 壁（置いた側の色。出現時は上から落ちて波紋が広がる）
+    s.walls.forEach((w, i) => {
+      const fx = fxWalls[i] || { who: 0, t: 1 };
+      const col = fx.who === seat ? T.me : T.op;
       const r = wallRect(vw(w.x), vw(w.y), w.o);
-      rect(g, r.x, r.y, r.w, r.h, C.dark);
-    }
-    if (cand && tool === 'wall' && myTurn()) {
+      const pr = Math.min(1, fx.t / 0.22);
+      const dy = -(1 - pr) * (1 - pr) * 16;
+      g.save();
+      g.globalAlpha = 0.3 + 0.7 * pr;
+      g.shadowColor = col;
+      g.shadowBlur = 10;
+      rr(g, r.x, r.y + dy, r.w, r.h, 1.5);
+      g.fillStyle = col;
+      g.fill();
+      g.shadowBlur = 0;
+      g.fillStyle = 'rgba(255, 255, 255, 0.75)';
+      if (w.o === 'h') g.fillRect(r.x + 1.5, r.y + dy + 1.5, r.w - 3, 1);
+      else g.fillRect(r.x + 1.5, r.y + dy + 1.5, 1, r.h - 3);
+      g.restore();
+      if (fx.t < 0.6) {
+        g.save();
+        g.strokeStyle = alpha(col, 0.8 * (1 - fx.t / 0.6));
+        g.lineWidth = 1.2;
+        g.beginPath();
+        g.arc(r.x + r.w / 2, r.y + r.h / 2, 5 + fx.t * 70, 0, Math.PI * 2);
+        g.stroke();
+        g.restore();
+      }
+    });
+    // 置く場所の候補
+    if (cand && tool === 'wall' && mine) {
       const ok = canPlaceWall(s, seat, { x: vw(cand.x), y: vw(cand.y), o: cand.o }).ok;
       const r = wallRect(cand.x, cand.y, cand.o);
-      rect(g, r.x, r.y, r.w, r.h, ok ? C.mid : C.bg);
-      frame(g, r.x - 1, r.y - 1, r.w + 2, r.h + 2, C.dark);
+      const c = ok ? T.me : T.bad;
+      g.save();
+      g.shadowColor = c;
+      g.shadowBlur = 8;
+      rr(g, r.x, r.y, r.w, r.h, 1.5);
+      g.fillStyle = alpha(c, 0.3 + 0.3 * pulse);
+      g.fill();
+      g.setLineDash([2, 2]);
+      g.lineWidth = 1;
+      g.strokeStyle = c;
+      g.stroke();
+      g.restore();
     }
+    // コマ
     for (const who of [0, 1]) {
-      const pw = s.pawns[who];
-      const p = cellXY(vc(pw.x), vc(pw.y));
-      if (who === seat) {
-        rect(g, p.x + 3, p.y + 3, CELL - 6, CELL - 6, C.dark);
-      } else {
-        rect(g, p.x + 3, p.y + 3, CELL - 6, CELL - 6, C.bg);
-        frame(g, p.x + 3, p.y + 3, CELL - 6, CELL - 6, C.dark);
-        rect(g, p.x + 8, p.y + 8, CELL - 16, CELL - 16, C.mid);
-      }
+      const d = disp && disp[who];
+      if (!d) continue;
+      drawPawn(g, d.x, d.y, who === seat ? T.me : T.op, clock, s.winner === -1 && s.turn === who, trails[who]);
     }
   }
 
   function drawPlay(g) {
-    rect(g, 0, 0, W, H, C.bg);
+    drawBg(g, W, H, clock);
     const lv = LEVELS.find((l) => l.id === level);
-    const order = first === seat ? '先手' : '後手';
-    text(g, `${vsCpu ? `CPU（${lv.label}）` : `部屋 ${code}`}  あなたは${order}`, 6, 3, 10, C.mid);
-    const op = vsCpu ? 'CPU' : 'あいて';
-    text(g, `壁 あなた ${s.left[seat]}  ${op} ${s.left[1 - seat]}`, 6, 15, 10, C.dark);
-    const turnTxt = s.winner !== -1 ? '決着' : myTurn() ? 'あなたの番' : 'あいての番';
-    text(g, turnTxt, W - 6, 15, 11, C.dark, 'right');
+    const head = vsCpu ? `CPU・${lv.label}` : `ROOM ${code}`;
+    ntext(g, head, 6, 3, 9, T.dim);
+    ntext(g, first === seat ? '先手' : '後手', 10 + measure(g, head, 9), 3, 9, T.gold, 'left', 4);
+    if (s.winner !== -1) ntext(g, '決着', W - 6, 2, 11, T.gold, 'right', 8);
+    else if (myTurn()) ntext(g, 'あなたの番', W - 6, 2, 11, T.me, 'right', 8);
+    else ntext(g, 'あいての番', W - 6, 2, 11, T.op, 'right', 8);
+    ntext(g, 'YOU', 6, 14, 9, T.me);
+    pips(g, 28, 15, s.left[seat], 10, T.me);
+    ntext(g, vsCpu ? 'CPU' : 'OPP', W - 6, 14, 9, T.op, 'right');
+    pips(g, W - 30, 15, s.left[1 - seat], 10, T.op, 'right');
     drawBoard(g);
     const turn = myTurn();
-    button(g, BTN_MOVE, '動く', turn, tool === 'move');
-    button(g, BTN_WALL, '壁', turn && s.left[seat] > 0, tool === 'wall');
-    button(g, BTN_ROT, '回転', turn && tool === 'wall' && !!cand);
-    button(g, BTN_PUT, '置く', turn && tool === 'wall' && !!cand);
+    nbutton(g, BTN_MOVE, '動く', { on: turn, active: tool === 'move' });
+    nbutton(g, BTN_WALL, '壁', { on: turn && s.left[seat] > 0, active: tool === 'wall' });
+    nbutton(g, BTN_ROT, '回転', { on: turn && tool === 'wall' && !!cand });
+    nbutton(g, BTN_PUT, '置く', { on: turn && tool === 'wall' && !!cand, color: T.gold });
     drawChat(g);
+    parts.draw(g);
   }
 
   function drawMenu(g) {
-    rect(g, 0, 0, W, H, C.bg);
-    rect(g, 0, 0, W, 38, C.dark);
-    text(g, 'かべレース', W / 2, 11, 16, C.bg, 'center');
-    text(g, '先に向こう側へ着いたら勝ち', W / 2, 60, 11, C.mid, 'center');
-    button(g, BTN_CPU, 'CPU と対戦');
-    button(g, BTN_CREATE, '部屋をつくる（2 人）');
-    button(g, BTN_JOIN, '部屋に入る（2 人）');
-    if (notice) text(g, notice, W / 2, 226, 11, C.dark, 'center');
-    text(g, '※ 2 人とも同じページを開いて遊びます', W / 2, 290, 9, C.mid, 'center');
+    drawBg(g, W, H, clock);
+    const a = Math.sin(clock * 1.6) * 12;
+    drawPawn(g, 62 + a, 74, T.me, clock, true);
+    drawPawn(g, 178 - a, 74, T.op, clock, true);
+    ntext(g, 'WALL RACE', W / 2 + 1.5, 22.5, 26, T.op, 'center', 8);
+    ntext(g, 'WALL RACE', W / 2 - 1, 21.5, 26, T.me, 'center', 10);
+    ntext(g, 'かべレース', W / 2, 52, 11, T.dim, 'center');
+    nbutton(g, BTN_CPU, 'CPU と対戦', { color: T.me, size: 13 });
+    nbutton(g, BTN_CREATE, '部屋をつくる（2 人）', { color: T.op, size: 13 });
+    nbutton(g, BTN_JOIN, '部屋に入る（2 人）', { color: T.op, size: 13 });
+    if (notice) ntext(g, notice, W / 2, 226, 11, T.bad, 'center', 4);
+    ntext(g, '先に向こう側へ着いたら勝ち', W / 2, 262, 10, T.dim, 'center');
+    ntext(g, '※ 2 人とも同じページを開いて遊びます', W / 2, 290, 9, alpha(T.dim, 0.8), 'center');
   }
 
   function drawLevel(g) {
-    rect(g, 0, 0, W, H, C.bg);
-    text(g, 'CPU の強さ', W / 2, 20, 14, C.dark, 'center');
-    text(g, 'ベスト = その強さに勝った回数', W / 2, 44, 10, C.mid, 'center');
+    drawBg(g, W, H, clock);
+    ntext(g, 'CPU の強さ', W / 2, 20, 15, T.me, 'center', 8);
+    ntext(g, '勝ち = その強さに勝った回数', W / 2, 46, 10, T.dim, 'center');
+    const cols = [T.me, T.gold, T.op];
     LEVEL_BTNS.forEach((b, i) => {
-      button(g, b, LEVELS[i].label);
-      text(g, `勝ち ${Store.best(`wall-race-${LEVELS[i].id}`)}`, b.x + b.w - 6, b.y + b.h - 13, 9, C.mid, 'right');
+      nbutton(g, b, LEVELS[i].label, { color: cols[i], size: 14 });
+      ntext(g, `勝ち ${Store.best(`wall-race-${LEVELS[i].id}`)}`, b.x + b.w - 8, b.y + b.h - 14, 9, alpha(cols[i], 0.8), 'right');
     });
-    button(g, BTN_CANCEL, 'もどる');
+    nbutton(g, BTN_CANCEL, 'もどる', { color: T.dim });
   }
 
   function drawJoin(g) {
-    rect(g, 0, 0, W, H, C.bg);
-    text(g, '部屋コードを入力', W / 2, 20, 14, C.dark, 'center');
+    drawBg(g, W, H, clock);
+    ntext(g, '部屋コードを入力', W / 2, 20, 14, T.me, 'center', 8);
     const shown = entered.padEnd(4, '・').split('').join(' ');
-    text(g, shown, W / 2, 50, 20, C.dark, 'center');
-    for (const k of KEYS) button(g, k, k.label);
-    button(g, BTN_CANCEL, 'もどる');
-    if (notice) text(g, notice, W / 2, 232, 10, C.dark, 'center');
+    ntext(g, shown, W / 2, 48, 22, T.white, 'center', 10);
+    for (const k of KEYS) {
+      const color = k.label === '消す' ? T.bad : k.label === '入室' ? T.gold : T.me;
+      nbutton(g, k, k.label, { color, size: 14 });
+    }
+    nbutton(g, BTN_CANCEL, 'もどる', { color: T.dim });
+    if (notice) ntext(g, notice, W / 2, 232, 10, T.bad, 'center', 4);
   }
 
   function drawWait(g) {
-    rect(g, 0, 0, W, H, C.bg);
-    text(g, '部屋コード', W / 2, 70, 12, C.mid, 'center');
-    text(g, code.split('').join(' '), W / 2, 94, 24, C.dark, 'center');
+    drawBg(g, W, H, clock);
+    for (let i = 0; i < 3; i++) {
+      const ph = (clock * 0.7 + i / 3) % 1;
+      g.save();
+      g.strokeStyle = alpha(T.me, 0.5 * (1 - ph));
+      g.lineWidth = 1.5;
+      g.beginPath();
+      g.arc(W / 2, 112, 20 + ph * 70, 0, Math.PI * 2);
+      g.stroke();
+      g.restore();
+    }
+    ntext(g, 'ROOM CODE', W / 2, 62, 11, T.dim, 'center');
+    ntext(g, code.split('').join(' '), W / 2, 90, 28, T.white, 'center', 14);
     const msg = seat === 0 ? '相手を待っています…' : seat === 1 ? '接続しました。開始を待っています…' : '接続中…';
-    text(g, msg, W / 2, 150, 12, C.dark, 'center');
-    if (seat === 0) text(g, 'このコードを相手に伝えてください', W / 2, 176, 10, C.mid, 'center');
-    button(g, BTN_CANCEL, 'やめる');
+    ntext(g, msg, W / 2, 168, 12, T.me, 'center', 6);
+    if (seat === 0) ntext(g, 'このコードを相手に伝えてください', W / 2, 192, 10, T.dim, 'center');
+    nbutton(g, BTN_CANCEL, 'やめる', { color: T.dim });
   }
 
   function draw(g) {
@@ -666,6 +801,23 @@ export default function create(env) {
     else if (mode === 'join') drawJoin(g);
     else if (mode === 'wait') drawWait(g);
     else if (s) drawPlay(g);
+  }
+
+  // 結果画面（シェルから呼ばれる）。ボタンの位置はシェルの当たり判定に合わせる。
+  function drawOver(g, ui) {
+    g.fillStyle = 'rgba(3, 5, 20, 0.74)';
+    g.fillRect(0, 0, W, H);
+    const won = wins === 1;
+    const c = won ? T.gold : T.op;
+    ntext(g, won ? 'VICTORY' : 'DEFEAT', W / 2, 78, 32, c, 'center', 16);
+    ntext(g, award, W / 2, 126, 11, T.white, 'center');
+    if (vsCpu) {
+      const lv = LEVELS.find((l) => l.id === level);
+      ntext(g, `${lv.label} 勝ち数 ${Store.best(`wall-race-${level}`)}`, W / 2, 150, 10, T.dim, 'center');
+    }
+    nbutton(g, ui.retry, 'もう一度', { color: T.me, size: 14 });
+    nbutton(g, ui.menu, 'メニュー', { color: T.dim, size: 14 });
+    parts.draw(g);
   }
 
   reset();
@@ -679,6 +831,12 @@ export default function create(env) {
       closeInput();
       input.canvas.removeEventListener('wheel', onWheel);
     },
+    tick,
+    drawOver,
+    hiRes: 2, // 高解像度で描く（光の表現を滑らかにする）
+    noHud: true, // シェルのスコア表示を出さない
+    skipReady: true, // 「タップでスタート」を挟まない（最初の画面がメニューのため）
+    silentOver: true, // 終了音はゲーム側で鳴らす
     get score() { return wins; },
     get award() { return award; },
   };
