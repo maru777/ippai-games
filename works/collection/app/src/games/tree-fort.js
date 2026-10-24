@@ -13,7 +13,7 @@ import { createBattle, ARENA, STAGE_COUNT } from './tree-fort-battle.js';
 import { STAGE_INFO, RELICS, ACHIEVEMENTS, dailyChallenge } from './tree-fort-meta.js';
 import { SKINS, EFFECTS, makeKit } from './tree-fort-skins.js';
 import {
-  MAP, NODE_R, BTN_BUY, BTN_GO, BTN_SHOP, BTN_ARMORY, BTN_RETREAT, shopLayout, nodeScreenPos,
+  MAP, NODE_R, BTN_BUY, BTN_GO, BTN_SHOP, BTN_ARMORY, BTN_MENU, BTN_RETREAT, shopLayout, nodeScreenPos,
   drawTree, drawBattle, drawShop, spawnFx,
 } from './tree-fort-view.js';
 import {
@@ -264,6 +264,10 @@ export default function create(env) {
     if (inside(x, y, BTN_GO)) {
       openStages();
       sound.beep(660, 0.06, 'sine', 0.06);
+      return;
+    }
+    if (inside(x, y, BTN_MENU) && env.exit) {
+      env.exit(); // ポータルのメニューへ戻る
       return;
     }
     if (inside(x, y, BTN_ARMORY)) {
@@ -826,5 +830,6 @@ export default function create(env) {
     skipReady: true,
     silentOver: true,
     get score() { return waveScore; },
+    get bgm() { return sc.kit && sc.kit.skin ? sc.kit.skin.id : 'neon'; }, // スキン（ショップで試着中はそのスキン）ごとの BGM
   };
 }

@@ -323,6 +323,6 @@ export function createPortal(opts) {
     update,
     draw,
     get world() { return world; },
-    enter() { vel = 0; touch = null; pressedId = null; if (Music.running === false) Music.start(world); },
+    enter() { vel = 0; touch = null; pressedId = null; Music.start(world); }, // ゲームから戻ったら、世界の曲へ戻す
   };
 }

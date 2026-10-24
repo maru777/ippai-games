@@ -35,6 +35,7 @@ const env = {
   sound: Sound,
   input,
   end: () => finish(),
+  exit: () => { wantMenu = true; }, // 結果画面を出さずに、そのままメニューへ戻る（更新の終わりで戻る）
 };
 
 // menu | loading | ready | play | over
@@ -45,6 +46,7 @@ let best = 0;
 let newBest = false;
 let finalScore = 0;
 let overAge = 0;
+let wantMenu = false;
 
 // ポータル（メニュー）: 世界タブとスクロールできる一覧。高解像度（×2）で描く。
 const portal = createPortal({
@@ -66,11 +68,12 @@ const BTN_MENU = { x: 30, y: 234, w: 180, h: 30 };
 
 async function startGame(item) {
   state = 'loading';
-  Music.stop();
   setBg(GAME_BG);
   const mod = await item.load();
   def = item;
   game = mod.default(env);
+  if (game.bgm) Music.start(`game-${game.bgm}`); // ゲームが専用の BGM（スキンごとなど）を持つなら鳴らす
+  else Music.stop();
   best = Store.best(item.id);
   setRes(game.hiRes || 1);
   game.reset();
@@ -167,7 +170,10 @@ function loop(now) {
     drawReady();
   } else if (state === 'play') {
     game.update(dt);
-    if (state === 'play') {
+    if (wantMenu) {
+      wantMenu = false;
+      toMenu();
+    } else if (state === 'play') {
       game.draw(g);
       drawHud();
     } else {
@@ -178,6 +184,7 @@ function loop(now) {
     if (state === 'over') drawOver();
   }
 
+  if (game && game.bgm && state !== 'menu') Music.setChannel(`game-${game.bgm}`); // スキンを変えたら曲も変わる
   if (input.keys.has('Escape') && state !== 'menu') toMenu();
   input.endFrame();
   requestAnimationFrame(loop);

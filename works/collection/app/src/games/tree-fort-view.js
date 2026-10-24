@@ -18,6 +18,7 @@ export const BTN_BUY = { x: 8, y: 288, w: 108, h: 28 };
 export const BTN_GO = { x: 124, y: 288, w: 108, h: 28 };
 export const BTN_ARMORY = { x: 112, y: 4, w: 62, h: 22 };
 export const BTN_SHOP = { x: 178, y: 4, w: 58, h: 22 };
+export const BTN_MENU = { x: 72, y: 4, w: 38, h: 22 };
 export const BTN_RETREAT = { x: 192, y: 4, w: 44, h: 22 };
 
 // ショップの行の配置（スキン 4 つ + 演出 3 つ）
@@ -1212,8 +1213,9 @@ export function drawTree(g, sc) {
   kit.drawParts(g);
   g.restore();
 
-  // 上のバー: ポイントとショップ
-  kit.panel(g, { x: 4, y: 3, w: 104, h: 24 }, { stroke: sk.gold, glow: sk.gold, blur: 6, radius: 8 });
+  // 上のバー: ポイント・メニューへ戻る・図鑑・ショップ
+  kit.panel(g, { x: 4, y: 3, w: 64, h: 24 }, { stroke: sk.gold, glow: sk.gold, blur: 6, radius: 8 });
+  kit.button(g, BTN_MENU, 'メニュー', { color: sk.dim, size: 7.5 });
   const pts = `${Math.round(sc.shownPts)}`;
   kit.text(g, pts, 12, 7, 15, sk.gold, 'left', 8);
   kit.text(g, 'P', 14 + kit.measure(g, pts, 15), 11, 10, sk.dim);
