@@ -31,7 +31,7 @@ export const WEAPONS = [
   {
     id: 'frost', name: '氷結弾', tags: ['ice'], color: '#9fe8ff', desc: '命中した敵を遅くし、凍らせる',
     cost: [120, 80, 130, 210, 340],
-    levels: ['鈍足＋凍結(小)', '凍結しやすい', '周囲も鈍足に', '凍結しやすい ++', '凍結が長く、周囲も凍る'],
+    levels: ['鈍足＋凍結(小)', '凍結しやすい', '周囲も鈍足に', '威力 ++・凍結しやすい', '3 方向に撃つ・凍結が長い'],
   },
   {
     id: 'poison', name: '毒霧', tags: ['poison'], color: '#8dff6a', desc: '地面に残る毒の雲で、継続ダメージ',
@@ -235,8 +235,8 @@ export function createWeapons(api, loadout) {
 
     flame(dt, L) {
       if ((cd.flame -= dt) > 0) return;
-      const range = 46 + 4 * (L - 1);
-      const t = nearest(range + 14);
+      const range = 62 + 6 * (L - 1);
+      const t = nearest(range + 12);
       if (!t) {
         cd.flame = 0;
         return;
@@ -263,9 +263,13 @@ export function createWeapons(api, loadout) {
         cd.frost = 0;
         return;
       }
-      const a = Math.atan2(t.y - cy, t.x - cx);
-      w.proj.push({ kind: 'frost', x: cx, y: cy, vx: Math.cos(a) * 240, vy: Math.sin(a) * 240, life: 1.2, L, dmg: D() * 0.8, t: 0 });
-      cd.frost += (1.4 - 0.1 * L) / speedUp();
+      const a0 = Math.atan2(t.y - cy, t.x - cx);
+      const spread = L >= 5 ? [-0.3, 0, 0.3] : [0];
+      for (const da of spread) {
+        const a = a0 + da;
+        w.proj.push({ kind: 'frost', x: cx, y: cy, vx: Math.cos(a) * 240, vy: Math.sin(a) * 240, life: 1.2, L, dmg: D() * (0.9 + 0.2 * (L - 1)), t: 0 });
+      }
+      cd.frost += (1.3 - 0.1 * L) / speedUp();
     },
 
     poison(dt, L) {
@@ -454,7 +458,6 @@ export function createWeapons(api, loadout) {
           explode(p.x, p.y, p.aoe, p.dmg, 'fire');
           p.life = 0;
         } else if (p.kind === 'frost') {
-          hurt(e, p.dmg, { tag: 'ice' });
           const mul = 0.6 - 0.03 * (p.L - 1);
           const fr = 0.1 + 0.08 * (p.L - 1);
           const dur = p.L >= 5 ? 2.0 : 1.2;
@@ -462,7 +465,8 @@ export function createWeapons(api, loadout) {
             applyStatus(t, 'slow', 2.2, mul);
             if (rng() < chance) applyStatus(t, 'freeze', dur, 0);
           };
-          apply(e, fr);
+          apply(e, fr); // 先に状態異常を付けてから傷つける（倒れる一撃でも蒸気爆発などが起きる）
+          hurt(e, p.dmg, { tag: 'ice' });
           if (p.L >= 3) for (const o of alive()) if (o !== e && dist(o.x, o.y, e.x, e.y) <= 26) apply(o, p.L >= 5 ? fr : 0);
           addFx({ kind: 'ring', life: 0.35, x: e.x, y: e.y, r: 20 + p.L * 2, tag: 'ice' });
           p.life = 0;

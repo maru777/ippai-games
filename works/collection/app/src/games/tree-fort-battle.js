@@ -9,8 +9,9 @@ import { makeOptions, applyOption, xpNeed, autoPick } from './tree-fort-run.js';
 export const ARENA = { W: 240, H: 320, cx: 120, cy: 172, towerR: 11 };
 export const STAGE_WAVES = 10;
 export const STAGE_COUNT = 10;
-export const GSTEP = 3.4; // ステージが 1 つ進むごとの難しさ（無限モードの波に換算）
-const GW = 0.9; // ステージ内の 1 波あたりの難しさ
+export const GSTEP = 2.5; // ステージが 1 つ進むごとの難しさ（無限モードの波に換算）
+const G_FIRST = 8; // ステージ 1 の最後の波（ボス）の難しさ
+const G_START = 0.6; // ステージが進むごとの、最初の波の難しさの増え方（最初の波はやさしい）
 
 // 敵の種類。from = この難しさから登場、w = 出やすさ、armor/shield/phase などが特徴
 export const TYPES = {
@@ -20,11 +21,11 @@ export const TYPES = {
   tank: { hp: 30, spd: 15, dmg: 12, r: 8, pts: 4, from: 5, w: 12 },
   splitter: { hp: 12, spd: 20, dmg: 5, r: 6.5, pts: 2, from: 7, w: 9 },
   armor: { hp: 22, spd: 17, dmg: 9, r: 7, pts: 3, from: 9, w: 8, armor: 2.5 },
-  shooter: { hp: 10, spd: 22, dmg: 3.5, r: 5.5, pts: 3, from: 11, w: 7, range: 80, shoot: 2.4 },
+  shooter: { hp: 10, spd: 22, dmg: 3.5, r: 5.5, pts: 3, from: 11, w: 7, range: 87, shoot: 2.4 },
   healer: { hp: 14, spd: 19, dmg: 4, r: 6, pts: 3, from: 13, w: 5, heal: 0.07 },
   shield: { hp: 16, spd: 20, dmg: 6, r: 6.5, pts: 3, from: 15, w: 6, shield: 0.9 },
   phantom: { hp: 12, spd: 30, dmg: 6, r: 5.5, pts: 3, from: 18, w: 5, phase: true },
-  boss: { hp: 320, spd: 11, dmg: 40, r: 15, pts: 40, from: 999, w: 0 },
+  boss: { hp: 110, spd: 11, dmg: 24, r: 15, pts: 40, from: 999, w: 0 },
 };
 export const ENEMY_NAME = {
   grunt: 'ザコ', runner: '疾走', swarm: '小群', tank: '重装', splitter: '分裂体', armor: '装甲兵', shooter: '射手', healer: '癒し手', shield: '障壁兵', phantom: '幽霊', boss: 'ボス',
@@ -87,7 +88,13 @@ export function createBattle(stats0, rng = Math.random, opts = {}) {
   let W = null;
 
   // 難しさ（無限モードの「波」に換算した値）
-  const eff = () => (b.stage > 0 ? (b.stage - 1) * GSTEP + b.wave * GW + 0.1 : b.wave);
+  // ステージ内は、最初の波がやさしく、最後の波（ボス）に向けてだんだん難しくなる（挑戦ごとに武器が 0 から育つため）
+  const eff = () => {
+    if (b.stage <= 0) return b.wave;
+    const gEnd = G_FIRST + (b.stage - 1) * GSTEP;
+    const gStart = 1 + (b.stage - 1) * G_START;
+    return gStart + ((gEnd - gStart) * (Math.min(b.wave, STAGE_WAVES) - 1)) / (STAGE_WAVES - 1);
+  };
 
   // 状態異常: burn（燃焼）/ poison（毒）/ slow（鈍足）/ freeze（凍結）
   function applyStatus(e, kind, dur, power) {
@@ -105,7 +112,8 @@ export function createBattle(stats0, rng = Math.random, opts = {}) {
 
   // ---- 敵の出現 ----
   function pickType(g) {
-    const list = Object.entries(TYPES).filter(([, t]) => t.w > 0 && g >= t.from);
+    // o.onlyTypes: 特定の敵だけを出す（テスト用）
+    const list = o.onlyTypes ? o.onlyTypes.map((k) => [k, { ...TYPES[k], w: 1 }]) : Object.entries(TYPES).filter(([, t]) => t.w > 0 && g >= t.from);
     const total = list.reduce((a, [, t]) => a + t.w, 0);
     let r = rng() * total;
     for (const [k, t] of list) {
@@ -341,7 +349,7 @@ export function createBattle(stats0, rng = Math.random, opts = {}) {
       if (e.type === 'boss') {
         e.summonT -= dt;
         if (e.summonT <= 0) {
-          e.summonT = 5;
+          e.summonT = 6;
           for (let i = 0; i < 3; i++) {
             const a = rng() * Math.PI * 2;
             b.enemies.push(makeEnemy('grunt', e.x + Math.cos(a) * 14, e.y + Math.sin(a) * 14, eff()));
