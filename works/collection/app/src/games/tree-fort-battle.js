@@ -5,6 +5,7 @@
 //                 選ぶまで戦闘は止まる（pick(i) / reroll()）。武器と強化は、その挑戦の間だけ。
 import { createWeapons } from './tree-fort-weapons.js';
 import { makeOptions, applyOption, xpNeed, autoPick } from './tree-fort-run.js';
+import { combineMods, applyRelic, relicOptions, RELIC, CONTRACTS, CONTRACT, CONTRACT_WAVES } from './tree-fort-meta.js';
 
 export const ARENA = { W: 240, H: 320, cx: 120, cy: 172, towerR: 11 };
 export const STAGE_WAVES = 10;
@@ -39,6 +40,10 @@ const SLOW_RADIUS = 75;
 export function createBattle(stats0, rng = Math.random, opts = {}) {
   const o = Array.isArray(opts) ? { loadout: opts } : opts;
   const stats = { ...stats0, weapons: { ...stats0.weapons } }; // 挑戦中に強化されるので、複製して使う
+  const mod = combineMods(o.mods); // ステージの特色（霧・疾風など）
+  stats.range *= mod.range;
+  stats.pointMul += mod.pointAdd;
+  stats.xpMul *= mod.xp;
   const loadout = (o.loadout || []).map((w) => ({ ...w }));
   const { cx, cy, towerR } = ARENA;
   const b = {
@@ -76,6 +81,20 @@ export function createBattle(stats0, rng = Math.random, opts = {}) {
     found: [], // この挑戦で新しく見つけた武器
     loadout,
     boss: null,
+    mods: o.mods || [],
+    rt: { hp: mod.hp, spd: mod.spd, armor: mod.armor, count: mod.count, spawn: mod.spawn, regen: mod.regen, elite: mod.elite }, // 敵への倍率（特色・契約）
+    cdRate: 1, // 武器の待ち時間の短縮（遺物）
+    relics: [], // 持っている遺物の id
+    relicOpts: null, // 宝箱の選択肢（あれば戦闘は止まる）
+    relicPending: 0,
+    event: null, // 契約の選択肢（あれば戦闘は止まる）
+    eventDone: new Set(),
+    contracts: [], // 結んだ契約の id
+    tagMul: {}, dotMul: 1, frozenMul: 1, // 遺物による属性ごとのダメージ倍率
+    od: { gauge: 0, active: 0 }, // オーバードライブ（撃破でたまり、使うと数秒間強くなる）
+    combo: { n: 0, t: 0, best: 0 },
+    hits: 0, // 砦が攻撃を受けた回数（星の評価に使う）
+    stars: 0,
   };
 
   const addFx = (x) => {
@@ -126,7 +145,7 @@ export function createBattle(stats0, rng = Math.random, opts = {}) {
   function startWave() {
     b.wave++;
     const g = eff();
-    const n = Math.min(60, 5 + 2 * Math.floor(g));
+    const n = Math.min(70, Math.round((5 + 2 * Math.floor(g)) * b.rt.count));
     b.queue = [];
     const bossWave = b.stage > 0 && b.wave >= STAGE_WAVES;
     if (bossWave) b.queue.push('boss');
@@ -137,19 +156,19 @@ export function createBattle(stats0, rng = Math.random, opts = {}) {
       for (let i = 0; i < grp; i++) b.queue.push(type);
     }
     b.waveTotal = b.queue.length;
-    b.spawnInterval = Math.max(0.28, 0.9 - 0.02 * g);
+    b.spawnInterval = Math.max(0.24, (0.9 - 0.02 * g) * b.rt.spawn);
     b.spawnT = 0;
     b.phase = 'spawn';
     addFx({ kind: 'wave', life: 1.6, wave: b.wave, boss: bossWave, stage: b.stage });
   }
 
-  function makeEnemy(type, x, y, g) {
+  function makeEnemy(type, x, y, g, elite = false) {
     const def = TYPES[type];
-    const hpMul = 1.15 ** (g - 1);
+    const hpMul = 1.15 ** (g - 1) * b.rt.hp * (elite ? 3.5 : 1);
     const e = {
-      type, x, y, hp: def.hp * hpMul, max: def.hp * hpMul, spd: def.spd * (1 + Math.min(0.5, g * 0.01)),
-      dmg: def.dmg * (1 + g * 0.04), r: def.r, pts: def.pts, hit: 0, bladeCd: 0, dead: false, dotAcc: 0,
-      burn: null, poison: null, slow: null, freeze: 0, thaw: 0, armor: def.armor || 0,
+      type, x, y, hp: def.hp * hpMul, max: def.hp * hpMul, spd: def.spd * (1 + Math.min(0.5, g * 0.01)) * b.rt.spd,
+      dmg: def.dmg * (1 + g * 0.04) * (elite ? 1.3 : 1), r: def.r * (elite ? 1.25 : 1), pts: def.pts * (elite ? 4 : 1), hit: 0, bladeCd: 0, dead: false, dotAcc: 0,
+      elite, burn: null, poison: null, slow: null, freeze: 0, thaw: 0, armor: (def.armor || 0) + (type === 'boss' ? 0 : b.rt.armor),
       shootT: def.shoot ? def.shoot * (0.5 + rng()) : 0, phaseT: rng() * 3.4, phased: false, shield: 0, shieldMax: 0, shieldT: 0,
       summonT: type === 'boss' ? 4 : 0,
     };
@@ -163,7 +182,10 @@ export function createBattle(stats0, rng = Math.random, opts = {}) {
   function spawn(type) {
     const a = rng() * Math.PI * 2;
     const R = 175;
-    const e = makeEnemy(type, cx + Math.cos(a) * R, cy + Math.sin(a) * R, eff());
+    const g = eff();
+    // 精鋭: 体力が多く大きい。倒すと宝箱（遺物）を落とす
+    const elite = b.leveling && type !== 'boss' && type !== 'swarm' && g >= 4 && rng() < Math.min(0.14, (0.03 + 0.002 * g) * b.rt.elite);
+    const e = makeEnemy(type, cx + Math.cos(a) * R, cy + Math.sin(a) * R, g, elite);
     b.enemies.push(e);
     if (type === 'boss') {
       b.boss = e;
@@ -207,6 +229,19 @@ export function createBattle(stats0, rng = Math.random, opts = {}) {
       addFx({ kind: 'split', life: 0.4, x: e.x, y: e.y });
     }
     if (e.type === 'boss') addFx({ kind: 'bossDown', life: 1.4, x: e.x, y: e.y });
+    if (e.elite) {
+      addFx({ kind: 'chest', life: 1.2, x: e.x, y: e.y });
+      b.relicPending++;
+      if (!b.relicOpts) {
+        const ro = relicOptions(rng, b.relics, 3);
+        if (ro.length) b.relicOpts = ro;
+        else b.relicPending = 0; // 遺物をすべて持っている
+      }
+    }
+    if (b.od.active <= 0) b.od.gauge = Math.min(100, b.od.gauge + Math.min(4, e.pts) * 1.2);
+    b.combo.n = b.combo.t > 0 ? b.combo.n + 1 : 1;
+    b.combo.t = 1.3;
+    b.combo.best = Math.max(b.combo.best, b.combo.n);
     gainXp(e.pts);
   }
 
@@ -214,6 +249,10 @@ export function createBattle(stats0, rng = Math.random, opts = {}) {
   function hurt(e, amount, op = {}) {
     if (e.dead || e.phased) return;
     let a = W ? W.modify(e, amount, op) : amount;
+    a *= b.tagMul[op.tag] || 1; // 遺物: 属性ごとの強化
+    if (op.dot) a *= b.dotMul;
+    if (b.frozenMul > 1 && (e.freeze > 0 || (e.slow && e.slow.t > 0))) a *= b.frozenMul;
+    if (b.od.active > 0) a *= 1.25;
     const crit = !op.noCrit && !op.dot && rng() < stats.crit;
     if (crit) a *= 2;
     if (e.armor) a = Math.max(a * 0.2, a - e.armor); // 装甲: 小さなダメージを大きく減らす
@@ -269,6 +308,7 @@ export function createBattle(stats0, rng = Math.random, opts = {}) {
   function tickStatus(e, dt) {
     e.hit = Math.max(0, e.hit - dt);
     e.bladeCd = Math.max(0, e.bladeCd - dt);
+    if (b.rt.regen > 0) e.hp = Math.min(e.max, e.hp + e.max * b.rt.regen * dt);
     let dps = 0;
     if (e.burn && e.burn.t > 0) {
       e.burn.t -= dt;
@@ -301,15 +341,29 @@ export function createBattle(stats0, rng = Math.random, opts = {}) {
   }
 
   function step(dt) {
-    if (b.over || b.options) return; // レベルアップの選択中は止まる
+    if (b.over || b.options || b.relicOpts || b.event) return; // レベルアップ・宝箱・契約の選択中は止まる
     b.t += dt;
+    b.combo.t -= dt;
+    if (b.od.active > 0) b.od.active = Math.max(0, b.od.active - dt);
+    const speedK = b.od.active > 0 ? 1.7 : 1; // オーバードライブ中は、攻撃の勢いが上がる
     b.tower.flash = Math.max(0, b.tower.flash - dt);
     b.cd.tap -= dt;
 
     // 波の進行
     if (b.phase === 'rest') {
       b.restT -= dt;
-      if (b.restT <= 0) startWave();
+      if (b.restT <= 0) {
+        const next = b.wave + 1;
+        if (b.stage > 0 && b.leveling && CONTRACT_WAVES.includes(next) && !b.eventDone.has(next)) {
+          b.eventDone.add(next);
+          const pool = CONTRACTS.slice();
+          const two = [];
+          while (two.length < 2) two.push(pool.splice(Math.floor(rng() * pool.length), 1)[0]);
+          b.event = { wave: next, options: two };
+          return;
+        }
+        startWave();
+      }
     } else if (b.phase === 'spawn') {
       b.spawnT -= dt;
       while (b.spawnT <= 0 && b.queue.length) {
@@ -327,6 +381,7 @@ export function createBattle(stats0, rng = Math.random, opts = {}) {
         b.earnedF += sb;
         b.cleared = true;
         b.over = true;
+        b.stars = 1 + (b.tower.hp >= b.tower.max * 0.5 ? 1 : 0) + (b.hits <= 3 ? 1 : 0); // ★1 クリア / ★2 耐久が半分以上 / ★3 被弾 3 回以内
         addFx({ kind: 'stageClear', life: 2, bonus: Math.round(sb) });
         return;
       }
@@ -381,6 +436,7 @@ export function createBattle(stats0, rng = Math.random, opts = {}) {
         const dmg = e.dmg * (1 - stats.reduce);
         b.tower.hp -= dmg;
         b.tower.flash = 0.15;
+        b.hits++;
         addFx({ kind: 'towerHit', life: 0.4, x: e.x, y: e.y, dmg });
         if (e.type !== 'boss') {
           e.dead = true;
@@ -402,6 +458,7 @@ export function createBattle(stats0, rng = Math.random, opts = {}) {
         const dmg = s.dmg * (1 - stats.reduce);
         b.tower.hp -= dmg;
         b.tower.flash = 0.15;
+        b.hits++;
         addFx({ kind: 'towerHit', life: 0.4, x: s.x, y: s.y, dmg });
         s.life = 0;
       }
@@ -416,13 +473,13 @@ export function createBattle(stats0, rng = Math.random, opts = {}) {
     }
 
     // 主砲
-    b.cd.bullet -= dt;
+    b.cd.bullet -= dt * speedK;
     if (b.cd.bullet <= 0) {
       if (fireBullets()) b.cd.bullet += 1 / stats.rate;
       else b.cd.bullet = 0;
     }
     // 装備した武器
-    W.update(dt);
+    W.update(dt * speedK * b.cdRate);
 
     // 主砲の弾の移動と命中
     for (const s of b.shots) {
@@ -479,6 +536,51 @@ export function createBattle(stats0, rng = Math.random, opts = {}) {
     return true;
   }
 
+  // 宝箱（遺物）の選択。i 番目を選ぶ。
+  function chooseRelic(i) {
+    const r = b.relicOpts && b.relicOpts[i];
+    if (!r) {
+      b.relicOpts = null;
+      b.relicPending = 0;
+      return null;
+    }
+    b.relics.push(r.id);
+    applyRelic({ stats, tower: b.tower, b }, r.id);
+    if (r.tagMul) for (const [k, v] of Object.entries(r.tagMul)) b.tagMul[k] = (b.tagMul[k] || 1) * v;
+    if (r.dotMul) b.dotMul *= r.dotMul;
+    if (r.frozenMul) b.frozenMul *= r.frozenMul;
+    b.relicPending--;
+    const more = b.relicPending > 0 ? relicOptions(rng, b.relics, 3) : [];
+    b.relicOpts = more.length ? more : null;
+    if (!more.length) b.relicPending = 0;
+    addFx({ kind: 'gotRelic', life: 1.4, name: r.name, color: r.color });
+    return r;
+  }
+  // 契約の選択。i 番目を結ぶ（-1 は見送り）。
+  function chooseContract(i) {
+    if (!b.event) return null;
+    const c = b.event.options[i] || null;
+    if (c) {
+      c.apply({ stats, tower: b.tower, b });
+      b.contracts.push(c.id);
+      addFx({ kind: 'contract', life: 1.4, name: c.name, color: c.color });
+    }
+    b.event = null;
+    return c;
+  }
+  // オーバードライブ: たまっていれば、8 秒間、攻撃の勢いとダメージが上がる
+  function overdrive() {
+    if (b.over || b.options || b.od.gauge < 100 || b.od.active > 0) return false;
+    b.od.gauge = 0;
+    b.od.active = 8;
+    addFx({ kind: 'overdrive', life: 1.0 });
+    return true;
+  }
+  b.grantLevel = () => {
+    b.pending++;
+    offer();
+  };
+
   // この波で、あと何体か（まだ出てきていない敵 + いま画面にいる敵）
   const remaining = () => b.queue.length + b.enemies.filter((e) => !e.dead).length;
 
@@ -487,7 +589,7 @@ export function createBattle(stats0, rng = Math.random, opts = {}) {
     offer();
   }
 
-  return { b, step, tap, pick, reroll, remaining, earned: () => Math.floor(b.earnedF) };
+  return { b, step, tap, pick, reroll, chooseRelic, chooseContract, overdrive, remaining, earned: () => Math.floor(b.earnedF) };
 }
 
 // 画面なしで 1 回の挑戦を最後まで進める（バランス確認用）。レベルアップは autoPick が代わりに選ぶ。
@@ -496,11 +598,17 @@ export function simulate(stats, rng = Math.random, opts = [], maxSec = 1800) {
   const sim = createBattle(stats, rng, o);
   const dt = 1 / 30;
   for (let t = 0; t < maxSec && !sim.b.over; t += dt) {
-    while (sim.b.options) sim.pick(autoPick(sim.b.options));
+    while (sim.b.options || sim.b.relicOpts || sim.b.event) {
+      if (sim.b.options) sim.pick(autoPick(sim.b.options));
+      else if (sim.b.relicOpts) sim.chooseRelic(0);
+      else sim.chooseContract(0);
+    }
+    sim.overdrive();
     sim.step(dt);
   }
   return {
     wave: sim.b.wave, points: sim.earned(), seconds: sim.b.t, over: sim.b.over, cleared: sim.b.cleared, level: sim.b.level,
+    stars: sim.b.stars, relics: sim.b.relics.length, contracts: sim.b.contracts.length, bestCombo: sim.b.combo.best,
     syn: [...sim.b.w.syn], loadout: sim.b.loadout.map((w) => `${w.id}${w.level}`),
   };
 }

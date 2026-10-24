@@ -24,6 +24,15 @@ function seeded(seed = 1) {
   };
 }
 
+// レベルアップ・宝箱・契約の選択を、先頭から順に選んで進める（人間の代わり）
+function settle(sim) {
+  while (sim.b.options || sim.b.relicOpts || sim.b.event) {
+    if (sim.b.options) sim.pick(autoPick(sim.b.options));
+    else if (sim.b.relicOpts) sim.chooseRelic(0);
+    else sim.chooseContract(0);
+  }
+}
+
 const BASE = computeStats(['core']);
 const ALL = new Set(WEAPONS.map((w) => w.id));
 const tower = () => ({ hp: 50, max: 50 });
@@ -149,7 +158,7 @@ test('stage: 10 波の最後にボスが出て、倒すとクリアできる（�
   let bossSeen = false;
   let cleared = false;
   for (let i = 0; i < 30 * 900 && !sim.b.over; i++) {
-    while (sim.b.options) sim.pick(autoPick(sim.b.options));
+    settle(sim);
     sim.step(1 / 30);
     if (sim.b.boss) bossSeen = true;
     if (sim.b.cleared) cleared = true;
@@ -207,7 +216,7 @@ test('enemies: 難しさに応じた種類が混ざって出る（全 10 種が�
   const seen = new Set();
   const sim = createBattle(computeStats(TREE.map((n) => n.id)), seeded(5), { stage: 0, leveling: true, slots: 6, discovered: new Set(ALL), loadout: ['bomb', 'frost', 'lightning', 'meteor', 'laser'].map((id) => ({ id, level: 5 })) });
   for (let i = 0; i < 30 * 1500 && !sim.b.over && sim.b.wave < 26; i++) {
-    while (sim.b.options) sim.pick(autoPick(sim.b.options));
+    settle(sim);
     sim.step(1 / 30);
     for (const e of sim.b.enemies) seen.add(e.type);
   }
