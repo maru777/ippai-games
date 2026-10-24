@@ -114,7 +114,7 @@ test('synergy: 11 通りの組み合わせが、戦闘で実際に発動する',
 });
 
 // ---- バランス（目安の確認。数字は表示する）----
-const avgWave = (loadout, n = 4, stats = MID) => {
+const avgWave = (loadout, n = 8, stats = MID) => {
   let sum = 0;
   for (let i = 0; i < n; i++) sum += simulate(stats, seeded(500 + i), loadout).wave;
   return sum / n;

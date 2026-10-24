@@ -8,26 +8,26 @@ export const SKINS = [
   {
     id: 'neon', name: 'ネオン', price: 0, desc: '濃紺の闇に光る、定番のネオン', bg: 'neon', font: MONO, glow: 1, node: 'orb', enemy: 'geo', tower: 'core', part: 'spark', shot: 'streak', bolt: 'neon', boom: 'neon',
     text: '#eaf6ff', dim: '#7f8fd0', fill: 'rgba(8, 14, 40, 0.88)', line: '#2a3a7a', gold: '#ffd84a', bad: '#ff5470', me: '#2ef2ff', op: '#ff3df2',
-    branch: { atk: '#ff5a7a', spd: '#ffd84a', def: '#2ef2ff', eco: '#7dff8a', core: '#eaf6ff' },
-    enemies: { grunt: '#ff3df2', runner: '#ffb020', tank: '#ff5a3c' }, hp: ['#ff5470', '#ffd84a', '#7dff8a'],
+    branch: { atk: '#ff5a7a', spd: '#ffd84a', def: '#2ef2ff', eco: '#7dff8a', grw: '#c9a3ff', core: '#eaf6ff' },
+    enemies: { grunt: '#ff3df2', runner: '#ffb020', tank: '#ff5a3c', swarm: '#ff8ae8', splitter: '#ff6ad0', armor: '#9aa8d8', shooter: '#ff7a5a', healer: '#7dff8a', shield: '#6fd8ff', phantom: '#b8a0ff', boss: '#ff3a5a' }, hp: ['#ff5470', '#ffd84a', '#7dff8a'],
   },
   {
     id: 'rainbow', name: '虹', price: 150, desc: '色相がめぐる、虹色の世界', bg: 'rainbow', font: SANS, glow: 1, node: 'orb', enemy: 'geo', tower: 'core', part: 'star', shot: 'streak', bolt: 'rainbow', boom: 'rainbow', rainbow: true,
     text: '#ffffff', dim: '#b8a8e8', fill: 'rgba(14, 8, 34, 0.86)', line: '#5a3aa0', gold: '#fff27a', bad: '#ff5c8a', me: '#6ff0ff', op: '#ff7af0',
-    branch: { atk: '#ff5a7a', spd: '#ffd84a', def: '#2ef2ff', eco: '#7dff8a', core: '#ffffff' },
-    enemies: { grunt: '#ff7af0', runner: '#ffb020', tank: '#ff5a3c' }, hp: ['#ff5c8a', '#fff27a', '#7dff8a'],
+    branch: { atk: '#ff5a7a', spd: '#ffd84a', def: '#2ef2ff', eco: '#7dff8a', grw: '#c9a3ff', core: '#ffffff' },
+    enemies: { grunt: '#ff7af0', runner: '#ffb020', tank: '#ff5a3c', swarm: '#ff9af8', splitter: '#ff7ad8', armor: '#b0bce8', shooter: '#ff8a6a', healer: '#8dff9a', shield: '#7fe0ff', phantom: '#c8b0ff', boss: '#ff4a6a' }, hp: ['#ff5c8a', '#fff27a', '#7dff8a'],
   },
   {
     id: 'modern', name: 'モダン', price: 200, desc: '明るくすっきり、フラットな見た目', bg: 'modern', font: SANS, glow: 0, node: 'flat', enemy: 'flat', tower: 'flat', part: 'dot', shot: 'dot', bolt: 'thin', boom: 'flat',
     text: '#1b2430', dim: '#7d8a99', fill: 'rgba(255, 255, 255, 0.95)', line: '#d3dce6', gold: '#e0a100', bad: '#e5484d', me: '#0e9f9a', op: '#6b5bd2',
-    branch: { atk: '#e5484d', spd: '#e8a200', def: '#0e9f9a', eco: '#3da35d', core: '#4a5a6a' },
-    enemies: { grunt: '#6b5bd2', runner: '#ef8b2c', tank: '#c2384b' }, hp: ['#e5484d', '#e8a200', '#3da35d'],
+    branch: { atk: '#e5484d', spd: '#e8a200', def: '#0e9f9a', eco: '#3da35d', grw: '#8b5cf6', core: '#4a5a6a' },
+    enemies: { grunt: '#6b5bd2', runner: '#ef8b2c', tank: '#c2384b', swarm: '#9a8bf0', splitter: '#d06bb8', armor: '#5d6b82', shooter: '#d9534f', healer: '#3da35d', shield: '#2f9fd8', phantom: '#8a8aa8', boss: '#b02040' }, hp: ['#e5484d', '#e8a200', '#3da35d'],
   },
   {
     id: 'wa', name: '和', price: 250, desc: '和紙・墨・朱。桜が舞う和の装い', bg: 'wa', font: SERIF, glow: 0.15, node: 'stamp', enemy: 'ink', tower: 'torii', part: 'petal', shot: 'brush', bolt: 'brush', boom: 'ink',
     text: '#1a1410', dim: '#7a6a58', fill: 'rgba(246, 238, 222, 0.95)', line: '#b9a98c', gold: '#b58a1b', bad: '#c0392b', me: '#1f3a6e', op: '#c0392b',
-    branch: { atk: '#c0392b', spd: '#b58a1b', def: '#1f3a6e', eco: '#4a7a4a', core: '#1a1410' },
-    enemies: { grunt: '#262626', runner: '#7a3b2e', tank: '#3b1a1a' }, hp: ['#c0392b', '#b58a1b', '#4a7a4a'],
+    branch: { atk: '#c0392b', spd: '#b58a1b', def: '#1f3a6e', eco: '#4a7a4a', grw: '#6b4a8a', core: '#1a1410' },
+    enemies: { grunt: '#262626', runner: '#7a3b2e', tank: '#3b1a1a', swarm: '#4a4a4a', splitter: '#5a2a3a', armor: '#3a3f4a', shooter: '#7a2a2a', healer: '#2f5a3a', shield: '#2a4a6a', phantom: '#5a5a7a', boss: '#1a0a0a' }, hp: ['#c0392b', '#b58a1b', '#4a7a4a'],
   },
 ];
 

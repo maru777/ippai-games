@@ -105,8 +105,7 @@ export const weaponCost = (id, level) => WEAPON[id].cost[level - 1];
 export function createWeapons(api, loadout) {
   const { b, stats, rng, ARENA, dist, alive, nearestTo, hurt, addFx, applyStatus } = api;
   const { cx, cy } = ARENA;
-  const ids = new Set(loadout.map((w) => w.id));
-  const syn = activeSynergies(ids);
+  let syn = activeSynergies(new Set(loadout.map((w) => w.id)));
   const lvOf = (id) => loadout.find((w) => w.id === id)?.level || 0;
   const D = () => stats.dmg;
   const speedUp = () => 1 + (stats.rate - 1) * 0.5;
@@ -210,26 +209,26 @@ export function createWeapons(api, loadout) {
 
     blade(dt, L) {
       const n = L >= 5 ? 4 : L >= 3 ? 3 : 2;
-      const R = 26 + 2 * (L - 1);
+      const R = 34 + 6 * (L - 1);
       w.angle = (w.angle || 0) + (3.2 + 0.2 * L) * dt;
       w.blades = Array.from({ length: n }, (_, k) => {
         const a = w.angle + (k * Math.PI * 2) / n;
         return { x: cx + Math.cos(a) * R, y: cy + Math.sin(a) * R, a };
       });
-      const dmg = D() * (0.9 + 0.15 * (L - 1));
+      const dmg = D() * (0.9 + 0.22 * (L - 1));
       for (const e of alive()) {
         if (e.bladeCd > 0) continue;
-        if (w.blades.some((bl) => dist(bl.x, bl.y, e.x, e.y) <= 6 + e.r)) {
+        if (w.blades.some((bl) => dist(bl.x, bl.y, e.x, e.y) <= 8 + e.r)) {
           hurt(e, dmg, { tag: 'physical' });
           e.bladeCd = 0.35;
         }
       }
       if (L >= 5) {
-        cd.blade = (cd.blade ?? 3) - dt;
+        cd.blade = (cd.blade ?? 2.5) - dt;
         if (cd.blade <= 0) {
-          cd.blade += 3;
-          for (const e of alive()) if (dist(e.x, e.y, cx, cy) <= 46 + e.r) hurt(e, D() * 1.2, { tag: 'physical' });
-          addFx({ kind: 'ring', life: 0.4, x: cx, y: cy, r: 46, tag: 'physical' });
+          cd.blade += 2.5;
+          for (const e of alive()) if (dist(e.x, e.y, cx, cy) <= 56 + e.r) hurt(e, D() * 1.8, { tag: 'physical' });
+          addFx({ kind: 'ring', life: 0.4, x: cx, y: cy, r: 56, tag: 'physical' });
         }
       }
     },
@@ -621,5 +620,12 @@ export function createWeapons(api, loadout) {
     }
   }
 
-  return { update, modify, onHit, onKill, syn };
+  // 武器の追加・強化のあとに呼ぶ。組み合わせ効果と、新しい武器の待ち時間を更新する。
+  function refresh() {
+    syn = activeSynergies(new Set(loadout.map((x) => x.id)));
+    w.syn = syn;
+    for (const x of loadout) if (cd[x.id] === undefined) cd[x.id] = 0.4;
+  }
+
+  return { update, modify, onHit, onKill, refresh, get syn() { return syn; } };
 }

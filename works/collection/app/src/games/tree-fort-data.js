@@ -17,6 +17,10 @@ export const BASE_STATS = {
   waveBonus: 2, // 波を守り切ったときの基本ボーナス
   slow: 0, // 砦の近くの敵を遅くする割合
   leech: 0, // 敵を倒すたびの回復量
+  xpMul: 1, // 経験値の倍率
+  rerolls: 1, // レベルアップの選び直しの回数（1 回の挑戦あたり）
+  startPicks: 0, // 挑戦の開始時に行えるレベルアップの回数
+  choices: 3, // レベルアップの選択肢の数
 };
 
 export const UNLOCKS = {
@@ -33,21 +37,21 @@ export const TREE = [
   { id: 'atk2', name: '強い弾', desc: '攻撃力 +3', cost: 25, gx: 0, gy: -2, req: ['atk1'], fx: { dmg: 3 }, mark: '攻' },
   { id: 'atk3', name: '貫通弾', desc: '弾が敵を 1 体貫通する', cost: 60, gx: 0, gy: -3, req: ['atk2'], fx: { pierce: 1 }, mark: '貫' },
   { id: 'atk4', name: '会心', desc: '会心率 +20%（ダメージ 2 倍）', cost: 100, gx: 0, gy: -4, req: ['atk3'], fx: { crit: 0.2 }, mark: '会' },
-  { id: 'atk5', name: '爆弾砲', desc: '爆発する砲弾を撃つ（新しい攻撃）', cost: 160, gx: 0, gy: -5, req: ['atk4'], unlock: 'bomb', mark: '爆' },
+  { id: 'atk5', name: '爆弾砲', desc: '爆弾を最初から装備して出撃（新しい攻撃）', cost: 160, gx: 0, gy: -5, req: ['atk4'], unlock: 'bomb', mark: '爆' },
 
   // 右: 速さ・射程
   { id: 'spd1', name: '連射 I', desc: '連射速度 +25%', cost: 10, gx: 1, gy: 0, req: ['core'], fx: { rate: 0.25 }, mark: '速' },
   { id: 'spd2', name: '連射 II', desc: '連射速度 +30%', cost: 30, gx: 2, gy: 0, req: ['spd1'], fx: { rate: 0.3 }, mark: '速' },
   { id: 'spd3', name: 'ダブルショット', desc: '同時に狙う数 +1', cost: 80, gx: 3, gy: 0, req: ['spd2'], fx: { targets: 1 }, mark: '二' },
   { id: 'spd4', name: '遠視', desc: '射程 +30', cost: 55, gx: 4, gy: 0, req: ['spd3'], fx: { range: 30 }, mark: '射' },
-  { id: 'spd5', name: '雷撃', desc: '連鎖する雷を撃つ（新しい攻撃）', cost: 170, gx: 5, gy: 0, req: ['spd4'], unlock: 'lightning', mark: '雷' },
+  { id: 'spd5', name: '雷撃', desc: '雷撃を最初から装備して出撃（新しい攻撃）', cost: 170, gx: 5, gy: 0, req: ['spd4'], unlock: 'lightning', mark: '雷' },
 
   // 左: 守り
   { id: 'def1', name: '装甲 I', desc: '耐久 +30', cost: 10, gx: -1, gy: 0, req: ['core'], fx: { hp: 30 }, mark: '守' },
   { id: 'def2', name: '修復', desc: '毎秒 +1.5 回復', cost: 30, gx: -2, gy: 0, req: ['def1'], fx: { regen: 1.5 }, mark: '治' },
   { id: 'def3', name: '装甲 II', desc: '耐久 +60', cost: 70, gx: -3, gy: 0, req: ['def2'], fx: { hp: 60 }, mark: '守' },
   { id: 'def4', name: '防壁', desc: '受けるダメージ -20%', cost: 100, gx: -4, gy: 0, req: ['def3'], fx: { reduce: 0.2 }, mark: '壁' },
-  { id: 'def5', name: '回転刃', desc: '周りを回る刃で斬る（新しい攻撃）', cost: 150, gx: -5, gy: 0, req: ['def4'], unlock: 'blade', mark: '刃' },
+  { id: 'def5', name: '回転刃', desc: '回転刃を最初から装備して出撃（新しい攻撃）', cost: 150, gx: -5, gy: 0, req: ['def4'], unlock: 'blade', mark: '刃' },
 
   // 下: 経済・補助
   { id: 'eco1', name: '報酬 I', desc: 'ポイント +25%', cost: 15, gx: 0, gy: 1, req: ['core'], fx: { pointMul: 0.25 }, mark: '金' },
@@ -55,6 +59,13 @@ export const TREE = [
   { id: 'eco3', name: '報酬 II', desc: 'ポイント +35%', cost: 90, gx: 0, gy: 3, req: ['eco2'], fx: { pointMul: 0.35 }, mark: '金' },
   { id: 'eco4', name: '凍てつく結界', desc: '砦の近くの敵が 35% 遅くなる', cost: 110, gx: 0, gy: 4, req: ['eco3'], fx: { slow: 0.35 }, mark: '凍' },
   { id: 'eco5', name: '吸収', desc: '敵を倒すと耐久が 0.6 回復', cost: 150, gx: 0, gy: 5, req: ['eco4'], fx: { leech: 0.6 }, mark: '吸' },
+
+  // 斜め: 成長（挑戦中のレベルアップを助ける）
+  { id: 'grw1', name: '経験値 I', desc: '経験値 +20%', cost: 20, gx: 1, gy: 1, req: ['core'], fx: { xpMul: 0.2 }, mark: '経' },
+  { id: 'grw2', name: '選び直し', desc: 'レベルアップの選び直し +1 回', cost: 50, gx: 2, gy: 2, req: ['grw1'], fx: { rerolls: 1 }, mark: '振' },
+  { id: 'grw3', name: '先行成長', desc: '出撃の直後に、レベルアップを 1 回行える', cost: 100, gx: 3, gy: 3, req: ['grw2'], fx: { startPicks: 1 }, mark: '先' },
+  { id: 'grw4', name: '選択肢 +1', desc: 'レベルアップの選択肢が 4 つになる', cost: 160, gx: 4, gy: 4, req: ['grw3'], fx: { choices: 1 }, mark: '四' },
+  { id: 'grw5', name: '経験値 II', desc: '経験値 +35%', cost: 220, gx: 5, gy: 5, req: ['grw4'], fx: { xpMul: 0.35 }, mark: '経' },
 ];
 
 export const NODE = Object.fromEntries(TREE.map((n) => [n.id, n]));
