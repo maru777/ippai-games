@@ -58,17 +58,30 @@ const portal = createPortal({
     else if (item.load) startGame(item);
   },
 });
-const GAME_BG = '#0f380f';
-const setBg = (c) => {
-  document.documentElement.style.background = c;
-  document.body.style.background = c;
-};
+// 画面の上下の余白（縦長のスマホで 3:4 の画面に収めたときの帯）を、画面の最上部・最下部の色に合わせて、全画面っぽく見せる。
+const themeMeta = document.querySelector('meta[name="theme-color"]');
+let barFrame = 0;
+function syncBars() {
+  if (barFrame++ % 6) return;
+  try {
+    const px = (y) => g.getImageData(0, y, 1, 1).data;
+    const a = px(0);
+    const b = px(canvas.height - 1);
+    const top = `rgb(${a[0]},${a[1]},${a[2]})`;
+    const bot = `rgb(${b[0]},${b[1]},${b[2]})`;
+    const bg = `linear-gradient(to bottom, ${top} 50%, ${bot} 50%)`;
+    document.documentElement.style.background = bg;
+    document.body.style.background = bg;
+    if (themeMeta) themeMeta.content = top;
+  } catch (e) {
+    // 読み取れない環境では、帯の色は既定のままにする
+  }
+}
 const BTN_RETRY = { x: 30, y: 196, w: 180, h: 30 };
 const BTN_MENU = { x: 30, y: 234, w: 180, h: 30 };
 
 async function startGame(item) {
   state = 'loading';
-  setBg(GAME_BG);
   const mod = await item.load();
   def = item;
   game = mod.default(env);
@@ -158,7 +171,7 @@ function loop(now) {
 
   if (state === 'menu') {
     portal.update(dt, input);
-    setBg(portal.draw(g));
+    portal.draw(g);
   } else if (state === 'loading') {
     rect(g, 0, 0, W, H, C.bg);
     text(g, 'LOADING...', W / 2, H / 2 - 8, 14, C.dark, 'center');
@@ -184,6 +197,7 @@ function loop(now) {
     if (state === 'over') drawOver();
   }
 
+  syncBars();
   if (game && game.bgm && state !== 'menu') Music.setChannel(`game-${game.bgm}`); // スキンを変えたら曲も変わる
   if (input.keys.has('Escape') && state !== 'menu') toMenu();
   input.endFrame();
