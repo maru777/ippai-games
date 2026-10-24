@@ -144,6 +144,7 @@ export function createBattle(stats, rng = Math.random, loadout = []) {
       b.shots.push({
         x: cx, y: cy, vx: Math.cos(a) * BULLET_SPEED, vy: Math.sin(a) * BULLET_SPEED,
         life: (stats.range * 1.4) / BULLET_SPEED, hits: 1 + stats.pierce, dmg: stats.dmg, seen: new Set(),
+        lance: stats.pierce > 0, passes: 0, // 貫通弾（見た目を槍にする）と、貫いた回数
       });
     }
     return true;
@@ -249,6 +250,10 @@ export function createBattle(stats, rng = Math.random, loadout = []) {
           hurt(e, s.dmg, { tag: 'physical' });
           s.seen.add(e);
           s.hits--;
+          if (s.lance && s.hits > 0) {
+            s.passes++;
+            addFx({ kind: 'pierce', life: 0.4, x: e.x, y: e.y, a: Math.atan2(s.vy, s.vx), n: s.passes });
+          }
         }
       }
     }

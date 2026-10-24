@@ -511,6 +511,13 @@ export default function create(env) {
         spawnFx(sc, 'wave', ARENA.cx, ARENA.cy, sc.kit.c(sk.me, 0));
         flash('#ffffff', 0.18);
         [330, 495, 660].forEach((hz, i) => setTimeout(() => sound.beep(hz, 0.12, 'sine', 0.05), i * 80));
+      } else if (f.kind === 'pierce') {
+        sc.kit.spray(f.x, f.y, f.a, 0.3, 9, [sk.gold, '#ffffff', sc.kit.c(sk.me, 1)], 210, sk.part, 2.2);
+        sc.shake = Math.max(sc.shake, 1.2);
+        snd('pierce', 0.05, () => {
+          sound.beep(1650 + f.n * 140, 0.05, 'sawtooth', 0.04);
+          sound.beep(900, 0.04, 'square', 0.025);
+        });
       } else if (f.kind === 'syn') {
         spawnFx(sc, 'syn', f.x, f.y, sk.gold);
         flash(sk.gold, 0.12);

@@ -617,9 +617,37 @@ export function drawBattle(g, sc) {
   drawBlades(g, sc);
   // 弾
   for (const s of b.shots) {
-    const c = kit.c(sk.me, s.x * 0.05);
+    const c = kit.c(s.lance ? sk.gold : sk.me, s.x * 0.05);
     g.save();
-    if (sk.shot === 'streak') {
+    if (s.lance && sk.shot !== 'brush') {
+      // 貫通弾: 長い光の槍。貫くたびに太く明るくなり、後ろに残光が伸びる
+      const ang = Math.atan2(s.vy, s.vx);
+      const grow = 1 + s.passes * 0.45;
+      g.translate(s.x, s.y);
+      g.rotate(ang);
+      g.lineCap = 'round';
+      kit.glow(g, c, 16);
+      g.strokeStyle = rgba(c, 0.28);
+      g.lineWidth = 5 * grow;
+      g.beginPath();
+      g.moveTo(-34, 0);
+      g.lineTo(2, 0);
+      g.stroke();
+      g.strokeStyle = c;
+      g.lineWidth = 2.6 * grow;
+      g.beginPath();
+      g.moveTo(-17, 0);
+      g.lineTo(4, 0);
+      g.stroke();
+      g.shadowBlur = 0;
+      g.fillStyle = '#ffffff';
+      g.beginPath();
+      g.moveTo(9 + s.passes, 0);
+      g.lineTo(2, -2.8 * grow);
+      g.lineTo(2, 2.8 * grow);
+      g.closePath();
+      g.fill();
+    } else if (sk.shot === 'streak') {
       kit.glow(g, c, 9);
       g.strokeStyle = c;
       g.lineWidth = 2.2;
@@ -651,7 +679,30 @@ export function drawBattle(g, sc) {
   for (const f of b.fx) {
     if (f.kind === 'boom') drawBoomDisc(g, sc, f);
     else if (f.kind === 'bolt') drawBolt(g, sc, f);
-    else if (f.kind === 'ring') {
+    else if (f.kind === 'pierce') {
+      // 貫いた瞬間: 敵の背後へ走る光の筋と、はじける輪
+      const u = f.t / f.life;
+      g.save();
+      g.translate(f.x, f.y);
+      g.rotate(f.a);
+      g.globalAlpha = Math.max(0, 1 - u * u);
+      const col = kit.c(sk.gold, f.n);
+      if (sk.glow) kit.glow(g, col, 14);
+      g.strokeStyle = sk.bg === 'wa' ? '#1a1410' : col;
+      g.lineCap = 'round';
+      for (const k of [-1, 0, 1]) {
+        g.lineWidth = k === 0 ? 3 : 1.4;
+        g.beginPath();
+        g.moveTo(4 + u * 8, k * 3.5);
+        g.lineTo(18 + u * 46 * (k === 0 ? 1.4 : 1), k * 3.5 * (1 + u));
+        g.stroke();
+      }
+      g.lineWidth = 1.6;
+      g.beginPath();
+      g.arc(0, 0, 4 + u * 16, -1.1, 1.1);
+      g.stroke();
+      g.restore();
+    } else if (f.kind === 'ring') {
       const u = f.t / f.life;
       g.save();
       g.globalAlpha = Math.max(0, 1 - u);

@@ -316,6 +316,18 @@ export function makeKit(skin) {
       }
       if (k.parts.length > 700) k.parts.splice(0, k.parts.length - 700);
     },
+    // 向き ang の方向へ、spread の範囲で吹き出す粒（貫通の火花など）
+    spray(x, y, ang, spread, n, colors, speed = 140, shape = skin.part, size = 2) {
+      for (let i = 0; i < n; i++) {
+        const a = ang + (Math.random() - 0.5) * spread * 2;
+        const v = speed * (0.4 + Math.random() * 0.6);
+        k.parts.push({
+          x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: 0.3 + Math.random() * 0.4, max: 0.7,
+          size: size * (0.7 + Math.random() * 0.8), color: colors[i % colors.length], shape,
+          rot: Math.random() * 6.28, vr: (Math.random() - 0.5) * 8, seed: Math.random() * 6,
+        });
+      }
+    },
     update(dt) {
       for (const p of k.parts) {
         p.life -= dt;
