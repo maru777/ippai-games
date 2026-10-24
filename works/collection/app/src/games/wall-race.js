@@ -42,11 +42,15 @@ const CHAT_MAX = 30;
 const SEND_GAP = 1000; // 送信の間隔（ミリ秒）。連打・荒らし防止
 const RECV_GAP = 300;
 const BTN_CANCEL = { x: 60, y: 250, w: 120, h: 30 };
-const BTN_MOVE = { x: 4, y: 288, w: 44, h: 26 };
-const BTN_WALL = { x: 52, y: 288, w: 44, h: 26 };
-const BTN_ROT = { x: 100, y: 288, w: 44, h: 26 };
-const BTN_PUT = { x: 148, y: 288, w: 44, h: 26 };
-const BTN_CHAT = { x: 196, y: 288, w: 40, h: 26 };
+const BTN_MOVE = { x: 2, y: 288, w: 36, h: 26 };
+const BTN_WALL = { x: 42, y: 288, w: 36, h: 26 };
+const BTN_ROT = { x: 82, y: 288, w: 36, h: 26 };
+const BTN_PUT = { x: 122, y: 288, w: 36, h: 26 };
+const BTN_CHAT = { x: 162, y: 288, w: 36, h: 26 };
+const BTN_RESIGN = { x: 202, y: 288, w: 36, h: 26 };
+const RESIGN_BOX = { x: 30, y: 120, w: 180, h: 112 };
+const BTN_RESIGN_YES = { x: 40, y: 182, w: 76, h: 36 };
+const BTN_RESIGN_NO = { x: 124, y: 182, w: 76, h: 36 };
 
 const KEYS = [];
 for (let i = 0; i < 12; i++) {
@@ -69,6 +73,7 @@ export default function create(env) {
   // menu | level | join | wait | play | done
   let mode, room, code, entered, notice, seat, s, tool, cand, wins, award, ended;
   let vsCpu, level, thinkT, first;
+  let resignOpen;
   let chatOpen, logLines, logOff, stampShow, muteOpp, lastSent, lastRecv, chatBox, dragY;
   let clock = 0; // 演出用の時計（秒）
   let fxWalls, trails, disp, parts; // 壁の出現演出・コマの残像と表示位置・粒
@@ -98,6 +103,7 @@ export default function create(env) {
     thinkT = 0;
     first = 0;
     chatOpen = false;
+    resignOpen = false;
     logLines = [];
     logOff = 0;
     stampShow = null;
@@ -160,6 +166,8 @@ export default function create(env) {
         begin();
       } else if (d.k === 'chat') {
         receiveChat(d);
+      } else if (d.k === 'resign' && mode === 'play') {
+        finish(seat, '相手が投了しました');
       } else if (d.k === 'act' && mode === 'play') {
         const next = apply(s, 1 - seat, d.a);
         if (next) commit(next, 1 - seat, d.a);
@@ -178,6 +186,7 @@ export default function create(env) {
 
   function begin() {
     mode = 'play';
+    resignOpen = false;
     tool = 'move';
     cand = null;
     notice = '';
@@ -193,12 +202,13 @@ export default function create(env) {
     mode = 'done';
     wins = winner === seat ? 1 : 0;
     chatOpen = false;
+    resignOpen = false;
     closeInput();
     if (vsCpu && winner === seat) {
       const id = `wall-race-${level}`;
       Store.submit(id, Store.best(id) + 1); // CPU 戦は難易度別の勝ち数をベストとして残す
     }
-    award = winner === seat ? `勝ち！ ${why || ''}`.trim() : '負け…';
+    award = `${winner === seat ? '勝ち！' : '負け…'} ${why || ''}`.trim();
     const won = winner === seat;
     parts.burst(W / 2, 120, won ? [T.me, T.gold, T.white] : [T.op, T.dim], won ? 70 : 24, won ? 120 : 60, 60);
     (won ? [523, 659, 784, 1047] : [330, 262, 196]).forEach((f, i) => {
@@ -433,7 +443,20 @@ export default function create(env) {
     }
   }
 
+  // 投了する（自分の負け）。オンラインでは相手に知らせる。
+  function resign() {
+    if (mode !== 'play' || s.winner !== -1) return;
+    if (room) room.send({ k: 'resign' });
+    finish(1 - seat, '投了');
+  }
+
   function updatePlay() {
+    if (resignOpen) {
+      if (!input.pressed) return;
+      if (inside(input.x, input.y, BTN_RESIGN_YES)) resign();
+      else if (inside(input.x, input.y, BTN_RESIGN_NO) || !inside(input.x, input.y, RESIGN_BOX)) resignOpen = false;
+      return;
+    }
     if (chatOpen) {
       updateChatPanel();
       return;
@@ -444,6 +467,10 @@ export default function create(env) {
     const py = input.y;
     if (!vsCpu && inside(px, py, BTN_CHAT)) {
       chatOpen = true;
+      return;
+    }
+    if (inside(px, py, BTN_RESIGN) && s.winner === -1) {
+      resignOpen = true;
       return;
     }
     if (inside(px, py, BTN_MOVE)) {
@@ -730,7 +757,17 @@ export default function create(env) {
     nbutton(g, BTN_WALL, '壁', { on: turn && s.left[seat] > 0, active: tool === 'wall' });
     nbutton(g, BTN_ROT, '回転', { on: turn && tool === 'wall' && !!cand });
     nbutton(g, BTN_PUT, '置く', { on: turn && tool === 'wall' && !!cand, color: T.gold });
+    nbutton(g, BTN_RESIGN, '投了', { on: mode === 'play' && s.winner === -1, color: T.bad });
     drawChat(g);
+    if (resignOpen) {
+      g.fillStyle = 'rgba(2, 4, 16, 0.7)';
+      g.fillRect(0, 0, W, H);
+      panel(g, RESIGN_BOX, { stroke: T.bad, glow: T.bad, blur: 12, radius: 8, lw: 1.5 });
+      ntext(g, '投了しますか？', W / 2, RESIGN_BOX.y + 16, 14, T.white, 'center', 6);
+      ntext(g, vsCpu ? '負けになります' : '相手の勝ちになります', W / 2, RESIGN_BOX.y + 44, 10, T.dim, 'center');
+      nbutton(g, BTN_RESIGN_YES, '投了する', { color: T.bad, size: 13 });
+      nbutton(g, BTN_RESIGN_NO, '続ける', { color: T.me, size: 13 });
+    }
     parts.draw(g);
   }
 
