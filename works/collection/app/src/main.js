@@ -59,20 +59,29 @@ const portal = createPortal({
   },
 });
 // 画面の上下の余白（縦長のスマホで 3:4 の画面に収めたときの帯）を、画面の最上部・最下部の色に合わせて、全画面っぽく見せる。
+// 点滅しないよう、横に数点を読んで中央値を取り（目立つ部品や点滅を無視）、ゆっくり追いかける。
 const themeMeta = document.querySelector('meta[name="theme-color"]');
+const bar = { top: null, bot: null };
 let barFrame = 0;
+const median = (v) => v.sort((p, q) => p - q)[v.length >> 1];
+function sampleRow(y) {
+  const xs = [4, 0.25, 0.5, 0.75, 0.96].map((x) => Math.min(canvas.width - 1, Math.round(x < 1 ? canvas.width * x : x * (canvas.width / W))));
+  const px = xs.map((x) => g.getImageData(x, y, 1, 1).data);
+  return [0, 1, 2].map((c) => median(px.map((d) => d[c])));
+}
 function syncBars() {
-  if (barFrame++ % 6) return;
+  if (barFrame++ % 4) return;
   try {
-    const px = (y) => g.getImageData(0, y, 1, 1).data;
-    const a = px(0);
-    const b = px(canvas.height - 1);
-    const top = `rgb(${a[0]},${a[1]},${a[2]})`;
-    const bot = `rgb(${b[0]},${b[1]},${b[2]})`;
-    const bg = `linear-gradient(to bottom, ${top} 50%, ${bot} 50%)`;
+    const now = { top: sampleRow(1), bot: sampleRow(canvas.height - 2) };
+    for (const k of ['top', 'bot']) {
+      // 初回はそのまま、以後は約 0.4 秒かけて近づく（ポータルのテーマ補間とも合う）
+      bar[k] = bar[k] ? bar[k].map((v, i) => v + (now[k][i] - v) * 0.2) : now[k];
+    }
+    const css = (c) => `rgb(${Math.round(c[0])},${Math.round(c[1])},${Math.round(c[2])})`;
+    const bg = `linear-gradient(to bottom, ${css(bar.top)} 50%, ${css(bar.bot)} 50%)`;
     document.documentElement.style.background = bg;
     document.body.style.background = bg;
-    if (themeMeta) themeMeta.content = top;
+    if (themeMeta) themeMeta.content = css(bar.top);
   } catch (e) {
     // 読み取れない環境では、帯の色は既定のままにする
   }
