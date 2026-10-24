@@ -42,7 +42,14 @@ let newBest = false;
 let finalScore = 0;
 let overAge = 0;
 
-const MENU_ROWS = GAMES.map((_, i) => ({ x: 12, y: 46 + i * 33, w: 216, h: 30 }));
+// メニューは「アクション」「ボード」の 2 タブ。各ゲームは registry の tab で振り分ける。
+const TABS = [
+  { id: 'action', label: 'アクション', rect: { x: 12, y: 42, w: 106, h: 22 } },
+  { id: 'board', label: 'ボード（対戦）', rect: { x: 122, y: 42, w: 106, h: 22 } },
+];
+let menuTab = 'action';
+const tabItems = () => GAMES.filter((it) => it.tab === menuTab);
+const menuRow = (i) => ({ x: 12, y: 70 + i * 33, w: 216, h: 30 });
 const BTN_RETRY = { x: 30, y: 196, w: 180, h: 30 };
 const BTN_MENU = { x: 30, y: 234, w: 180, h: 30 };
 
@@ -78,8 +85,11 @@ function toMenu() {
 
 function updateMenu() {
   if (!input.pressed) return;
-  MENU_ROWS.forEach((r, i) => {
-    if (inside(input.x, input.y, r) && GAMES[i].load) startGame(GAMES[i]);
+  for (const t of TABS) if (inside(input.x, input.y, t.rect)) menuTab = t.id;
+  tabItems().forEach((item, i) => {
+    if (!inside(input.x, input.y, menuRow(i))) return;
+    if (item.href) location.href = item.href; // 別ページのゲーム（パズル集など）へ移動
+    else if (item.load) startGame(item);
   });
 }
 
@@ -87,14 +97,20 @@ function drawMenu() {
   rect(g, 0, 0, W, H, C.bg);
   rect(g, 0, 0, W, 38, C.dark);
   text(g, 'ケータイゲーム集', W / 2, 11, 16, C.bg, 'center');
-  GAMES.forEach((item, i) => {
-    const r = MENU_ROWS[i];
-    const on = !!item.load;
+  for (const t of TABS) {
+    const on = t.id === menuTab;
+    rect(g, t.rect.x, t.rect.y, t.rect.w, t.rect.h, on ? C.dark : C.bg);
+    frame(g, t.rect.x, t.rect.y, t.rect.w, t.rect.h, C.dark);
+    text(g, t.label, t.rect.x + t.rect.w / 2, t.rect.y + 5, 11, on ? C.bg : C.dark, 'center');
+  }
+  tabItems().forEach((item, i) => {
+    const r = menuRow(i);
+    const on = !!(item.load || item.href);
     rect(g, r.x, r.y, r.w, r.h, on ? C.light : C.bg);
     frame(g, r.x, r.y, r.w, r.h, on ? C.dark : C.mid);
     text(g, `${i + 1}`, r.x + 6, r.y + 8, 14, on ? C.dark : C.mid);
     text(g, item.title, r.x + 24, r.y + 3, 13, on ? C.dark : C.mid);
-    const sub = on ? `${item.desc}  ベスト ${Store.best(item.id)}` : '準備中';
+    const sub = !on ? '準備中' : item.tab === 'board' ? item.desc : `${item.desc}  ベスト ${Store.best(item.id)}`;
     text(g, sub, r.x + 24, r.y + 17, 10, on ? C.mid : C.mid);
   });
 }
