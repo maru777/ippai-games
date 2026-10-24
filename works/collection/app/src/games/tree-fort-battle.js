@@ -10,7 +10,7 @@ import { combineMods, applyRelic, relicOptions, RELIC, CONTRACTS, CONTRACT, CONT
 export const ARENA = { W: 240, H: 320, cx: 120, cy: 172, towerR: 11 };
 export const STAGE_WAVES = 10;
 export const STAGE_COUNT = 10;
-export const GSTEP = 2.5; // ステージが 1 つ進むごとの難しさ（無限モードの波に換算）
+export const GSTEP = 3.1; // ステージが 1 つ進むごとの難しさ（無限モードの波に換算）
 const G_FIRST = 8; // ステージ 1 の最後の波（ボス）の難しさ
 const G_START = 0.6; // ステージが進むごとの、最初の波の難しさの増え方（最初の波はやさしい）
 
@@ -184,7 +184,7 @@ export function createBattle(stats0, rng = Math.random, opts = {}) {
     const R = 175;
     const g = eff();
     // 精鋭: 体力が多く大きい。倒すと宝箱（遺物）を落とす
-    const elite = b.leveling && type !== 'boss' && type !== 'swarm' && g >= 4 && rng() < Math.min(0.14, (0.03 + 0.002 * g) * b.rt.elite);
+    const elite = b.leveling && type !== 'boss' && type !== 'swarm' && g >= 4 && rng() < Math.min(0.06, (0.012 + 0.0007 * g) * b.rt.elite);
     const e = makeEnemy(type, cx + Math.cos(a) * R, cy + Math.sin(a) * R, g, elite);
     b.enemies.push(e);
     if (type === 'boss') {
