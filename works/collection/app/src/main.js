@@ -87,7 +87,9 @@ function updateMenu() {
   if (!input.pressed) return;
   for (const t of TABS) if (inside(input.x, input.y, t.rect)) menuTab = t.id;
   tabItems().forEach((item, i) => {
-    if (inside(input.x, input.y, menuRow(i)) && item.load) startGame(item);
+    if (!inside(input.x, input.y, menuRow(i))) return;
+    if (item.href) location.href = item.href; // 別ページのゲーム（パズル集など）へ移動
+    else if (item.load) startGame(item);
   });
 }
 
@@ -103,7 +105,7 @@ function drawMenu() {
   }
   tabItems().forEach((item, i) => {
     const r = menuRow(i);
-    const on = !!item.load;
+    const on = !!(item.load || item.href);
     rect(g, r.x, r.y, r.w, r.h, on ? C.light : C.bg);
     frame(g, r.x, r.y, r.w, r.h, on ? C.dark : C.mid);
     text(g, `${i + 1}`, r.x + 6, r.y + 8, 14, on ? C.dark : C.mid);
