@@ -1,18 +1,19 @@
 // 収録ゲーム一覧。load が null のものはメニューで「準備中」と表示される。
-// tab: 'action'（アクション）/ 'board'（ボード対戦）/ 'puzzle'（パズル）。メニューのタブ分けに使う。
+// world: 'keitai'（ケータイゲーム集）/ 'versus'（対戦・ボード）/ 'puzzle'（パズル＆戦略）。ポータルのタブ分けに使う（世界ごとに見た目と BGM の音色が変わる）。
+// genre: 将来、1 つの世界のゲームが増えたときの絞り込み用。scored: true はポータルにベストを表示する。
 // href があるものは、別ページ（Godot 版のパズル集など）へ移動する。
 export const GAMES = [
-  { id: 'cave-heli', title: '洞窟ヘリ', desc: '長押しで上昇', tab: 'action', load: () => import('./cave-heli.js') },
-  { id: 'bike-dash', title: '坂道ダッシュ', desc: 'タップでジャンプ', tab: 'action', load: () => import('./bike-dash.js') },
-  { id: 'thread-needle', title: '糸通し', desc: 'タップで糸を上げる', tab: 'action', load: () => import('./thread-needle.js') },
-  { id: 'poyo-jump', title: 'ポヨジャンプ', desc: 'ドラッグで足場を登る', tab: 'action', load: () => import('./poyo-jump.js') },
-  { id: 'madam-fly', title: 'マダム飛行', desc: '長押しで上昇', tab: 'action', load: () => import('./madam-fly.js') },
-  { id: 'beach-volley', title: '砂浜バレー', desc: '3タッチで打ち返す', tab: 'action', load: () => import('./beach-volley.js') },
-  { id: 'mari-adventure', title: 'マリさんの冒険', desc: '横スクロール 全3面', tab: 'action', load: () => import('./mari-adventure.js') },
-  { id: 'tree-fort', title: 'ツリー砦', desc: 'ツリーを開放して守る', tab: 'action', load: () => import('./tree-fort.js') },
-  { id: 'wall-race', title: 'かべレース', desc: 'CPU・オンライン対戦', tab: 'board', load: () => import('./wall-race.js') },
-  { id: 'reversi', title: 'リバーシ', desc: '石を挟んで裏返す', tab: 'board', load: () => import('./reversi.js') },
-  { id: 'four', title: '四目並べ', desc: '石を落として4つ並べる', tab: 'board', load: () => import('./four.js') },
-  { id: 'dots', title: 'ドット囲み', desc: '線を引いて箱を取る', tab: 'board', load: () => import('./dots.js') },
-  { id: 'puzzle-collection', title: 'パズル集', desc: '色つき出口・色光とミラー', tab: 'puzzle', href: 'puzzle/' },
+  { id: 'cave-heli', title: '洞窟ヘリ', desc: '長押しで上昇', world: 'keitai', genre: 'action', scored: true, load: () => import('./cave-heli.js') },
+  { id: 'bike-dash', title: '坂道ダッシュ', desc: 'タップでジャンプ', world: 'keitai', genre: 'action', scored: true, load: () => import('./bike-dash.js') },
+  { id: 'thread-needle', title: '糸通し', desc: 'タップで糸を上げる', world: 'keitai', genre: 'action', scored: true, load: () => import('./thread-needle.js') },
+  { id: 'poyo-jump', title: 'ポヨジャンプ', desc: 'ドラッグで足場を登る', world: 'keitai', genre: 'action', scored: true, load: () => import('./poyo-jump.js') },
+  { id: 'madam-fly', title: 'マダム飛行', desc: '長押しで上昇', world: 'keitai', genre: 'action', scored: true, load: () => import('./madam-fly.js') },
+  { id: 'beach-volley', title: '砂浜バレー', desc: '3タッチで打ち返す', world: 'keitai', genre: 'action', scored: true, load: () => import('./beach-volley.js') },
+  { id: 'mari-adventure', title: 'マリさんの冒険', desc: '横スクロール 全3面', world: 'keitai', genre: 'action', scored: true, load: () => import('./mari-adventure.js') },
+  { id: 'tree-fort', title: 'ルーンタワー', desc: 'ルーンを育てて塔を守る', world: 'puzzle', genre: 'strategy', scored: true, load: () => import('./tree-fort.js') },
+  { id: 'wall-race', title: 'かべレース', desc: 'CPU・オンライン対戦', world: 'versus', genre: 'board', load: () => import('./wall-race.js') },
+  { id: 'reversi', title: 'リバーシ', desc: '石を挟んで裏返す', world: 'versus', genre: 'board', load: () => import('./reversi.js') },
+  { id: 'four', title: '四目並べ', desc: '石を落として4つ並べる', world: 'versus', genre: 'board', load: () => import('./four.js') },
+  { id: 'dots', title: 'ドット囲み', desc: '線を引いて箱を取る', world: 'versus', genre: 'board', load: () => import('./dots.js') },
+  { id: 'puzzle-collection', title: 'パズル集', desc: '色つき出口・色光とミラー', world: 'puzzle', genre: 'puzzle', href: 'puzzle/' },
 ];

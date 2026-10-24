@@ -305,15 +305,15 @@ export function drawBattleHud(g, sc) {
 // ---------------------------------------------------------------------------------------------
 // 図鑑
 export const CX_TABS = [
-  { id: 'weapons', label: '武器', rect: { x: 6, y: 32, w: 54, h: 20 } },
-  { id: 'syn', label: '組合せ', rect: { x: 63, y: 32, w: 54, h: 20 } },
-  { id: 'relics', label: '遺物', rect: { x: 120, y: 32, w: 54, h: 20 } },
-  { id: 'ach', label: '実績', rect: { x: 177, y: 32, w: 54, h: 20 } },
+  { id: 'weapons', label: '武器', rect: { x: 4, y: 32, w: 56, h: 20 } },
+  { id: 'syn', label: '組合せ', rect: { x: 62, y: 32, w: 56, h: 20 } },
+  { id: 'relics', label: '遺物', rect: { x: 120, y: 32, w: 56, h: 20 } },
+  { id: 'ach', label: '実績', rect: { x: 178, y: 32, w: 58, h: 20 } },
 ];
 export const CX_LIST = { x: 4, y: 56, w: 232, h: 182 };
 export const CX_ROW_H = 26;
 export const BTN_CX_BACK = { x: 164, y: 288, w: 72, h: 28 };
-export const SLOT_STRIP = { x: 112, y: 5, w: 96, h: 20 };
+export const SLOT_STRIP = { x: 92, y: 5, w: 96, h: 20 };
 export const slotRect = (i) => ({ x: SLOT_STRIP.x + i * 16, y: SLOT_STRIP.y + 2, w: 14, h: 16 });
 
 export const codexItems = (tab) => (tab === 'weapons' ? WEAPONS : tab === 'syn' ? SYNERGIES : tab === 'relics' ? RELICS : ACHIEVEMENTS);
@@ -339,12 +339,15 @@ export function achProgress(save) {
   };
 }
 
+// 文字が幅に収まらないときだけ、小さくする
+const fitSize = (g, kit, str, size, maxW) => Math.max(6.5, Math.min(size, (size * maxW) / Math.max(1, kit.measure(g, str, size))));
+
 export function drawCodex(g, sc) {
   const { kit, W, H, clock, save, codex } = sc;
   const sk = kit.skin;
   kit.bg(g, W, H);
   kit.stars(g, Math.sin(clock * 0.3) * 30, clock * 5, CX_LIST);
-  kit.panel(g, { x: 4, y: 3, w: 104, h: 24 }, { stroke: sk.gold, glow: sk.gold, blur: 6, radius: 8 });
+  kit.panel(g, { x: 4, y: 3, w: 84, h: 24 }, { stroke: sk.gold, glow: sk.gold, blur: 6, radius: 8 });
   const pts = `${Math.round(sc.shownPts)}`;
   kit.text(g, pts, 11, 7, 15, sk.gold, 'left', 8);
   kit.text(g, 'P', 13 + kit.measure(g, pts, 15), 11, 10, sk.dim);
@@ -364,14 +367,13 @@ export function drawCodex(g, sc) {
     }
     g.restore();
   }
-  kit.text(g, '枠', 108, 8, 10, sk.dim, 'right');
   kit.text(g, '図鑑', W - 8, 8, 13, sk.text, 'right', 6);
 
   const cnt = {
     weapons: `${save.discovered.weapons.length}/${WEAPONS.length}`, syn: `${save.discovered.syn.length}/${SYNERGIES.length}`,
     relics: `${save.discovered.relics.length}/${RELICS.length}`, ach: `${save.ach.length}/${ACHIEVEMENTS.length}`,
   };
-  for (const t of CX_TABS) kit.button(g, t.rect, `${t.label} ${cnt[t.id]}`, { color: sk.me, size: 9, active: codex.tab === t.id });
+  for (const t of CX_TABS) kit.button(g, t.rect, `${t.label} ${cnt[t.id]}`, { color: sk.me, size: 8, active: codex.tab === t.id });
 
   g.save();
   g.beginPath();
@@ -428,8 +430,9 @@ export function drawCodex(g, sc) {
     const known = dw.has(it.id);
     kit.text(g, known ? it.name : '？？？', 12, 245, 12, known ? it.color : sk.dim, 'left', 6);
     if (known) {
-      kit.text(g, it.desc, 12, 259, 9, sk.text);
-      kit.text(g, `Lv1: ${it.levels[0]}  →  Lv5: ${it.levels[4]}`, 12, 270, 8.5, sk.dim);
+      kit.text(g, it.desc, 12, 259, fitSize(g, kit, it.desc, 9, W - 24), sk.text);
+      const lv = `Lv1 ${it.levels[0]} → Lv5 ${it.levels[4]}`;
+      kit.text(g, lv, 12, 270, fitSize(g, kit, lv, 8.5, W - 24), sk.dim);
     } else kit.text(g, 'まだ見つけていない武器。レベルアップの「？？？」から出会える', 12, 261, 9, sk.dim);
   } else if (codex.tab === 'syn') {
     const known = dsy.has(it.id);

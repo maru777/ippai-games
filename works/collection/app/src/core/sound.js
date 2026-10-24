@@ -8,6 +8,7 @@ export const Sound = {
     const AC = window.AudioContext || window.webkitAudioContext;
     if (AC) ctx = new AC();
   },
+  get ctx() { return ctx; },
   setMuted(m) { muted = m; },
   get muted() { return muted; },
   beep(freq = 440, dur = 0.08, type = 'square', vol = 0.06) {

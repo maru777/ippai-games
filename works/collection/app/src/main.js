@@ -3,6 +3,8 @@ import { GAMES } from './games/registry.js';
 import { Input } from './core/input.js';
 import { Sound } from './core/sound.js';
 import { Store } from './core/storage.js';
+import { Music } from './core/music.js';
+import { createPortal } from './portal.js';
 import { C, text, rect, frame, inside } from './core/draw.js';
 
 const W = 240;
@@ -24,6 +26,8 @@ function setRes(scale) {
 
 const input = new Input(canvas, W, H);
 input.onFirstGesture = () => Sound.unlock();
+setRes(2); // 最初はポータル（高解像度）
+document.addEventListener('visibilitychange', () => (document.hidden ? Music.suspend() : Music.resume()));
 
 const env = {
   W,
@@ -42,21 +46,28 @@ let newBest = false;
 let finalScore = 0;
 let overAge = 0;
 
-// メニューは「アクション」「ボード」「パズル」の 3 タブ。各ゲームは registry の tab で振り分ける。
-const TABS = [
-  { id: 'action', label: 'アクション', rect: { x: 12, y: 42, w: 70, h: 22 } },
-  { id: 'board', label: 'ボード', rect: { x: 85, y: 42, w: 70, h: 22 } },
-  { id: 'puzzle', label: 'パズル', rect: { x: 158, y: 42, w: 70, h: 22 } },
-];
-let menuTab = 'action';
-const tabItems = () => GAMES.filter((it) => it.tab === menuTab);
-// 行の高さ: 7 件までは 33px 刻み、8 件以上は詰めて 1 画面に収める
-const menuRow = (i) => (tabItems().length > 7 ? { x: 12, y: 68 + i * 31, w: 216, h: 28 } : { x: 12, y: 70 + i * 33, w: 216, h: 30 });
+// ポータル（メニュー）: 世界タブとスクロールできる一覧。高解像度（×2）で描く。
+const portal = createPortal({
+  games: GAMES,
+  store: Store,
+  best: (item) => (item.scored ? `ベスト ${Store.best(item.id)}` : null),
+  onSelect: (item) => {
+    if (item.href) location.href = item.href; // 別ページのゲーム（パズル集など）へ移動
+    else if (item.load) startGame(item);
+  },
+});
+const GAME_BG = '#0f380f';
+const setBg = (c) => {
+  document.documentElement.style.background = c;
+  document.body.style.background = c;
+};
 const BTN_RETRY = { x: 30, y: 196, w: 180, h: 30 };
 const BTN_MENU = { x: 30, y: 234, w: 180, h: 30 };
 
 async function startGame(item) {
   state = 'loading';
+  Music.stop();
+  setBg(GAME_BG);
   const mod = await item.load();
   def = item;
   game = mod.default(env);
@@ -79,42 +90,11 @@ function finish() {
 
 function toMenu() {
   if (game && game.dispose) game.dispose(); // 通信などの後始末
-  setRes(1);
+  setRes(2);
   state = 'menu';
   game = null;
   def = null;
-}
-
-function updateMenu() {
-  if (!input.pressed) return;
-  for (const t of TABS) if (inside(input.x, input.y, t.rect)) menuTab = t.id;
-  tabItems().forEach((item, i) => {
-    if (!inside(input.x, input.y, menuRow(i))) return;
-    if (item.href) location.href = item.href; // 別ページのゲーム（パズル集など）へ移動
-    else if (item.load) startGame(item);
-  });
-}
-
-function drawMenu() {
-  rect(g, 0, 0, W, H, C.bg);
-  rect(g, 0, 0, W, 38, C.dark);
-  text(g, 'ケータイゲーム集', W / 2, 11, 16, C.bg, 'center');
-  for (const t of TABS) {
-    const on = t.id === menuTab;
-    rect(g, t.rect.x, t.rect.y, t.rect.w, t.rect.h, on ? C.dark : C.bg);
-    frame(g, t.rect.x, t.rect.y, t.rect.w, t.rect.h, C.dark);
-    text(g, t.label, t.rect.x + t.rect.w / 2, t.rect.y + 5, 11, on ? C.bg : C.dark, 'center');
-  }
-  tabItems().forEach((item, i) => {
-    const r = menuRow(i);
-    const on = !!(item.load || item.href);
-    rect(g, r.x, r.y, r.w, r.h, on ? C.light : C.bg);
-    frame(g, r.x, r.y, r.w, r.h, on ? C.dark : C.mid);
-    text(g, `${i + 1}`, r.x + 6, r.y + 8, 14, on ? C.dark : C.mid);
-    text(g, item.title, r.x + 24, r.y + 3, 13, on ? C.dark : C.mid);
-    const sub = !on ? '準備中' : item.tab !== 'action' ? item.desc : `${item.desc}  ベスト ${Store.best(item.id)}`;
-    text(g, sub, r.x + 24, r.y + 17, 10, on ? C.mid : C.mid);
-  });
+  portal.enter();
 }
 
 function drawHud() {
@@ -174,8 +154,8 @@ function loop(now) {
   last = now;
 
   if (state === 'menu') {
-    updateMenu();
-    drawMenu();
+    portal.update(dt, input);
+    setBg(portal.draw(g));
   } else if (state === 'loading') {
     rect(g, 0, 0, W, H, C.bg);
     text(g, 'LOADING...', W / 2, H / 2 - 8, 14, C.dark, 'center');
