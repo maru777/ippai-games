@@ -1,5 +1,5 @@
 // 収録ゲーム一覧。load が null のものはメニューで「準備中」と表示される。
-// tab: 'action'（アクション）/ 'board'（ボード対戦）。メニューのタブ分けに使う。
+// tab: 'action'（アクション）/ 'board'（ボード対戦）/ 'puzzle'（パズル）。メニューのタブ分けに使う。
 // href があるものは、別ページ（Godot 版のパズル集など）へ移動する。
 export const GAMES = [
   { id: 'cave-heli', title: '洞窟ヘリ', desc: '長押しで上昇', tab: 'action', load: () => import('./cave-heli.js') },
@@ -13,5 +13,5 @@ export const GAMES = [
   { id: 'reversi', title: 'リバーシ', desc: '石を挟んで裏返す', tab: 'board', load: () => import('./reversi.js') },
   { id: 'four', title: '四目並べ', desc: '石を落として4つ並べる', tab: 'board', load: () => import('./four.js') },
   { id: 'dots', title: 'ドット囲み', desc: '線を引いて箱を取る', tab: 'board', load: () => import('./dots.js') },
-  { id: 'puzzle-collection', title: 'パズル集', desc: '色つき出口・色光とミラー', tab: 'board', href: 'puzzle/' },
+  { id: 'puzzle-collection', title: 'パズル集', desc: '色つき出口・色光とミラー', tab: 'puzzle', href: 'puzzle/' },
 ];

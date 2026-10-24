@@ -42,10 +42,11 @@ let newBest = false;
 let finalScore = 0;
 let overAge = 0;
 
-// メニューは「アクション」「ボード」の 2 タブ。各ゲームは registry の tab で振り分ける。
+// メニューは「アクション」「ボード」「パズル」の 3 タブ。各ゲームは registry の tab で振り分ける。
 const TABS = [
-  { id: 'action', label: 'アクション', rect: { x: 12, y: 42, w: 106, h: 22 } },
-  { id: 'board', label: 'ボード（対戦）', rect: { x: 122, y: 42, w: 106, h: 22 } },
+  { id: 'action', label: 'アクション', rect: { x: 12, y: 42, w: 70, h: 22 } },
+  { id: 'board', label: 'ボード', rect: { x: 85, y: 42, w: 70, h: 22 } },
+  { id: 'puzzle', label: 'パズル', rect: { x: 158, y: 42, w: 70, h: 22 } },
 ];
 let menuTab = 'action';
 const tabItems = () => GAMES.filter((it) => it.tab === menuTab);
@@ -110,7 +111,7 @@ function drawMenu() {
     frame(g, r.x, r.y, r.w, r.h, on ? C.dark : C.mid);
     text(g, `${i + 1}`, r.x + 6, r.y + 8, 14, on ? C.dark : C.mid);
     text(g, item.title, r.x + 24, r.y + 3, 13, on ? C.dark : C.mid);
-    const sub = !on ? '準備中' : item.tab === 'board' ? item.desc : `${item.desc}  ベスト ${Store.best(item.id)}`;
+    const sub = !on ? '準備中' : item.tab !== 'action' ? item.desc : `${item.desc}  ベスト ${Store.best(item.id)}`;
     text(g, sub, r.x + 24, r.y + 17, 10, on ? C.mid : C.mid);
   });
 }
