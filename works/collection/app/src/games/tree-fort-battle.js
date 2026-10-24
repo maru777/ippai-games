@@ -3,7 +3,7 @@
 //   ステージ制: stage 1〜10 は「10 波 + 最後にボス」。stage 0 は終わりのない挑戦（無限）。
 //   ローグライト: opts.leveling が true なら、敵を倒して経験値がたまり、レベルアップごとに選択肢（b.options）が出る。
 //                 選ぶまで戦闘は止まる（pick(i) / reroll()）。武器と強化は、その挑戦の間だけ。
-import { createWeapons } from './tree-fort-weapons.js';
+import { createWeapons, WEAPON } from './tree-fort-weapons.js';
 import { makeOptions, applyOption, xpNeed, autoPick } from './tree-fort-run.js';
 import { combineMods, applyRelic, relicOptions, RELIC, CONTRACTS, CONTRACT, CONTRACT_WAVES } from './tree-fort-meta.js';
 
@@ -523,7 +523,7 @@ export function createBattle(stats0, rng = Math.random, opts = {}) {
     const opt = b.options && b.options[i];
     if (!opt) return null;
     applyOption({ stats, loadout, discovered: b.discovered, tower: b.tower, refresh: () => W.refresh(), found: b.found }, opt);
-    if (opt.kind === 'weapon-new') addFx({ kind: 'gotWeapon', life: 1.2, wid: opt.id, name: opt.name, unknown: !!opt.unknown });
+    if (opt.kind === 'weapon-new') addFx({ kind: 'gotWeapon', life: 1.4, wid: opt.id, name: WEAPON[opt.id].name, color: WEAPON[opt.id].color, unknown: !!opt.unknown });
     b.pending--;
     b.options = null;
     offer();
@@ -553,7 +553,7 @@ export function createBattle(stats0, rng = Math.random, opts = {}) {
     const more = b.relicPending > 0 ? relicOptions(rng, b.relics, 3) : [];
     b.relicOpts = more.length ? more : null;
     if (!more.length) b.relicPending = 0;
-    addFx({ kind: 'gotRelic', life: 1.4, name: r.name, color: r.color });
+    addFx({ kind: 'gotRelic', life: 1.4, rid: r.id, name: r.name, color: r.color });
     return r;
   }
   // 契約の選択。i 番目を結ぶ（-1 は見送り）。

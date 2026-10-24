@@ -2,6 +2,7 @@
 // 状態は持たない（画面の状態 sc を読んで描くだけ）。論理座標は 240×320（高解像度の canvas に拡大して描く）。
 import { ARENA } from './tree-fort-battle.js';
 import { drawWeaponsUnder, drawWeaponsOver, drawBlades, drawStatus, TAG_COLOR } from './tree-fort-wview.js';
+import { drawBattleHud } from './tree-fort-rview.js';
 import { TREE, NODE, UNLOCKS, canBuy, canRefund } from './tree-fort-data.js';
 import { SKINS, EFFECTS, rgba, rr } from './tree-fort-skins.js';
 
@@ -209,7 +210,7 @@ export function drawSceneFx(g, sc) {
 }
 
 // ---- 戦闘の部品 ----
-function drawEnemy(g, kit, e, t) {
+function drawEnemyBody(g, kit, e, t) {
   const sk = kit.skin;
   const { cx, cy } = ARENA;
   const col = kit.enemyColor(e.type, e.x * 0.03 + e.y * 0.02);
@@ -315,12 +316,132 @@ function drawEnemy(g, kit, e, t) {
     g.fill();
   }
   g.restore();
-  if (e.type === 'tank' && e.hp < e.max) {
-    const w = r * 2 + 2;
+}
+
+// 新しい種類の敵の体（小群・分裂・装甲・射手・癒し手・障壁・幽霊・ボス）
+const SIDES = { swarm: 3, splitter: 4, armor: 8, shooter: 4, healer: 0, shield: 0, phantom: 0, boss: 8 };
+function drawNewEnemy(g, kit, e, t) {
+  const sk = kit.skin;
+  const { cx, cy } = ARENA;
+  const col = kit.enemyColor(e.type, e.x * 0.03 + e.y * 0.02);
+  const flash = e.hit > 0;
+  const body = flash ? '#ffffff' : col;
+  const r = e.r;
+  const sides = SIDES[e.type];
+  const rot = e.type === 'shooter' || e.type === 'splitter' ? Math.PI / 4 : e.type === 'swarm' ? Math.atan2(cy - e.y, cx - e.x) : t * (e.type === 'boss' ? 0.4 : 0.6) + e.x * 0.05;
+  g.save();
+  g.translate(e.x, e.y);
+  if (sk.enemy === 'geo') {
+    kit.glow(g, col, e.type === 'boss' ? 18 : 10);
+    g.fillStyle = flash ? '#ffffff' : rgba(col, e.type === 'boss' ? 0.4 : 0.3);
+    g.strokeStyle = body;
+    g.lineWidth = e.type === 'boss' ? 2.8 : 1.8;
+  } else if (sk.enemy === 'flat') {
+    g.shadowColor = 'rgba(30, 40, 60, 0.28)';
+    g.shadowBlur = 6;
+    g.shadowOffsetY = 2;
+    g.fillStyle = body;
+  } else g.fillStyle = body;
+  if (sides >= 3) polyPath(g, 0, 0, r + 1, sides, rot);
+  else {
+    g.beginPath();
+    if (e.type === 'phantom') {
+      // ゆらぐ裾のある幽霊
+      g.arc(0, -1, r + 1, Math.PI, 0);
+      for (let i = 0; i <= 4; i++) g.lineTo((r + 1) - i * (r + 1) * 0.5, r + 1 + (i % 2 ? 2 : -0.5) + Math.sin(t * 8 + i) * 0.8);
+      g.closePath();
+    } else g.arc(0, 0, r + 1, 0, TAU);
+  }
+  g.fill();
+  if (sk.enemy === 'geo') g.stroke();
+  g.shadowBlur = 0;
+  g.shadowColor = 'transparent';
+  const mark = sk.enemy === 'ink' ? '#f6eede' : sk.enemy === 'flat' ? '#ffffff' : body;
+  g.strokeStyle = mark;
+  g.fillStyle = mark;
+  g.lineWidth = 1.4;
+  if (e.type === 'healer') {
+    g.fillRect(-1, -r * 0.55, 2, r * 1.1);
+    g.fillRect(-r * 0.55, -1, r * 1.1, 2);
+  } else if (e.type === 'armor') {
+    polyPath(g, 0, 0, r - 2.5, 8, rot);
+    g.stroke();
+  } else if (e.type === 'shooter') {
+    const a = Math.atan2(cy - e.y, cx - e.x);
+    g.lineWidth = 2.2;
+    g.beginPath();
+    g.moveTo(0, 0);
+    g.lineTo(Math.cos(a) * (r + 5), Math.sin(a) * (r + 5));
+    g.stroke();
+  } else if (e.type === 'splitter') {
+    g.beginPath();
+    g.moveTo(-r * 0.7, -r * 0.7);
+    g.lineTo(r * 0.7, r * 0.7);
+    g.stroke();
+  } else if (e.type === 'boss') {
+    // 王冠のトゲと、回る外輪
+    g.fillStyle = sk.enemy === 'ink' ? '#c0392b' : kit.c(sk.gold, 4);
+    for (let i = -2; i <= 2; i++) {
+      g.beginPath();
+      g.moveTo(i * 5 - 2.5, -r - 1);
+      g.lineTo(i * 5, -r - 7 - (i === 0 ? 3 : 0));
+      g.lineTo(i * 5 + 2.5, -r - 1);
+      g.closePath();
+      g.fill();
+    }
+    g.strokeStyle = rgba(col, 0.6);
+    g.setLineDash([4, 4]);
+    g.lineDashOffset = -t * 20;
+    g.beginPath();
+    g.arc(0, 0, r + 6, 0, TAU);
+    g.stroke();
+    g.setLineDash([]);
+  }
+  if (e.type !== 'swarm' && e.type !== 'healer') {
+    g.fillStyle = sk.enemy === 'ink' ? '#f6eede' : '#ffffff';
+    g.beginPath();
+    g.arc(-r * 0.32, -r * 0.1, Math.max(1, r * 0.13), 0, TAU);
+    g.arc(r * 0.32, -r * 0.1, Math.max(1, r * 0.13), 0, TAU);
+    g.fill();
+  }
+  // 障壁（バリア）
+  if (e.shield > 0) {
+    g.strokeStyle = rgba('#7fe0ff', 0.35 + 0.5 * (e.shield / e.shieldMax));
+    g.lineWidth = 2;
+    g.beginPath();
+    g.arc(0, 0, r + 4, 0, TAU);
+    g.stroke();
+  }
+  g.restore();
+}
+
+// 敵 1 体の描画（体・精鋭の輪・幽霊の透け・体力バー）
+function drawEnemy(g, kit, e, t) {
+  const sk = kit.skin;
+  g.save();
+  if (e.phased) g.globalAlpha = 0.22 + 0.08 * Math.sin(t * 10);
+  if (e.elite) {
+    g.save();
+    kit.glow(g, sk.gold, 12);
+    g.strokeStyle = rgba(sk.gold, 0.8);
+    g.lineWidth = 1.6;
+    g.setLineDash([3, 3]);
+    g.lineDashOffset = -t * 14;
+    g.beginPath();
+    g.arc(e.x, e.y, e.r + 4.5, 0, TAU);
+    g.stroke();
+    g.restore();
+  }
+  if (e.type === 'grunt' || e.type === 'runner' || e.type === 'tank') drawEnemyBody(g, kit, e, t);
+  else drawNewEnemy(g, kit, e, t);
+  g.restore();
+  const bar = e.type === 'tank' || e.type === 'armor' || e.type === 'shield' || e.type === 'healer' || e.type === 'shooter' || e.elite;
+  if (bar && e.hp < e.max && e.type !== 'boss') {
+    const w = e.r * 2 + 2;
     g.fillStyle = 'rgba(0,0,0,0.35)';
-    g.fillRect(e.x - w / 2, e.y - r - 7, w, 2.5);
-    g.fillStyle = col;
-    g.fillRect(e.x - w / 2, e.y - r - 7, (w * e.hp) / e.max, 2.5);
+    g.fillRect(e.x - w / 2, e.y - e.r - 8, w, 2.5);
+    g.fillStyle = e.elite ? sk.gold : kit.enemyColor(e.type, 0);
+    g.fillRect(e.x - w / 2, e.y - e.r - 8, (w * e.hp) / e.max, 2.5);
   }
 }
 
@@ -611,6 +732,21 @@ export function drawBattle(g, sc) {
     drawEnemy(g, kit, e, clock);
     drawStatus(g, sc, e);
   }
+  for (const sh of b.eshots) {
+    g.save();
+    kit.glow(g, sk.bad, 8);
+    g.fillStyle = sk.bad;
+    g.beginPath();
+    g.arc(sh.x, sh.y, 2.6, 0, TAU);
+    g.fill();
+    g.strokeStyle = rgba(sk.bad, 0.4);
+    g.lineWidth = 1.5;
+    g.beginPath();
+    g.moveTo(sh.x, sh.y);
+    g.lineTo(sh.x - sh.vx * 0.06, sh.y - sh.vy * 0.06);
+    g.stroke();
+    g.restore();
+  }
   drawTower(g, sc);
   drawWeaponsOver(g, sc);
 
@@ -757,10 +893,45 @@ export function drawBattle(g, sc) {
         spiroPath(g, 0, 0, 80, 5, 3.4, u * 3);
         g.stroke();
       }
-      const label = sk.id === 'wa' ? `第${f.wave}波` : `WAVE ${f.wave}`;
+      const label = f.boss ? (sk.id === 'wa' ? '大将の波' : 'BOSS WAVE') : sk.id === 'wa' ? `第${f.wave}波` : `WAVE ${f.wave}`;
       const sc2 = 1 + (1 - Math.min(1, u * 6)) * 0.6;
       g.scale(sc2, sc2);
       kit.text(g, label, 0, -14, 26, kit.c(sk.me, 0), 'center', 14);
+      g.restore();
+    } else if (f.kind === 'levelup') {
+      g.save();
+      g.globalAlpha = Math.max(0, 1 - u);
+      g.strokeStyle = kit.c(sk.gold, 2);
+      g.lineWidth = 3;
+      if (sk.glow) kit.glow(g, g.strokeStyle, 14);
+      g.beginPath();
+      g.arc(ARENA.cx, ARENA.cy, 14 + u * 90, 0, TAU);
+      g.stroke();
+      g.restore();
+    } else if (f.kind === 'chest') {
+      g.save();
+      g.globalAlpha = Math.max(0, 1 - u * u);
+      kit.text(g, '宝箱！', f.x, f.y - 14 - u * 18, 12, sk.gold, 'center', 10);
+      g.restore();
+    } else if (f.kind === 'gotWeapon' || f.kind === 'gotRelic' || f.kind === 'contract') {
+      g.save();
+      g.globalAlpha = Math.max(0, Math.min(1, (1 - u) * 2));
+      const txt = f.kind === 'gotWeapon' ? (f.unknown ? `NEW! ${f.name} を発見！` : `${f.name} を手に入れた`) : f.kind === 'gotRelic' ? `遺物「${f.name}」` : `契約「${f.name}」`;
+      kit.text(g, txt, W / 2, 72 - u * 8, 12, f.color || sk.gold, 'center', 8);
+      g.restore();
+    } else if (f.kind === 'overdrive') {
+      g.save();
+      g.globalAlpha = Math.max(0, 1 - u);
+      kit.text(g, 'OVERDRIVE!!', W / 2, 150 - u * 20, 24 + u * 8, kit.c(sk.gold, 3), 'center', 16);
+      g.restore();
+    } else if (f.kind === 'summon' || f.kind === 'split') {
+      g.save();
+      g.globalAlpha = Math.max(0, 1 - u);
+      g.strokeStyle = f.kind === 'summon' ? sk.bad : sk.gold;
+      g.lineWidth = 2;
+      g.beginPath();
+      g.arc(f.x, f.y, 6 + u * 26, 0, TAU);
+      g.stroke();
       g.restore();
     } else if (f.kind === 'syn') {
       const pop = 1 + Math.max(0, 1 - u * 6) * 0.6;
@@ -838,7 +1009,15 @@ export function drawBattle(g, sc) {
     else label = sk.id === 'wa' ? `第${b.wave}波　あと ${left} 体` : `WAVE ${b.wave}　あと ${left} 体`;
     kit.text(g, label, W / 2, 39, 9.5, resting ? sk.gold : sk.text, 'center', 3);
   }
-  if (b.wave <= 1 && b.t < 7) kit.text(g, '敵をタップで追加攻撃', W / 2, 300, 11, sk.dim, 'center');
+  if (b.od.active > 0) {
+    const v = g.createRadialGradient(W / 2, H / 2, H * 0.28, W / 2, H / 2, H * 0.72);
+    v.addColorStop(0, 'rgba(255, 216, 74, 0)');
+    v.addColorStop(1, `rgba(255, 216, 74, ${0.28 + 0.12 * Math.sin(clock * 12)})`);
+    g.fillStyle = v;
+    g.fillRect(0, 0, W, H);
+  }
+  drawBattleHud(g, sc);
+  if (b.wave <= 1 && b.t < 7) kit.text(g, '敵をタップで追加攻撃', W / 2, 264, 11, sk.dim, 'center');
 
   if (sc.flash.a > 0.01) {
     g.fillStyle = rgba(sc.flash.col, sc.flash.a);
@@ -1038,7 +1217,7 @@ export function drawTree(g, sc) {
   const pts = `${Math.round(sc.shownPts)}`;
   kit.text(g, pts, 12, 7, 15, sk.gold, 'left', 8);
   kit.text(g, 'P', 14 + kit.measure(g, pts, 15), 11, 10, sk.dim);
-  kit.button(g, BTN_ARMORY, '武器庫', { color: sk.me, size: 11 });
+  kit.button(g, BTN_ARMORY, '図鑑', { color: sk.me, size: 11 });
   kit.button(g, BTN_SHOP, 'ショップ', { color: sk.op, size: 10 });
 
   // 下のパネル
