@@ -22,6 +22,7 @@ export function createBattle(stats, rng = Math.random, loadout = []) {
     phase: 'rest', // rest（次の波まで）/ spawn（出現中）/ clear（倒し切るのを待つ）
     restT: 1.2,
     queue: [],
+    waveTotal: 0, // この波の敵の総数（進み具合の表示用）
     spawnT: 0,
     spawnInterval: 0.9,
     tower: { hp: stats.hp, max: stats.hp, flash: 0 },
@@ -71,6 +72,7 @@ export function createBattle(stats, rng = Math.random, loadout = []) {
       else if (w >= 3 && r < 0.38) type = 'runner';
       b.queue.push(type);
     }
+    b.waveTotal = b.queue.length;
     b.spawnInterval = Math.max(0.28, 0.9 - 0.02 * w);
     b.spawnT = 0;
     b.phase = 'spawn';
@@ -268,7 +270,10 @@ export function createBattle(stats, rng = Math.random, loadout = []) {
     return true;
   }
 
-  return { b, step, tap, earned: () => Math.floor(b.earnedF) };
+  // この波で、あと何体か（まだ出てきていない敵 + いま画面にいる敵）
+  const remaining = () => b.queue.length + b.enemies.filter((e) => !e.dead).length;
+
+  return { b, step, tap, remaining, earned: () => Math.floor(b.earnedF) };
 }
 
 // 画面なしで 1 回の挑戦を最後まで進め、到達した波数とポイントを返す（バランス確認用）

@@ -765,6 +765,28 @@ export function drawBattle(g, sc) {
   g.restore();
   kit.text(g, `+${run.earned()}P`, 138, 9, 11, sk.gold, 'left', 6);
   kit.button(g, BTN_RETREAT, sk.id === 'wa' ? '退' : '撤退', { color: sk.bad, size: 10 });
+  // 波の進み具合: 戦闘中は「倒した割合」、波の合間は「次の波までの時間」
+  {
+    const left = run.remaining();
+    const resting = b.phase === 'rest';
+    const prog = resting ? 1 - Math.max(0, b.restT) / (b.wave === 0 ? 1.2 : 1.4) : b.waveTotal ? 1 - left / b.waveTotal : 0;
+    const bc = resting ? sk.gold : kit.c(sk.me, 3);
+    g.save();
+    rr(g, 10, 31, W - 20, 5, 2.5);
+    g.fillStyle = sk.bg === 'wa' || sk.bg === 'modern' ? 'rgba(0,0,0,0.12)' : 'rgba(255,255,255,0.1)';
+    g.fill();
+    rr(g, 10, 31, Math.max(5, (W - 20) * Math.max(0, Math.min(1, prog))), 5, 2.5);
+    kit.glow(g, bc, 6);
+    g.fillStyle = bc;
+    g.fill();
+    g.restore();
+    let label;
+    if (resting) label = b.wave === 0 ? 'まもなく開始' : `波クリア！ 次の波まで ${Math.max(0, b.restT).toFixed(1)} 秒`;
+    else if (left === 0) label = 'もうすぐクリア';
+    else if (b.queue.length) label = sk.id === 'wa' ? `第${b.wave}波　あと ${left} 体（まだ来る）` : `WAVE ${b.wave}　あと ${left} 体（まだ来る）`;
+    else label = sk.id === 'wa' ? `第${b.wave}波　あと ${left} 体` : `WAVE ${b.wave}　あと ${left} 体`;
+    kit.text(g, label, W / 2, 39, 9.5, resting ? sk.gold : sk.text, 'center', 3);
+  }
   if (b.wave <= 1 && b.t < 7) kit.text(g, '敵をタップで追加攻撃', W / 2, 300, 11, sk.dim, 'center');
 
   if (sc.flash.a > 0.01) {
