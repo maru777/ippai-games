@@ -26,6 +26,17 @@ export const Store = {
   best(id) {
     return read().best?.[id] ?? 0;
   },
+  // ゲームごとの保存データ（ツリーの取得状況など。JSON にできる値）
+  load(id, fallback) {
+    const v = read().saves?.[id];
+    return v === undefined ? fallback : v;
+  },
+  save(id, value) {
+    const data = read();
+    data.saves = data.saves || {};
+    data.saves[id] = value;
+    write(data);
+  },
   // 更新したら true
   submit(id, score) {
     const data = read();

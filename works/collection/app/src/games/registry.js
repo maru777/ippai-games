@@ -9,6 +9,7 @@ export const GAMES = [
   { id: 'madam-fly', title: 'マダム飛行', desc: '長押しで上昇', tab: 'action', load: () => import('./madam-fly.js') },
   { id: 'beach-volley', title: '砂浜バレー', desc: '3タッチで打ち返す', tab: 'action', load: () => import('./beach-volley.js') },
   { id: 'mari-adventure', title: 'マリさんの冒険', desc: '横スクロール 全3面', tab: 'action', load: () => import('./mari-adventure.js') },
+  { id: 'tree-fort', title: 'ツリー砦', desc: 'ツリーを開放して守る', tab: 'action', load: () => import('./tree-fort.js') },
   { id: 'wall-race', title: 'かべレース', desc: 'CPU・オンライン対戦', tab: 'board', load: () => import('./wall-race.js') },
   { id: 'reversi', title: 'リバーシ', desc: '石を挟んで裏返す', tab: 'board', load: () => import('./reversi.js') },
   { id: 'four', title: '四目並べ', desc: '石を落として4つ並べる', tab: 'board', load: () => import('./four.js') },

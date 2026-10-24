@@ -19,7 +19,8 @@
 - ビルド不要。`works/collection/app/` で `python serve.py`（Windows で .js が text/plain になるのを補正）→ http://localhost:8000
 - ES Modules を使うため、`file://` 直開きでは動かない。
 - 画面は論理 240×320（縦長）。配色は 4 色パレット（`src/core/draw.js` の `C`）。
-- テスト: `node works/collection/tests/rules.test.mjs`（ボードゲーム 3 本のルール・CPU。描画なし）。lint は未整備。検証は構文チェック（`node --check`）とブラウザでの動作確認。
+- テスト: `node works/collection/tests/rules.test.mjs`（ボードゲーム 3 本のルール・CPU。描画なし）。
+  `node works/collection/tests/tree-fort.test.mjs`（ツリー砦のデータ・戦闘・バランス）/ `tree-fort-ui.smoke.mjs`（スキン × 演出の描画の煙テスト）。lint は未整備。検証は構文チェック（`node --check`）とブラウザでの動作確認。
 
 ## ゲーム追加の手順
 1. `src/games/<id>.js` を作り、`export default function create(env)` で

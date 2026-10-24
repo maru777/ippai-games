@@ -13,6 +13,7 @@ export class Input {
     this._pointers = new Map(); // pointerId -> {x, y}
     this.keyAction = false;
     this.pressed = false; // このフレームで押された（1 フレームだけ true）
+    this.released = false; // このフレームで指（ポインタ）を離した（1 フレームだけ true）
     this.keys = new Set();
     this.onFirstGesture = null;
 
@@ -32,7 +33,10 @@ export class Input {
       this.x = p.x;
       this.y = p.y;
     });
-    const up = (e) => { this._pointers.delete(e.pointerId); };
+    const up = (e) => {
+      this._pointers.delete(e.pointerId);
+      this.released = true;
+    };
     canvas.addEventListener('pointerup', up);
     canvas.addEventListener('pointercancel', up);
     window.addEventListener('blur', () => {
@@ -80,5 +84,8 @@ export class Input {
     }
   }
 
-  endFrame() { this.pressed = false; }
+  endFrame() {
+    this.pressed = false;
+    this.released = false;
+  }
 }

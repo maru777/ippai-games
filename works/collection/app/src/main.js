@@ -49,7 +49,8 @@ const TABS = [
 ];
 let menuTab = 'action';
 const tabItems = () => GAMES.filter((it) => it.tab === menuTab);
-const menuRow = (i) => ({ x: 12, y: 70 + i * 33, w: 216, h: 30 });
+// 行の高さ: 7 件までは 33px 刻み、8 件以上は詰めて 1 画面に収める
+const menuRow = (i) => (tabItems().length > 7 ? { x: 12, y: 68 + i * 31, w: 216, h: 28 } : { x: 12, y: 70 + i * 33, w: 216, h: 30 });
 const BTN_RETRY = { x: 30, y: 196, w: 180, h: 30 };
 const BTN_MENU = { x: 30, y: 234, w: 180, h: 30 };
 

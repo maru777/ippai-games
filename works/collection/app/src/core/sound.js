@@ -23,6 +23,23 @@ export const Sound = {
     o.start(t);
     o.stop(t + dur);
   },
+  // 爆発などの雑音（低域だけ通す）
+  noise(dur = 0.2, vol = 0.08, freq = 800) {
+    if (!ctx || muted) return;
+    const n = Math.floor(ctx.sampleRate * dur);
+    const buf = ctx.createBuffer(1, n, ctx.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / n);
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+    const f = ctx.createBiquadFilter();
+    f.type = 'lowpass';
+    f.frequency.value = freq;
+    const g = ctx.createGain();
+    g.gain.value = vol;
+    src.connect(f).connect(g).connect(ctx.destination);
+    src.start();
+  },
   // 下降音（ゲームオーバー）
   fall() {
     if (!ctx || muted) return;
