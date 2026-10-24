@@ -1,7 +1,7 @@
 {
-  "name": "ケータイゲーム集",
-  "short_name": "ケータイゲーム",
-  "description": "2000年代ケータイゲーム風のミニゲーム集",
+  "name": "PLAYPOCKET",
+  "short_name": "PLAYPOCKET",
+  "description": "ポケットに入る遊び場。ケータイゲーム集・対戦・パズルを収録",
   "start_url": "./",
   "scope": "./",
   "display": "fullscreen",

@@ -236,7 +236,7 @@ export function createPortal(opts) {
     // ---- ヘッダー
     g.fillStyle = css(cur.head);
     g.fillRect(0, 0, W, 38);
-    label(g, W0.sub, 8, 3, 7.5, css(cur.onHead, 0.65), 'left');
+    label(g, `PLAYPOCKET  ／  ${W0.sub}`, 8, 3, 7.5, css(cur.onHead, 0.65), 'left');
     label(g, W0.title, 8, 14, 16, css(cur.onHead), 'left');
     // 音のオン/オフ
     rr(g, MUTE.x, MUTE.y, MUTE.w, MUTE.h, r * 0.6);
