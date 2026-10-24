@@ -87,11 +87,14 @@ test('battle: タップ攻撃は近い敵にだけ当たり、クールダウン
   assert.equal(createBattle(computeStats(START_OWNED), seeded(5)).tap(5, 5), false, '敵がいない所は空振り');
 });
 
+// ツリーで解放した武器を Lv1 で装備した状態にする
+const loadoutOf = (st) => Object.entries(st.weapons).filter(([, v]) => v).map(([id]) => ({ id, level: 1 }));
+
 // 強化ごとの到達波（バランス確認）。乱数のばらつきを避けるため複数回の平均で比べる。
 const avgWave = (ids, n = 6) => {
   const st = computeStats(ids);
   let sum = 0;
-  for (let i = 0; i < n; i++) sum += simulate(st, seeded(100 + i)).wave;
+  for (let i = 0; i < n; i++) sum += simulate(st, seeded(100 + i), loadoutOf(st)).wave;
   return sum / n;
 };
 

@@ -1,6 +1,7 @@
 // ツリー砦の描画。スキン（kit）と演出パック（fx: standard / geometry / mandala）の組み合わせで見た目が決まる。
 // 状態は持たない（画面の状態 sc を読んで描くだけ）。論理座標は 240×320（高解像度の canvas に拡大して描く）。
 import { ARENA } from './tree-fort-battle.js';
+import { drawWeaponsUnder, drawWeaponsOver, drawBlades, drawStatus, TAG_COLOR } from './tree-fort-wview.js';
 import { TREE, NODE, UNLOCKS, canBuy, canRefund } from './tree-fort-data.js';
 import { SKINS, EFFECTS, rgba, rr } from './tree-fort-skins.js';
 
@@ -14,7 +15,8 @@ export const MAP_CX = 120;
 export const MAP_CY = MAP.y + MAP.h / 2;
 export const BTN_BUY = { x: 8, y: 288, w: 108, h: 28 };
 export const BTN_GO = { x: 124, y: 288, w: 108, h: 28 };
-export const BTN_SHOP = { x: 154, y: 4, w: 82, h: 22 };
+export const BTN_ARMORY = { x: 112, y: 4, w: 62, h: 22 };
+export const BTN_SHOP = { x: 178, y: 4, w: 58, h: 22 };
 export const BTN_RETREAT = { x: 192, y: 4, w: 44, h: 22 };
 
 // ショップの行の配置（スキン 4 つ + 演出 3 つ）
@@ -127,6 +129,10 @@ export function spawnFx(sc, kind, x, y, color, power = 1) {
     kit.burst(cx, cy, pal, 40, 150, 40);
     if (fx === 'geometry') push({ kind: 'phyllo', x: cx, y: cy, n: 80, R: 100, color: kit.skin.gold, life: 1.4, rot: 0 });
     else if (fx === 'mandala') push({ kind: 'sym', cx, cy, x: cx + 60, y: cy, n: 12, color: kit.skin.gold, life: 1.2 });
+  } else if (kind === 'syn') {
+    kit.burst(x, y, [TAG_COLOR.fire, '#ffffff', kit.skin.gold], 22, 110, 20, kit.skin.part, 2.4);
+    push({ kind: 'ring', x, y, r0: 6, r1: 52, color: kit.skin.gold, lw: 2.5, life: 0.55, shape: fx === 'geometry' ? 'star' : 'circle', n: 8, k: 3 });
+    if (fx === 'mandala') push({ kind: 'sym', cx, cy, x, y, n: 8, color: kit.skin.gold, life: 0.9 });
   } else if (kind === 'muzzle') {
     kit.burst(x, y, [color, '#ffffff'], 2, 60, 0, 'spark', 1.6);
   }
@@ -516,15 +522,16 @@ function drawBoomDisc(g, sc, f) {
     g.arc(f.x, f.y, r * 1.1, 0, TAU);
     g.stroke();
   } else if (sk.boom === 'flat') {
-    g.fillStyle = rgba(sk.gold, 0.35);
+    const tc = TAG_COLOR[f.tag] || sk.gold;
+    g.fillStyle = rgba(tc, 0.35);
     g.beginPath();
     g.arc(f.x, f.y, r, 0, TAU);
     g.fill();
-    g.strokeStyle = sk.gold;
+    g.strokeStyle = tc;
     g.lineWidth = 2;
     g.stroke();
   } else {
-    const c = sk.boom === 'rainbow' ? kit.hue(f.id, 60) : sk.gold;
+    const c = sk.boom === 'rainbow' ? kit.hue(f.id, 60) : (TAG_COLOR[f.tag] || sk.gold);
     const gr = g.createRadialGradient(f.x, f.y, 0, f.x, f.y, r);
     gr.addColorStop(0, '#ffffff');
     gr.addColorStop(0.4, rgba(c, 0.7));
@@ -599,31 +606,15 @@ export function drawBattle(g, sc) {
   g.restore();
 
   drawSceneFx(g, sc);
-  for (const e of b.enemies) drawEnemy(g, kit, e, clock);
-  drawTower(g, sc);
-
-  // 回転刃
-  if (b.blades.length) {
-    for (const bl of b.blades) {
-      const a = Math.atan2(bl.y - cy, bl.x - cx);
-      g.save();
-      const c = kit.c(sk.branch.def, bl.x * 0.05);
-      g.lineCap = 'round';
-      for (let k = 0; k < 6; k++) {
-        g.strokeStyle = rgba(sk.bg === 'wa' ? '#1a1410' : c, 0.5 - k * 0.08);
-        g.lineWidth = 4 - k * 0.5;
-        g.beginPath();
-        g.arc(cx, cy, 26, a - 0.18 * (k + 1), a - 0.18 * k);
-        g.stroke();
-      }
-      kit.glow(g, c, 10);
-      g.fillStyle = sk.bg === 'wa' ? '#1a1410' : '#ffffff';
-      g.beginPath();
-      g.arc(bl.x, bl.y, 3.2, 0, TAU);
-      g.fill();
-      g.restore();
-    }
+  drawWeaponsUnder(g, sc);
+  for (const e of b.enemies) {
+    drawEnemy(g, kit, e, clock);
+    drawStatus(g, sc, e);
   }
+  drawTower(g, sc);
+  drawWeaponsOver(g, sc);
+
+  drawBlades(g, sc);
   // 弾
   for (const s of b.shots) {
     const c = kit.c(sk.me, s.x * 0.05);
@@ -660,7 +651,18 @@ export function drawBattle(g, sc) {
   for (const f of b.fx) {
     if (f.kind === 'boom') drawBoomDisc(g, sc, f);
     else if (f.kind === 'bolt') drawBolt(g, sc, f);
-    else if (f.kind === 'muzzle') {
+    else if (f.kind === 'ring') {
+      const u = f.t / f.life;
+      g.save();
+      g.globalAlpha = Math.max(0, 1 - u);
+      g.strokeStyle = TAG_COLOR[f.tag] || sk.gold;
+      g.lineWidth = 2;
+      if (sk.glow) kit.glow(g, g.strokeStyle, 8);
+      g.beginPath();
+      g.arc(f.x, f.y, f.r * (0.2 + 0.8 * (1 - (1 - u) * (1 - u))), 0, TAU);
+      g.stroke();
+      g.restore();
+    } else if (f.kind === 'muzzle') {
       const u = f.t / f.life;
       g.save();
       g.globalAlpha = 1 - u;
@@ -708,6 +710,14 @@ export function drawBattle(g, sc) {
       const sc2 = 1 + (1 - Math.min(1, u * 6)) * 0.6;
       g.scale(sc2, sc2);
       kit.text(g, label, 0, -14, 26, kit.c(sk.me, 0), 'center', 14);
+      g.restore();
+    } else if (f.kind === 'syn') {
+      const pop = 1 + Math.max(0, 1 - u * 6) * 0.6;
+      g.save();
+      g.globalAlpha = Math.max(0, Math.min(1, (1 - u) * 2));
+      g.translate(Math.max(40, Math.min(W - 40, f.x)), Math.max(60, f.y - 16 - u * 14));
+      g.scale(pop, pop);
+      kit.text(g, `${f.name}！`, 0, -8, 14, kit.c(sk.gold, f.id), 'center', 12);
       g.restore();
     } else if (f.kind === 'clear') {
       g.save();
@@ -951,12 +961,12 @@ export function drawTree(g, sc) {
   g.restore();
 
   // 上のバー: ポイントとショップ
-  kit.panel(g, { x: 4, y: 3, w: 146, h: 24 }, { stroke: sk.gold, glow: sk.gold, blur: 6, radius: 8 });
+  kit.panel(g, { x: 4, y: 3, w: 104, h: 24 }, { stroke: sk.gold, glow: sk.gold, blur: 6, radius: 8 });
   const pts = `${Math.round(sc.shownPts)}`;
   kit.text(g, pts, 12, 7, 15, sk.gold, 'left', 8);
   kit.text(g, 'P', 14 + kit.measure(g, pts, 15), 11, 10, sk.dim);
-  kit.text(g, `ベスト ${sk.id === 'wa' ? `第${save.bestWave}波` : `W${save.bestWave}`}`, 144, 10, 9, sk.dim, 'right');
-  kit.button(g, BTN_SHOP, 'ショップ', { color: sk.op, size: 11 });
+  kit.button(g, BTN_ARMORY, '武器庫', { color: sk.me, size: 11 });
+  kit.button(g, BTN_SHOP, 'ショップ', { color: sk.op, size: 10 });
 
   // 下のパネル
   const n = NODE[sc.sel];

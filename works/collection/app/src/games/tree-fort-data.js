@@ -92,3 +92,9 @@ export function canRefund(owned, id) {
   if (dep) return { ok: false, why: `先に「${dep.name}」を戻す` };
   return { ok: true, why: '' };
 }
+
+// ツリーのノードで解放される武器（Lv1 を無料で得る）
+export const TREE_WEAPON_NODE = { bomb: 'atk5', lightning: 'spd5', blade: 'def5' };
+
+// 武器の現在のレベル。ツリーのノードで解放された武器は、最低でも Lv1。
+export const weaponLevelOf = (owned, levels, id) => Math.max(levels[id] || 0, TREE_WEAPON_NODE[id] && owned.has(TREE_WEAPON_NODE[id]) ? 1 : 0);

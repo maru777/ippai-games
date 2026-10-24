@@ -6,13 +6,17 @@
 // データ: tree-fort-data.js / 戦闘: tree-fort-battle.js / 見た目: tree-fort-skins.js・tree-fort-view.js
 import { inside } from '../core/draw.js';
 import { Store } from '../core/storage.js';
-import { NODE, TREE, START_OWNED, computeStats, canBuy, canRefund } from './tree-fort-data.js';
+import { NODE, TREE, START_OWNED, computeStats, canBuy, canRefund, weaponLevelOf } from './tree-fort-data.js';
+import { WEAPON, WEAPONS, SLOT_BASE, SLOT_MAX, SLOT_COST, MAX_LEVEL, weaponCost } from './tree-fort-weapons.js';
 import { createBattle, ARENA } from './tree-fort-battle.js';
 import { SKINS, EFFECTS, makeKit } from './tree-fort-skins.js';
 import {
-  MAP, NODE_R, BTN_BUY, BTN_GO, BTN_SHOP, BTN_RETREAT, shopLayout, nodeScreenPos,
+  MAP, NODE_R, BTN_BUY, BTN_GO, BTN_SHOP, BTN_ARMORY, BTN_RETREAT, shopLayout, nodeScreenPos,
   drawTree, drawBattle, drawShop, drawResult, spawnFx,
 } from './tree-fort-view.js';
+import {
+  drawArmory, ARM_TABS, ARM_LIST, BTN_ARM_UP, BTN_ARM_EQ, BTN_ARM_BACK, SLOT_STRIP, armoryRows, armoryMaxScroll, armoryItems, slotRect,
+} from './tree-fort-wview.js';
 
 const SAVE_ID = 'tree-fort-save';
 const PAN_LIMIT = 140;
@@ -41,8 +45,20 @@ function loadSave() {
   const fxOwned = new Set(['standard']);
   if (raw && Array.isArray(raw.skinsOwned)) for (const id of raw.skinsOwned) if (SKINS.some((s) => s.id === id)) skinsOwned.add(id);
   if (raw && Array.isArray(raw.fxOwned)) for (const id of raw.fxOwned) if (EFFECTS.some((e) => e.id === id)) fxOwned.add(id);
+  // 武器: レベル・装備・枠。古い保存データ（装備の記録なし）は、解放済みの武器を自動で装備する。
+  const weapons = {};
+  if (raw && raw.weapons && typeof raw.weapons === 'object') {
+    for (const [id, lv] of Object.entries(raw.weapons)) if (WEAPON[id] && Number.isInteger(lv) && lv >= 1 && lv <= MAX_LEVEL) weapons[id] = lv;
+  }
+  const slots = Math.max(SLOT_BASE, Math.min(SLOT_MAX, Math.floor(raw?.slots || SLOT_BASE)));
+  const loadout = raw && Array.isArray(raw.loadout)
+    ? raw.loadout.filter((id, i, a) => WEAPON[id] && a.indexOf(id) === i).slice(0, slots)
+    : WEAPONS.map((w) => w.id).filter((id) => weaponLevelOf(owned, weapons, id) > 0).slice(0, slots);
   return {
     owned,
+    weapons,
+    slots,
+    loadout,
     points: Math.max(0, Math.floor(raw?.points || 0)),
     bestWave: Math.max(0, Math.floor(raw?.bestWave || 0)),
     runs: Math.max(0, Math.floor(raw?.runs || 0)),
@@ -61,14 +77,16 @@ export default function create(env) {
     W, H, clock: 0, t: 0, kit: kitOf('neon'), fx: 'standard', effects: [], shake: 0, flash: { a: 0, col: '#ffffff' },
     combo: { n: 0, t: 0, pop: 0 }, save: null, sel: 'core', pan: { x: 0, y: 0 }, nodePop: {}, shownPts: 0, msg: '', msgT: 0,
     shop: { sel: 'skin:neon', skin: 'neon', fx: 'standard' }, run: null, res: null,
+    armory: { tab: 'weapons', sel: 'bomb', scroll: 0, slotAsk: 0 },
   };
-  let screen, drag, lastFxId, waveScore, lastSnd;
+  let screen, drag, adrag, lastFxId, waveScore, lastSnd;
 
   const persist = () => {
     const s = sc.save;
     Store.save(SAVE_ID, {
       owned: [...s.owned], points: s.points, bestWave: s.bestWave, runs: s.runs,
       skinsOwned: [...s.skinsOwned], fxOwned: [...s.fxOwned], skin: s.skin, fx: s.fx,
+      weapons: s.weapons, loadout: s.loadout, slots: s.slots,
     });
   };
 
@@ -97,6 +115,8 @@ export default function create(env) {
     sc.res = null;
     sc.combo = { n: 0, t: 0, pop: 0 };
     drag = null;
+    adrag = null;
+    sc.armory = { tab: 'weapons', sel: 'bomb', scroll: 0, slotAsk: 0 };
     lastFxId = 0;
     waveScore = 0;
     lastSnd = {};
@@ -161,7 +181,12 @@ export default function create(env) {
   }
 
   function startRun() {
-    sc.run = createBattle(computeStats(sc.save.owned));
+    const sv = sc.save;
+    const loadout = sv.loadout
+      .filter((id) => weaponLevelOf(sv.owned, sv.weapons, id) > 0)
+      .slice(0, sv.slots)
+      .map((id) => ({ id, level: weaponLevelOf(sv.owned, sv.weapons, id) }));
+    sc.run = createBattle(computeStats(sv.owned), Math.random, loadout);
     sc.effects = [];
     sc.combo = { n: 0, t: 0, pop: 0 };
     lastFxId = 0;
@@ -174,6 +199,12 @@ export default function create(env) {
   function onTreeTap(x, y) {
     if (inside(x, y, BTN_GO)) {
       startRun();
+      return;
+    }
+    if (inside(x, y, BTN_ARMORY)) {
+      screen = 'armory';
+      sc.armory.scroll = 0;
+      sound.beep(740, 0.06, 'square', 0.05);
       return;
     }
     if (inside(x, y, BTN_SHOP)) {
@@ -229,6 +260,142 @@ export default function create(env) {
       drag = null; // 離した通知を取りこぼしたとき
     }
     if (input.keyAction && !input.pointerDown) startRun();
+  }
+
+  // ---- 武器庫 ----
+  const wlevel = (id) => weaponLevelOf(sc.save.owned, sc.save.weapons, id);
+
+  function upgradeWeapon(id) {
+    const s = sc.save;
+    const L = wlevel(id);
+    if (L >= MAX_LEVEL) return;
+    const cost = weaponCost(id, L + 1);
+    if (s.points < cost) {
+      say('ポイントが足りません');
+      sound.beep(200, 0.08, 'sawtooth', 0.05);
+      return;
+    }
+    s.points -= cost;
+    s.weapons[id] = L + 1;
+    if (L === 0 && s.loadout.length < s.slots && !s.loadout.includes(id)) {
+      s.loadout.push(id);
+      say(`${WEAPON[id].name}を解放して装備した`);
+    } else if (L === 0) say(`${WEAPON[id].name}を解放（枠がいっぱいなので未装備）`);
+    persist();
+    const col = WEAPON[id].color;
+    sc.kit.burst(120, 150, [col, '#ffffff', sc.kit.skin.gold], 40, 140, 30);
+    spawnFx(sc, 'buy', 120, 150, col);
+    flash(col, 0.16);
+    [660, 880, 1175, 1568].forEach((f, i) => setTimeout(() => sound.beep(f, 0.1, 'sine', 0.05), i * 60));
+  }
+
+  function toggleEquip(id) {
+    const s = sc.save;
+    if (wlevel(id) <= 0) return;
+    const i = s.loadout.indexOf(id);
+    if (i >= 0) s.loadout.splice(i, 1);
+    else if (s.loadout.length >= s.slots) {
+      say('枠がいっぱいです（先に外してください）');
+      sound.beep(200, 0.08, 'sawtooth', 0.05);
+      return;
+    } else s.loadout.push(id);
+    persist();
+    sound.beep(i >= 0 ? 400 : 800, 0.06, 'square', 0.05);
+  }
+
+  function buySlot(i) {
+    const s = sc.save;
+    const a = sc.armory;
+    const cost = SLOT_COST[i + 1];
+    if (a.slotAsk === i + 1 && sc.t - a.slotAskT < 3) {
+      if (s.points < cost) {
+        say('ポイントが足りません');
+        sound.beep(200, 0.08, 'sawtooth', 0.05);
+        return;
+      }
+      s.points -= cost;
+      s.slots++;
+      a.slotAsk = 0;
+      persist();
+      flash(sc.kit.skin.gold, 0.2);
+      sc.kit.burst(slotRect(i).x + 7, slotRect(i).y + 8, [sc.kit.skin.gold, '#ffffff'], 30, 110, 20);
+      [880, 1175, 1568].forEach((f, k) => setTimeout(() => sound.beep(f, 0.1, 'sine', 0.05), k * 60));
+      say(`装備枠が ${s.slots} になった`);
+    } else {
+      a.slotAsk = i + 1;
+      a.slotAskT = sc.t;
+      say(`枠を増やす（${cost} P）もう一度タップで決定`);
+      sound.beep(700, 0.05, 'square', 0.04);
+    }
+  }
+
+  function onArmoryTap(x, y) {
+    const a = sc.armory;
+    const s = sc.save;
+    if (inside(x, y, BTN_ARM_BACK)) {
+      screen = 'tree';
+      sound.beep(500, 0.05, 'square', 0.05);
+      return;
+    }
+    for (const t of ARM_TABS) {
+      if (inside(x, y, t.rect)) {
+        a.tab = t.id;
+        a.sel = armoryItems(t.id)[0].id;
+        a.scroll = 0;
+        sound.beep(600, 0.04, 'sine', 0.04);
+        return;
+      }
+    }
+    if (inside(x, y, SLOT_STRIP)) {
+      for (let i = 0; i < SLOT_MAX; i++) {
+        if (!inside(x, y, slotRect(i))) continue;
+        if (i < s.slots) {
+          if (s.loadout[i]) {
+            s.loadout.splice(i, 1);
+            persist();
+            sound.beep(400, 0.06, 'square', 0.05);
+          }
+        } else if (i === s.slots) buySlot(i);
+        else say('先に手前の枠を増やしてください');
+        return;
+      }
+      return;
+    }
+    if (a.tab === 'weapons') {
+      if (inside(x, y, BTN_ARM_UP)) {
+        upgradeWeapon(a.sel);
+        return;
+      }
+      if (inside(x, y, BTN_ARM_EQ)) {
+        toggleEquip(a.sel);
+        return;
+      }
+    }
+    if (inside(x, y, ARM_LIST)) {
+      for (const row of armoryRows(sc)) {
+        if (inside(x, y, row.rect)) {
+          a.sel = row.id;
+          sound.beep(560, 0.04, 'sine', 0.04);
+          return;
+        }
+      }
+    }
+  }
+
+  // 一覧は上下ドラッグでスクロール、動かさずに離したらタップ
+  function updateArmory(dt) {
+    sc.msgT -= dt;
+    const a = sc.armory;
+    if (input.pressed) adrag = { sx: input.x, sy: input.y, ly: input.y, moved: false, inList: inside(input.x, input.y, ARM_LIST) };
+    if (adrag && input.pointerDown) {
+      if (Math.hypot(input.x - adrag.sx, input.y - adrag.sy) > 6) adrag.moved = true;
+      if (adrag.moved && adrag.inList) a.scroll = Math.max(0, Math.min(armoryMaxScroll(a.tab), a.scroll - (input.y - adrag.ly)));
+      adrag.ly = input.y;
+    }
+    if (adrag && input.released) {
+      if (!adrag.moved) onArmoryTap(adrag.sx, adrag.sy);
+      adrag = null;
+    } else if (adrag && !input.pointerDown) adrag = null;
   }
 
   // ---- ショップ ----
@@ -344,6 +511,12 @@ export default function create(env) {
         spawnFx(sc, 'wave', ARENA.cx, ARENA.cy, sc.kit.c(sk.me, 0));
         flash('#ffffff', 0.18);
         [330, 495, 660].forEach((hz, i) => setTimeout(() => sound.beep(hz, 0.12, 'sine', 0.05), i * 80));
+      } else if (f.kind === 'syn') {
+        spawnFx(sc, 'syn', f.x, f.y, sk.gold);
+        flash(sk.gold, 0.12);
+        snd('syn', 0.3, () => [880, 1320, 1760].forEach((hz, i) => setTimeout(() => sound.beep(hz, 0.09, 'triangle', 0.05), i * 45)));
+      } else if (f.kind === 'ring' && f.tag === 'physical') {
+        sc.shake = Math.max(sc.shake, 2);
       } else if (f.kind === 'clear') {
         spawnFx(sc, 'clear', ARENA.cx, ARENA.cy, sk.gold);
         [784, 988, 1175].forEach((hz, i) => setTimeout(() => sound.beep(hz, 0.1, 'sine', 0.05), i * 60));
@@ -388,12 +561,14 @@ export default function create(env) {
     tick(dt);
     if (screen === 'tree') updateTree(dt);
     else if (screen === 'shop') updateShop(dt);
+    else if (screen === 'armory') updateArmory(dt);
     else if (screen === 'battle') updateBattle(dt);
   }
 
   function draw(g) {
     if (screen === 'battle' && sc.run) drawBattle(g, sc);
     else if (screen === 'shop') drawShop(g, sc);
+    else if (screen === 'armory') drawArmory(g, sc);
     else drawTree(g, sc);
   }
 

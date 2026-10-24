@@ -3,7 +3,9 @@
 import assert from 'node:assert/strict';
 import { Store } from '../app/src/core/storage.js';
 import { SKINS, EFFECTS } from '../app/src/games/tree-fort-skins.js';
-import { BTN_SHOP, BTN_GO, BTN_RETREAT } from '../app/src/games/tree-fort-view.js';
+import { BTN_SHOP, BTN_GO, BTN_RETREAT, BTN_ARMORY } from '../app/src/games/tree-fort-view.js';
+import { ARM_TABS, BTN_ARM_UP, BTN_ARM_EQ, BTN_ARM_BACK, slotRect } from '../app/src/games/tree-fort-wview.js';
+import { WEAPONS } from '../app/src/games/tree-fort-weapons.js';
 import create from '../app/src/games/tree-fort.js';
 
 // どんなメソッド呼び出しも受け付ける偽の 2D コンテキスト
@@ -42,9 +44,14 @@ function frame(game, input, dt, tap) {
 }
 
 let count = 0;
+let combo = 0;
 for (const skin of SKINS) {
   for (const fx of EFFECTS) {
+    // 12 通りのたびに、装備する武器を 6 つずつずらして、全武器の描画を通す
+    const ids = Array.from({ length: 6 }, (_, k) => WEAPONS[(combo * 3 + k) % WEAPONS.length].id);
+    combo++;
     Store.save('tree-fort-save', {
+      weapons: Object.fromEntries(WEAPONS.map((w, i) => [w.id, 1 + (i % 5)])), loadout: ids, slots: 5,
       owned: ['core', 'atk1', 'atk2', 'atk3', 'atk4', 'atk5', 'spd1', 'spd2', 'spd3', 'spd4', 'spd5', 'def1', 'def2', 'def3', 'def4', 'def5', 'eco1', 'eco2', 'eco3', 'eco4'],
       points: 999, bestWave: 3, runs: 2, skinsOwned: SKINS.map((s) => s.id), fxOwned: EFFECTS.map((e) => e.id), skin: skin.id, fx: fx.id,
     });
@@ -57,6 +64,23 @@ for (const skin of SKINS) {
     for (let i = 0; i < 10; i++) frame(game, input, 1 / 60);
     for (const y of [60, 83, 106, 129, 174, 197, 220]) frame(game, input, 1 / 60, { x: 100, y });
     frame(game, input, 1 / 60, { x: BTN_GO.x + 5, y: BTN_GO.y + 5 }); // もどる
+    // 武器庫: タブ・行・強化・装備・枠・もどる
+    frame(game, input, 1 / 60, { x: BTN_ARMORY.x + 5, y: BTN_ARMORY.y + 5 });
+    for (let i = 0; i < 6; i++) frame(game, input, 1 / 60);
+    const mid = (r) => ({ x: r.x + r.w / 2, y: r.y + r.h / 2 });
+    frame(game, input, 1 / 60, mid(ARM_TABS[1].rect));
+    for (const y of [70, 96, 122, 148, 174, 200]) frame(game, input, 1 / 60, { x: 100, y });
+    frame(game, input, 1 / 60, mid(ARM_TABS[0].rect));
+    for (const y of [70, 96, 122, 148, 174, 200]) {
+      frame(game, input, 1 / 60, { x: 100, y });
+      frame(game, input, 1 / 60, mid(BTN_ARM_UP));
+      frame(game, input, 1 / 60, mid(BTN_ARM_EQ));
+    }
+    frame(game, input, 1 / 60, mid(slotRect(5)));
+    frame(game, input, 1 / 60, mid(slotRect(4)));
+    frame(game, input, 1 / 60, mid(slotRect(4)));
+    frame(game, input, 1 / 60, mid(slotRect(0)));
+    frame(game, input, 1 / 60, mid(BTN_ARM_BACK));
     // 戦闘（キー操作で出撃）。手動攻撃のタップも混ぜて 90 秒ぶん進める
     input.keyAction = true;
     frame(game, input, 1 / 60);
