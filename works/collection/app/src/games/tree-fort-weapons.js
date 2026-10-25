@@ -3,7 +3,7 @@
 // 戦闘本体（tree-fort-battle.js）は api（敵・ダメージ・演出の道具）を渡して createWeapons を呼ぶだけ。
 export const SLOT_BASE = 3;
 export const SLOT_MAX = 6;
-export const SLOT_COST = { 4: 120, 5: 300, 6: 600 };
+export const SLOT_COST = { 4: 300, 5: 750, 6: 1500 };
 export const MAX_LEVEL = 5;
 
 // cost[i] = Lv(i+1) にするための費用。levels[i] = Lv(i+1) の効果の説明。

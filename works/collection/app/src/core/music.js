@@ -1,9 +1,11 @@
 // BGM。曲（譜面データ SONGS）と音色（楽器の鳴らし方 TIMBRE）を、チャンネルで組み合わせる。
 //   ポータル: 世界ごとのチャンネル（keitai / versus / puzzle）。ケータイと対戦は同じ曲を別の音色で鳴らす。
-//   ゲーム中: game-<スキン名>（ルーンタワーのスキンごとの曲）。ゲームが bgm を返すと、シェルが切り替える。
+//   ゲーム中: game-<スキン名>（ルーンタワー）。ゲームが bgm を返すと、シェルが切り替える。
+//             これだけは譜面ではなくアンビエント（music-ambient.js の和音の進行 + 旋律を、スキンごとの音色で鳴らす）。
 // 音声ファイルは使わず、WebAudio で鳴らす。同じ bpm のチャンネルへは音量を入れ替えてなめらかにつなぐ。
 // 使い方: Music.start('keitai') / Music.setChannel('puzzle') / Music.stop()。AudioContext は Sound が持つ（最初のタップ後）。
 import { Sound } from './sound.js';
+import { AMBIENT } from './music-ambient.js';
 
 const FADE = 0.6; // 世界の切り替えにかける秒数
 const LOOKAHEAD = 0.18;
@@ -41,73 +43,28 @@ const SONGS = {
     bass: [0, 0, null, 0, 0, null, 7, null],
     drums: { kick: [0, 4], snare: [6], hat: true },
   },
-  // ルーンタワー（ネオン）: 速くて切迫したニ短調
-  neon: {
-    bpm: 140, arpOct: 24,
-    roots: [38, 34, 36, 33, 38, 34, 31, 33],
-    modes: ['m', 'M', 'M', 'M', 'm', 'M', 'm', 'M'],
-    melody: [
-      [74, 0, 77, 0, 81, 0, 77, 74], [70, 0, 74, 0, 77, 0, 74, 70], [72, 0, 76, 0, 79, 0, 76, 72], [69, 0, 73, 0, 76, 0, 81, 0],
-      [74, 0, 77, 0, 81, 0, 84, 81], [70, 0, 74, 0, 77, 0, 82, 77], [67, 0, 70, 0, 74, 0, 79, 74], [69, 73, 76, 81, 76, 73, 69, 0],
-    ],
-    bass: [0, 12, 0, 12, 0, 12, 0, 12],
-    drums: { kick: [0, 3, 4], snare: [2, 6], hat: true },
-  },
-  // ルーンタワー（虹）: 跳ねる、明るくせわしない曲
-  rainbow: {
-    bpm: 132, arpOct: 24,
-    roots: [48, 55, 45, 41, 48, 55, 41, 43],
-    modes: ['M', 'M', 'm', 'M', 'M', 'M', 'M', 'M'],
-    melody: [
-      [79, 0, 84, 0, 83, 79, 76, 0], [74, 0, 79, 0, 83, 0, 79, 74], [76, 0, 81, 0, 84, 81, 76, 0], [77, 0, 81, 0, 84, 0, 81, 77],
-      [79, 76, 79, 84, 88, 84, 79, 0], [79, 83, 86, 83, 79, 74, 0, 0], [77, 81, 84, 81, 77, 0, 81, 0], [79, 83, 86, 0, 83, 0, 79, 0],
-    ],
-    bass: [0, null, 7, null, 0, null, 7, 0],
-    drums: { kick: [0, 4], snare: [2, 6], hat: true },
-  },
-  // ルーンタワー（モダン）: ゆったりしたピアノ風の曲
-  modern: {
-    bpm: 98, arpOct: 12,
-    roots: [41, 40, 45, 38, 41, 43, 45, 48],
-    modes: ['M7', 'm7', 'm7', 'm7', 'M7', 'M', 'm7', 'M7'],
-    melody: [
-      [81, 0, 0, 0, 77, 0, 79, 0], [79, 0, 0, 0, 76, 0, 0, 0], [72, 0, 76, 0, 81, 0, 0, 0], [74, 0, 77, 0, 81, 0, 79, 0],
-      [81, 0, 0, 0, 84, 0, 81, 0], [79, 0, 83, 0, 86, 0, 0, 0], [84, 0, 0, 81, 0, 79, 0, 0], [83, 0, 0, 0, 79, 0, 0, 0],
-    ],
-    bass: [0, null, null, null, 7, null, null, null],
-    drums: { kick: [0, 4], snare: [], hat: true },
-  },
-  // ルーンタワー（和）: 都節（ミ・ファ・ラ・シ・ド）の、琴と尺八の曲
-  wa: {
-    bpm: 88, arpOct: 24,
-    roots: [40, 41, 40, 45, 40, 41, 45, 40],
-    modes: ['s', 'M', 's', 'm', 's', 'M', 'm', 's'],
-    melody: [
-      [76, 0, 0, 0, 77, 0, 76, 0], [77, 0, 0, 81, 0, 0, 77, 0], [76, 0, 0, 0, 71, 0, 72, 0], [81, 0, 0, 0, 83, 0, 81, 0],
-      [84, 0, 0, 83, 0, 81, 0, 0], [81, 0, 77, 0, 0, 0, 76, 0], [81, 0, 0, 0, 83, 0, 84, 0], [83, 0, 0, 81, 0, 0, 76, 0],
-    ],
-    bass: [0, null, null, null, null, null, 0, null],
-    drums: { kick: [0], snare: [4], hat: false },
-  },
 };
 
-// チャンネル = 曲 + 音色 + 音量。ポータルは世界ごと、ゲーム中は game-<スキン名>。
+// チャンネル = 曲 + 音色 + 音量。ポータルは世界ごと、ゲーム中は game-<スキン名>（ambient = アンビエントの種類）。
 const CHANNELS = {
   keitai: { song: 'pop', timbre: 'keitai', vol: 1 },
   versus: { song: 'pop', timbre: 'versus', vol: 1 },
   puzzle: { song: 'dusk', timbre: 'puzzle', vol: 1 },
-  'game-neon': { song: 'neon', timbre: 'puzzle', vol: 0.6 },
-  'game-rainbow': { song: 'rainbow', timbre: 'rainbow', vol: 0.6 },
-  'game-modern': { song: 'modern', timbre: 'modern', vol: 0.6 },
-  'game-wa': { song: 'wa', timbre: 'wa', vol: 0.6 },
+  'game-neon': { ambient: 'neon', vol: 0.7 },
+  'game-rainbow': { ambient: 'rainbow', vol: 0.7 },
+  'game-modern': { ambient: 'modern', vol: 0.7 },
+  'game-wa': { ambient: 'wa', vol: 0.7 },
 };
-const ECHO = new Set(['puzzle', 'rainbow']);
-const stepOf = (ch) => 60 / SONGS[CHANNELS[ch].song].bpm / 2;
+const ECHO = new Set(['puzzle']);
+const isAmb = (ch) => !!CHANNELS[ch].ambient;
+const stepOf = (ch) => (isAmb(ch) ? 0 : 60 / SONGS[CHANNELS[ch].song].bpm / 2);
 
 let ctx = null;
 let master = null;
 let buses = null; // チャンネル名 → GainNode
 let noiseBuf = null;
+let ambReverb = null;
+let amb = null; // 鳴っているアンビエント { id, bus, noiseSrc, breath, next, idx }
 let timer = 0;
 let nextT = 0;
 let step = 0;
@@ -208,51 +165,6 @@ const TIMBRE = {
     snare: (o, t) => noise(o, t, 0.2, 0.05, 1500, 7000),
     hat: (o, t) => noise(o, t, 0.03, 0.014, 8000, 12000),
   },
-  // 虹: 鈴のような明るい弾き音
-  rainbow: {
-    lead: (o, f, t, d) => {
-      tone(o, 'triangle', f, t, d * 1.2, 0.06);
-      tone(o, 'sine', f * 2, t, d * 0.6, 0.02);
-      tone(o, 'sine', f * 3, t, d * 0.3, 0.008);
-    },
-    arp: (o, f, t, d) => tone(o, 'sine', f, t, Math.min(d, 0.14), 0.03),
-    bass: (o, f, t, d) => tone(o, 'triangle', f, t, d, 0.14),
-    kick: (o, t) => tone(o, 'sine', 130, t, 0.12, 0.2, { slideTo: 45 }),
-    snare: (o, t) => noise(o, t, 0.09, 0.05, 2000),
-    hat: (o, t) => noise(o, t, 0.03, 0.02, 9000),
-  },
-  // モダン: ピアノ風のやわらかい音と、長い余韻
-  modern: {
-    lead: (o, f, t, d) => {
-      tone(o, 'triangle', f, t, d * 2.4, 0.06, { attack: 0.006 });
-      tone(o, 'sine', f * 2, t, d * 1.2, 0.012, { attack: 0.006 });
-    },
-    arp: (o, f, t, d) => tone(o, 'sine', f, t, d * 1.6, 0.03, { attack: 0.008 }),
-    bass: (o, f, t, d) => tone(o, 'sine', f, t, d * 2, 0.15, { attack: 0.01 }),
-    pad: (o, notes, t, d) => notes.forEach((n) => tone(o, 'sine', mtof(n), t, d, 0.02, { attack: 0.5 })),
-    kick: (o, t) => tone(o, 'sine', 90, t, 0.2, 0.14, { slideTo: 45 }),
-    snare: NONE,
-    hat: (o, t) => noise(o, t, 0.05, 0.008, 8000),
-  },
-  // 和: 尺八風の息の混じる笛、琴の撥弾き、太鼓
-  wa: {
-    lead: (o, f, t, d) => {
-      tone(o, 'sine', f, t, d * 2.2, 0.06, { attack: 0.06 });
-      tone(o, 'triangle', f, t, d * 1.6, 0.015, { attack: 0.08 });
-      noise(o, t, d * 1.6, 0.012, 2500, 6000);
-    },
-    arp: (o, f, t) => {
-      tone(o, 'triangle', f, t, 0.28, 0.05, { lp: 3500, lpTo: 900 });
-      noise(o, t, 0.02, 0.02, 4000);
-    },
-    bass: (o, f, t, d) => tone(o, 'sine', f, t, d * 2.4, 0.14, { attack: 0.02 }),
-    kick: (o, t) => {
-      tone(o, 'sine', 100, t, 0.32, 0.26, { slideTo: 42 });
-      noise(o, t, 0.1, 0.05, 0, 300);
-    },
-    snare: (o, t) => noise(o, t, 0.09, 0.06, 800, 3000),
-    hat: NONE,
-  },
 };
 
 function playStep(i, t) {
@@ -279,8 +191,159 @@ function playStep(i, t) {
   }
 }
 
+// ---- アンビエント（game-<スキン名>）。和音を 1 つずつ重ねて鳴らし、その上に旋律を置く ----
+function ambEnv(g, t, vol, att, hold, rel) {
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.linearRampToValueAtTime(vol, t + att);
+  g.gain.setValueAtTime(vol, t + hold);
+  g.gain.linearRampToValueAtTime(0.0001, t + hold + rel);
+}
+
+function ambPad(sp, t, c) {
+  const p = sp.pad;
+  const len = sp.dur + p.rel;
+  const lp = ctx.createBiquadFilter();
+  lp.type = 'lowpass';
+  lp.frequency.value = p.lp;
+  lp.Q.value = 0.4;
+  const lfo = ctx.createOscillator();
+  lfo.frequency.value = 0.05 + Math.random() * 0.05;
+  const lg = ctx.createGain();
+  lg.gain.value = p.lpMove;
+  lfo.connect(lg);
+  lg.connect(lp.frequency);
+  lfo.start(t);
+  lfo.stop(t + len + 0.2);
+  lp.connect(amb.bus);
+  c.up.forEach((m, k) => {
+    const f0 = mtof(m);
+    (p.octave && k % 2 === 0 ? [f0, f0 * 2] : [f0]).forEach((f, j) => {
+      p.types.forEach((type, q) => {
+        const o = ctx.createOscillator();
+        o.type = type;
+        o.frequency.value = f;
+        o.detune.value = (q ? 1 : -1) * p.detune * (0.6 + Math.random() * 0.6);
+        const g = ctx.createGain();
+        ambEnv(g, t, p.gain * (j ? 0.45 : 1), p.att, sp.dur, p.rel);
+        o.connect(g);
+        g.connect(lp);
+        o.start(t);
+        o.stop(t + len + 0.1);
+      });
+    });
+  });
+  // 低音: 和音の根音をゆっくり
+  const bo = ctx.createOscillator();
+  bo.type = 'sine';
+  bo.frequency.value = mtof(c.bass);
+  const bg = ctx.createGain();
+  ambEnv(bg, t, 0.1, 0.8, sp.dur - 0.5, 1.2);
+  bo.connect(bg);
+  bg.connect(amb.bus);
+  bo.start(t);
+  bo.stop(t + sp.dur + 1.5);
+  if (amb.breath) amb.breath.frequency.setTargetAtTime(mtof(c.up[2] + 12), t, 1.5);
+}
+
+// 旋律の 1 音（スキンごとの音色）
+function ambNote(sp, t, m) {
+  const f = mtof(m);
+  const k = sp.mel;
+  const out = amb.bus;
+  const hit = (type, freq, vol, dec, at = 0.01) => {
+    const o = ctx.createOscillator();
+    o.type = type;
+    o.frequency.value = freq;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.linearRampToValueAtTime(vol * k, t + at);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + at + dec);
+    o.connect(g);
+    g.connect(out);
+    o.start(t);
+    o.stop(t + at + dec + 0.1);
+  };
+  if (sp.voice === 'glass') {
+    hit('sine', f, 0.06, 3.2, 0.03);
+    hit('sine', f * 2.01, 0.018, 2, 0.03);
+  } else if (sp.voice === 'bell') {
+    hit('sine', f, 0.055, 3.6, 0.005);
+    hit('sine', f * 2.76, 0.02, 1.8, 0.005);
+    hit('sine', f * 5.4, 0.008, 0.9, 0.005);
+  } else if (sp.voice === 'epiano') {
+    hit('sine', f, 0.07, 2.8, 0.01);
+    hit('sine', f * 2, 0.024, 1.4, 0.01);
+    hit('triangle', f * 3, 0.008, 0.5, 0.005);
+  } else {
+    // 琴: 撥弦の短い雑音 + 減衰する音
+    hit('triangle', f, 0.075, 1.8, 0.004);
+    hit('sine', f * 2, 0.02, 1, 0.004);
+    noise(out, t, 0.05, 0.06 * k, f * 1.5, f * 3);
+  }
+}
+
+function ambStart(ch) {
+  if (amb) ambStop(true);
+  const sp = AMBIENT[CHANNELS[ch].ambient];
+  const now = ctx.currentTime;
+  const bus = ctx.createGain();
+  bus.gain.value = 0;
+  bus.gain.setTargetAtTime(CHANNELS[ch].vol, now, 0.8);
+  bus.connect(master);
+  const send = ctx.createGain();
+  send.gain.value = 1;
+  bus.connect(send);
+  send.connect(ambReverb);
+  // 息のようなノイズ（絶えず薄く鳴る）。和は和音に合わせて息の高さを変える
+  const src = ctx.createBufferSource();
+  src.buffer = noiseBuf;
+  src.loop = true;
+  const nf = ctx.createBiquadFilter();
+  nf.type = 'bandpass';
+  nf.frequency.value = sp.noise.f;
+  nf.Q.value = sp.noise.q;
+  const ng = ctx.createGain();
+  ng.gain.value = sp.noise.g;
+  src.connect(nf);
+  nf.connect(ng);
+  ng.connect(bus);
+  src.start(now);
+  amb = { id: ch, sp, bus, send, noiseSrc: src, breath: sp.noise.breath ? nf : null, next: now + 0.1, idx: 0 };
+}
+
+function ambStop(quick) {
+  if (!amb) return;
+  const a = amb;
+  amb = null;
+  const now = ctx.currentTime;
+  a.bus.gain.cancelScheduledValues(now);
+  a.bus.gain.setTargetAtTime(0, now, quick ? 0.2 : 0.6);
+  setTimeout(() => {
+    try { a.noiseSrc.stop(ctx.currentTime); } catch (e) { /* すでに止まっている */ }
+    a.bus.disconnect();
+    a.send.disconnect();
+  }, 3000);
+}
+
+function ambTick() {
+  if (!amb) return;
+  const { sp } = amb;
+  if (amb.next < ctx.currentTime - 0.5) amb.next = ctx.currentTime + 0.05; // 長く止まっていたら仕切り直す
+  while (amb.next < ctx.currentTime + 1.5) {
+    const c = sp.chords[amb.idx % sp.chords.length];
+    ambPad(sp, amb.next, c);
+    c.mel.forEach((m, i) => { if (m) ambNote(sp, amb.next + (i * sp.dur) / 4, m); });
+    amb.next += sp.dur;
+    amb.idx++;
+  }
+}
+
 function tick() {
   if (!ctx) return;
+  if (isAmb(channel)) {
+    ambTick();
+    return;
+  }
   while (nextT < ctx.currentTime + LOOKAHEAD) {
     if (nextT < ctx.currentTime - 0.5) nextT = ctx.currentTime + 0.05; // 長く止まっていたら追いつかず仕切り直す
     playStep(step, nextT);
@@ -309,13 +372,25 @@ function build() {
   const rv = ctx.createGain();
   rv.gain.value = 0.9;
   reverb.connect(rv).connect(master);
+  // アンビエント用: 4.5 秒の長い残響
+  ambReverb = ctx.createConvolver();
+  const alen = Math.floor(ctx.sampleRate * 4.5);
+  const air = ctx.createBuffer(2, alen, ctx.sampleRate);
+  for (let c = 0; c < 2; c++) {
+    const ch = air.getChannelData(c);
+    for (let i = 0; i < alen; i++) ch[i] = (Math.random() * 2 - 1) * (1 - i / alen) ** 2.6;
+  }
+  ambReverb.buffer = air;
+  const awet = ctx.createGain();
+  awet.gain.value = 0.5;
+  ambReverb.connect(awet).connect(master);
   buses = {};
   for (const ch of Object.keys(CHANNELS)) {
     const g = ctx.createGain();
     g.gain.value = 0;
     g.connect(master);
     // ネオン・虹のチャンネルだけ、フィードバック付きのエコーを通す
-    if (ECHO.has(ch) || ch === 'game-neon' || ch === 'game-rainbow') {
+    if (ECHO.has(ch)) {
       const dly = ctx.createDelay(1);
       dly.delayTime.value = stepOf(ch) * 3;
       const fb = ctx.createGain();
@@ -326,8 +401,8 @@ function build() {
       dly.connect(fb).connect(dly);
       dly.connect(wet).connect(master);
     }
-    // ケータイ以外には、やわらかい残響を足す（8bit らしさを薄める）
-    if (ch !== 'keitai') {
+    // ケータイ以外には、やわらかい残響を足す（8bit らしさを薄める）。アンビエントは専用の長い残響を使う
+    if (ch !== 'keitai' && !isAmb(ch)) {
       const send = ctx.createGain();
       send.gain.value = 0.28;
       g.connect(send);
@@ -356,14 +431,15 @@ export const Music = {
       return true;
     }
     channel = ch;
-    stepDur = stepOf(ch);
     const now = ctx.currentTime;
     running = true;
+    if (isAmb(ch)) ambStart(ch);
+    else stepDur = stepOf(ch);
     nextT = now + 0.08;
     step = 0;
     clearInterval(timer);
     timer = setInterval(tick, 50);
-    for (const k of Object.keys(buses)) buses[k].gain.setTargetAtTime(k === ch ? CHANNELS[k].vol : 0, now, 0.05);
+    for (const k of Object.keys(buses)) buses[k].gain.setTargetAtTime(k === ch && !isAmb(ch) ? CHANNELS[k].vol : 0, now, 0.05);
     master.gain.setTargetAtTime(muted ? 0 : 0.8, now, 0.3);
     return true;
   },
@@ -374,6 +450,23 @@ export const Music = {
     channel = ch;
     if (!running) return;
     const now = ctx.currentTime;
+    if (isAmb(prev)) ambStop();
+    if (isAmb(ch)) {
+      if (!isAmb(prev)) {
+        until[prev] = 0;
+        buses[prev].gain.setTargetAtTime(0, now, 0.2);
+      }
+      ambStart(ch);
+      return;
+    }
+    if (isAmb(prev)) {
+      // アンビエントから譜面の曲へ: 頭から始める
+      stepDur = stepOf(ch);
+      nextT = now + 0.3;
+      step = 0;
+      buses[ch].gain.setTargetAtTime(CHANNELS[ch].vol, now + 0.25, 0.1);
+      return;
+    }
     if (stepOf(prev) === stepOf(ch)) {
       until[prev] = now + FADE * 3;
       buses[prev].gain.setTargetAtTime(0, now, FADE / 3);
@@ -393,6 +486,7 @@ export const Music = {
     running = false;
     const now = ctx.currentTime;
     master.gain.setTargetAtTime(0, now, 0.15);
+    ambStop(true);
     const t = timer;
     setTimeout(() => {
       if (!running && t === timer) clearInterval(timer);

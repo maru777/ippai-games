@@ -29,7 +29,9 @@ export const UNLOCKS = {
   blade: { name: '回転刃', desc: '砦の周りを回って近づく敵を斬る' },
 };
 
-export const TREE = [
+// ツリーの値段の倍率（獲得ポイントはそのままで、買い物を重くする）
+const COST_MUL = 2.5;
+const TREE_BASE = [
   { id: 'core', name: '砦の核', desc: 'ここから枝が伸びる', cost: 0, gx: 0, gy: 0, req: [], mark: '核' },
 
   // 上: 攻撃
@@ -68,6 +70,7 @@ export const TREE = [
   { id: 'grw5', name: '経験値 II', desc: '経験値 +35%', cost: 220, gx: 5, gy: 5, req: ['grw4'], fx: { xpMul: 0.35 }, mark: '経' },
 ];
 
+export const TREE = TREE_BASE.map((n) => ({ ...n, cost: Math.round((n.cost * COST_MUL) / 5) * 5 }));
 export const NODE = Object.fromEntries(TREE.map((n) => [n.id, n]));
 
 export const START_OWNED = ['core'];

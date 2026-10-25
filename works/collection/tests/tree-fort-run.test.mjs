@@ -236,4 +236,17 @@ test('pierce: 貫通弾は敵を貫き、貫いた瞬間の演出（pierce）が
   assert.ok(n > 3, `貫通の演出が少ない（${n}）`);
 });
 
+test('選択画面: 強化は「現在 → 新しい値」を示し、選ぶと取得の一言（toast）が出る', () => {
+  let stat;
+  for (let i = 1; i < 40 && !stat; i++) stat = makeOptions(ctx({ rng: seeded(i), loadout: [{ id: 'bomb', level: 5 }], discovered: new Set(ALL) })).find((o) => o.kind === 'stat');
+  assert.ok(stat, '強化の選択肢が出ない');
+  assert.match(stat.note, /^現在 [\d.]+ → [\d.]+$/);
+  const sim = createBattle(BASE, seeded(5), { leveling: true, slots: 3, discovered: new Set(ALL) });
+  sim.b.grantLevel();
+  assert.ok(sim.b.options);
+  sim.pick(0);
+  assert.ok(sim.b.toast && sim.b.toast.title.includes('手に入れた'), '取得の一言が出ない');
+  assert.ok(sim.b.toast.icon, 'アイコンの鍵がない');
+});
+
 console.log(`\n${passed} 件すべて成功`);

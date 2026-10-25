@@ -7,6 +7,7 @@ import { WEAPONS, WEAPON, SYNERGIES, SYNERGY, SLOT_MAX, MAX_LEVEL } from './tree
 import { STAGE_COUNT } from './tree-fort-battle.js';
 import { rgba, rr } from './tree-fort-skins.js';
 import { TAG_NAME } from './tree-fort-wview.js';
+import { drawIcon } from './tree-fort-icons.js';
 
 const TAU = Math.PI * 2;
 
@@ -148,14 +149,11 @@ function card(g, kit, r, c, o = {}) {
   const sel = o.sel;
   kit.panel(g, r, { stroke: c.color || sk.line, glow: c.color || null, blur: sel ? 14 : 8, radius: 8, lw: sel ? 2 : 1.3 });
   g.save();
-  if (sk.glow) kit.glow(g, c.color, 8);
-  g.fillStyle = c.color;
-  g.beginPath();
-  g.arc(r.x + 14, r.y + 15, 5.5, 0, TAU);
-  g.fill();
+  if (sk.glow) kit.glow(g, c.color, 6);
+  drawIcon(g, c.icon, r.x + 22, r.y + r.h / 2, r.h >= 50 ? 30 : 26, c.color);
   g.restore();
-  kit.text(g, c.name, r.x + 28, r.y + 7, 13, sk.text, 'left', 0);
-  if (c.tag) kit.text(g, c.tag, r.x + r.w - 8, r.y + 9, 9, c.tagColor || sk.gold, 'right', c.star ? 6 : 0);
+  kit.text(g, c.name, r.x + 42, r.y + (r.h >= 50 ? 7 : 4), 13, sk.text, 'left', 0);
+  if (c.tag) kit.text(g, c.tag, r.x + r.w - 8, r.y + (r.h >= 50 ? 9 : 6), 9, c.tagColor || sk.gold, 'right', c.star ? 6 : 0);
 }
 
 export function drawChoice(g, sc, kind) {
@@ -177,10 +175,13 @@ export function drawChoice(g, sc, kind) {
     const rects = cardRects(b.options.length);
     b.options.forEach((o, i) => {
       const r = rects[i];
-      const tag = o.kind === 'weapon-new' ? (o.star ? '★ 相性◎  NEW' : o.label) : o.label;
-      card(g, kit, r, { name: o.name, color: o.color, tag, tagColor: o.star ? sk.gold : sk.dim, star: o.star });
-      kit.text(g, o.kind === 'weapon-up' ? `${o.label}：${o.desc}` : o.desc, r.x + 28, r.y + 26, 9.5, sk.dim);
-      if (o.unknown) kit.text(g, '選ぶと正体が分かる', r.x + 28, r.y + r.h - 14, 8.5, rgba(sk.gold, 0.9));
+      const tag = { 'weapon-new': o.unknown ? '武器 NEW?' : '武器 NEW', 'weapon-up': '武器 強化', stat: '能力', heal: '回復' }[o.kind] || o.label;
+      const icon = o.unknown ? 'unknown' : o.kind === 'heal' ? 'heal' : o.id;
+      card(g, kit, r, { name: o.name, color: o.color, icon, tag, tagColor: o.star ? sk.gold : sk.dim, star: o.star });
+      const tight = r.h < 50;
+      kit.text(g, o.kind === 'weapon-up' ? `${o.label}：${o.desc}` : o.desc, r.x + 42, r.y + (tight ? 19 : 25), 10, sk.text);
+      const note = o.note || '';
+      if (note) kit.text(g, note, r.x + 42, r.y + (tight ? 32 : 40), 9, o.star || o.unknown ? rgba(sk.gold, 0.95) : sk.dim);
       kit.text(g, `${i + 1}`, r.x + r.w - 8, r.y + r.h - 14, 8, rgba(sk.dim, 0.7), 'right');
     });
     kit.button(g, BTN_REROLL, `選び直し（残り ${b.rerolls}）`, { on: b.rerolls > 0, color: sk.op, size: 11 });
@@ -190,8 +191,8 @@ export function drawChoice(g, sc, kind) {
     const rects = cardRects(b.relicOpts.length);
     b.relicOpts.forEach((r0, i) => {
       const r = rects[i];
-      card(g, kit, r, { name: r0.name, color: r0.color, tag: '遺物', tagColor: sk.gold });
-      kit.text(g, r0.desc, r.x + 28, r.y + 26, 9.5, sk.dim);
+      card(g, kit, r, { name: r0.name, color: r0.color, icon: 'relic', tag: '遺物', tagColor: sk.gold });
+      kit.text(g, r0.desc, r.x + 42, r.y + 26, 9.5, sk.text);
     });
   } else {
     kit.text(g, '契約', W / 2, 20 + oy, 22, kit.c(sk.bad, 3), 'center', 14);
@@ -199,9 +200,9 @@ export function drawChoice(g, sc, kind) {
     const rects = cardRects(3);
     b.event.options.forEach((c, i) => {
       const r = rects[i];
-      card(g, kit, r, { name: c.name, color: c.color, tag: '契約', tagColor: sk.dim });
-      kit.text(g, `代償: ${c.give}`, r.x + 28, r.y + 25, 9, sk.bad);
-      kit.text(g, `報酬: ${c.get}`, r.x + 28, r.y + 38, 9, sk.branch.eco);
+      card(g, kit, r, { name: c.name, color: c.color, icon: 'contract', tag: '契約', tagColor: sk.dim });
+      kit.text(g, `代償: ${c.give}`, r.x + 42, r.y + 25, 9, sk.bad);
+      kit.text(g, `報酬: ${c.get}`, r.x + 42, r.y + 38, 9, sk.branch.eco);
     });
     const r = rects[2];
     kit.panel(g, r, { stroke: sk.dim, radius: 8 });
@@ -219,7 +220,26 @@ export function drawChoice(g, sc, kind) {
 // ---------------------------------------------------------------------------------------------
 // 戦闘の HUD（経験値・持っている武器・倍速・オーバードライブ・ボスの体力・特色）
 export const BTN_SPEED = { x: 198, y: 288, w: 36, h: 22 };
-export const BTN_OD = { x: 6, y: 288, w: 80, h: 22 };
+export const BTN_OD = { x: 6, y: 288, w: 84, h: 22 };
+
+// HUD の武器・遺物アイコンの位置（描画とタップ判定で共通）。タップすると、その説明が出る。
+export function hudIcons(b) {
+  const out = [];
+  b.loadout.forEach((w, i) => out.push({ kind: 'weapon', id: w.id, level: w.level, x: 94 + i * 17, y: 289 + DH, w: 16, h: 16 }));
+  b.relics.forEach((id, i) => out.push({ kind: 'relic', id, x: 94 + i * 12, y: 307 + DH, w: 11, h: 11 }));
+  return out;
+}
+// タップした位置に HUD のアイコンがあれば、その説明（toast の形）を返す
+export function hudToast(b, x, y) {
+  const hit = hudIcons(b).find((r) => x >= r.x - 2 && x <= r.x + r.w + 2 && y >= r.y - 2 && y <= r.y + r.h + 2);
+  if (!hit) return null;
+  if (hit.kind === 'relic') {
+    const r = RELIC[hit.id];
+    return { icon: 'relic', title: `遺物「${r.name}」`, sub: r.desc, color: r.color, t: 4 };
+  }
+  const def = WEAPON[hit.id];
+  return { icon: hit.id, title: `${def.name} Lv${hit.level}`, sub: def.levels[hit.level - 1], color: def.color, t: 4 };
+}
 
 export function drawBattleHud(g, sc) {
   const { kit, W, clock } = sc;
@@ -257,28 +277,21 @@ export function drawBattleHud(g, sc) {
   g.fillStyle = kit.c(sk.me, 5);
   g.fill();
   g.restore();
-  kit.text(g, `Lv ${b.level}`, 8, 285 + D, 9, sk.text, 'left', 3);
+  kit.text(g, `Lv ${b.level}　EXP ${Math.floor(b.xp)}/${b.xpNeed}`, 8, 276 + D, 9, sk.text, 'left', 3);
 
-  // 持っている武器
-  b.loadout.forEach((w, i) => {
-    const x = 92 + i * 17;
-    const def = WEAPON[w.id];
-    g.save();
-    if (sk.glow) kit.glow(g, def.color, 6);
-    rr(g, x, 289 + D, 15, 15, 3);
-    g.fillStyle = rgba(def.color, 0.85);
-    g.fill();
-    g.restore();
-    kit.text(g, `${w.level}`, x + 7.5, 291 + D, 10, '#06081a', 'center');
-  });
-  // 遺物
-  b.relics.forEach((id, i) => {
-    const r = RELIC[id];
-    g.fillStyle = r.color;
-    g.beginPath();
-    g.arc(94 + i * 8, 309 + D, 2.6, 0, TAU);
-    g.fill();
-  });
+  // 持っている武器（アイコン + レベル）と遺物。タップで説明
+  for (const r of hudIcons(b)) {
+    if (r.kind === 'weapon') {
+      const def = WEAPON[r.id];
+      g.save();
+      if (sk.glow) kit.glow(g, def.color, 5);
+      drawIcon(g, r.id, r.x + 8, r.y + 8, 17, def.color, 1.9);
+      g.restore();
+      kit.text(g, `${r.level}`, r.x + 15, r.y + 8, 8, sk.text, 'right', 3);
+    } else {
+      drawIcon(g, 'relic', r.x + 5.5, r.y + 5.5, 11, RELIC[r.id].color, 2);
+    }
+  }
 
   // オーバードライブ
   const od = b.od;
@@ -293,7 +306,7 @@ export function drawBattleHud(g, sc) {
     g.fillStyle = kit.c(sk.gold, clock * 3);
     g.fill();
     g.restore();
-    kit.text(g, 'OVERDRIVE', BTN_OD.x + BTN_OD.w / 2, BTN_OD.y + 6, 10, '#06081a', 'center');
+    kit.text(g, `OD 強化中 ${Math.ceil(od.active)}秒`, BTN_OD.x + BTN_OD.w / 2, BTN_OD.y + 6, 9, '#06081a', 'center');
   } else if (ready) {
     const pulse = 0.5 + 0.5 * Math.sin(clock * 8);
     g.save();
@@ -303,7 +316,7 @@ export function drawBattleHud(g, sc) {
     rr(g, BTN_OD.x - 2, BTN_OD.y - 2, BTN_OD.w + 4, BTN_OD.h + 4, 8);
     g.stroke();
     g.restore();
-    kit.button(g, BTN_OD, 'OVERDRIVE!', { color: sk.gold, size: 10, active: true });
+    kit.button(g, BTN_OD, 'OD 発動！タップ', { color: sk.gold, size: 9, active: true });
   } else {
     g.save();
     rr(g, BTN_OD.x, BTN_OD.y, BTN_OD.w, BTN_OD.h, 6);
@@ -317,7 +330,20 @@ export function drawBattleHud(g, sc) {
     rr(g, BTN_OD.x, BTN_OD.y, BTN_OD.w, BTN_OD.h, 6);
     g.stroke();
     g.restore();
-    kit.text(g, `OD ${Math.floor(od.gauge)}%`, BTN_OD.x + BTN_OD.w / 2, BTN_OD.y + 6, 10, sk.dim, 'center');
+    kit.text(g, `OD 充電 ${Math.floor(od.gauge)}%`, BTN_OD.x + BTN_OD.w / 2, BTN_OD.y + 6, 9, sk.dim, 'center');
+  }
+  // 取得したものの一言（武器・強化・遺物・契約・OD）
+  if (b.toast) {
+    const t = b.toast;
+    const a = Math.min(1, t.t * 3);
+    const r = { x: 10, y: 236 + D, w: W - 20, h: 32 };
+    g.save();
+    g.globalAlpha = a;
+    kit.panel(g, r, { stroke: t.color, glow: t.color, blur: 8, radius: 8, lw: 1.3 });
+    drawIcon(g, t.icon, r.x + 18, r.y + r.h / 2, 22, t.color);
+    kit.text(g, t.title, r.x + 36, r.y + 4, 11, sk.text, 'left', 0);
+    kit.text(g, t.sub, r.x + 36, r.y + 18, 8.5, sk.dim, 'left', 0);
+    g.restore();
   }
   // 倍速
   kit.button(g, BTN_SPEED, `×${sc.save.speed}`, { color: sk.me, size: 12, active: sc.save.speed > 1 });
