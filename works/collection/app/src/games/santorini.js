@@ -42,8 +42,9 @@ function dome(g, x, y, k = 1) {
 function makeSpec(env) {
   const { sound } = env;
   let fx = { move: null, build: null };
+  let preview = null; // 行き先を選んで仮置きした作業員の位置
 
-  return {
+  const spec = {
     id: 'santorini',
     en: 'SANTORINI',
     jp: 'ぽんとりーに',
@@ -58,6 +59,7 @@ function makeSpec(env) {
     newUi: () => ({ w: null, to: null }),
     reset() {
       fx = { move: null, build: null };
+      preview = null;
     },
     onPress(c, x, y) {
       const gx = Math.floor((x - X0) / CELL);
@@ -91,8 +93,10 @@ function makeSpec(env) {
     },
     onApplied(c, prev, next) {
       const l = next.last;
-      fx.move = { who: l.who, w: l.w, from: l.from, to: { x: l.x, y: l.y }, t: 0 };
-      if (l.bx >= 0) fx.build = { x: l.bx, y: l.by, t: -MOVE_T };
+      const shown = preview && preview.x === l.x && preview.y === l.y; // 仮置きで見せたなら、動きは付けない
+      preview = null;
+      fx.move = shown ? null : { who: l.who, w: l.w, from: l.from, to: { x: l.x, y: l.y }, t: 0 };
+      if (l.bx >= 0) fx.build = { x: l.bx, y: l.by, t: shown ? 0 : -MOVE_T };
       sound.beep(l.bx >= 0 ? 360 : 880, 0.07, 'triangle', 0.07);
     },
     tick(c, dt) {
@@ -172,6 +176,14 @@ function makeSpec(env) {
       }
     },
   };
+  // 行き先を選んで仮置きしたコマは、確定したとき同じ動きをもう一度アニメーションしない（二度動いて見えるため）
+  const inner = spec.onPress;
+  spec.onPress = (c, x, y) => {
+    const a = inner(c, x, y);
+    preview = c.ui.to ? { x: c.ui.to.x, y: c.ui.to.y } : null;
+    return a;
+  };
+  return spec;
 }
 
 export default function create(env) {

@@ -15,6 +15,30 @@ const CRUMBLE_T = 0.35;
 function makeSpec(env) {
   const { sound } = env;
   let fx = { move: null, crumble: null };
+  let preview = null; // 行き先を選んで仮置きしたコマの位置（確定したとき、同じ動きをもう一度アニメーションしないため）
+
+  const pressInner = (c, x, y) => {
+    const gx = Math.floor((x - X0) / CELL);
+    const gy = Math.floor((y - Y0) / CELL);
+    if (gx < 0 || gy < 0 || gx >= R.N || gy >= R.N) return null;
+    const me = c.s.pawns[c.acting];
+    if (gx === me.x && gy === me.y) {
+      if (c.ui.to) {
+        // 動かす前のマスしか消せない終盤は、そのマスをタップで消す
+        const others = R.legalMoves(c.s, c.acting).filter((m) => m.x === c.ui.to.x && m.y === c.ui.to.y && !(m.rx === me.x && m.ry === me.y));
+        if (!others.length) return { x: c.ui.to.x, y: c.ui.to.y, rx: me.x, ry: me.y };
+      }
+      c.ui.to = null; // 自分のコマをタップで、行き先を選び直す
+      return null;
+    }
+    if (!c.ui.to) {
+      const dest = R.steps(c.s, c.acting).find((m) => m.x === gx && m.y === gy);
+      if (dest) c.ui.to = dest;
+      return null;
+    }
+    const a = { x: c.ui.to.x, y: c.ui.to.y, rx: gx, ry: gy };
+    return R.apply(c.s, c.acting, a) ? a : null;
+  };
 
   return {
     id: 'isolation',
@@ -31,32 +55,20 @@ function makeSpec(env) {
     newUi: () => ({ to: null }),
     reset() {
       fx = { move: null, crumble: null };
+      preview = null;
     },
     onPress(c, x, y) {
-      const gx = Math.floor((x - X0) / CELL);
-      const gy = Math.floor((y - Y0) / CELL);
-      if (gx < 0 || gy < 0 || gx >= R.N || gy >= R.N) return null;
-      const me = c.s.pawns[c.acting];
-      if (gx === me.x && gy === me.y) {
-        if (c.ui.to) {
-          // 動かす前のマスしか消せない終盤は、そのマスをタップで消す
-          const others = R.legalMoves(c.s, c.acting).filter((m) => m.x === c.ui.to.x && m.y === c.ui.to.y && !(m.rx === me.x && m.ry === me.y));
-          if (!others.length) return { x: c.ui.to.x, y: c.ui.to.y, rx: me.x, ry: me.y };
-        }
-        c.ui.to = null; // 自分のコマをタップで、行き先を選び直す
-        return null;
-      }
-      if (!c.ui.to) {
-        const dest = R.steps(c.s, c.acting).find((m) => m.x === gx && m.y === gy);
-        if (dest) c.ui.to = dest;
-        return null;
-      }
-      const a = { x: c.ui.to.x, y: c.ui.to.y, rx: gx, ry: gy };
-      return R.apply(c.s, c.acting, a) ? a : null;
+      const a = pressInner(c, x, y);
+      preview = c.ui.to ? { x: c.ui.to.x, y: c.ui.to.y } : null;
+      return a;
     },
     onApplied(c, prev, next) {
-      fx.move = { from: prev.pawns[next.last.who], to: next.pawns[next.last.who], who: next.last.who, t: 0 };
-      fx.crumble = { x: next.last.rx, y: next.last.ry, t: 0 };
+      const l = next.last;
+      // 自分で行き先を選んでコマを仮置きしていたなら、動きのアニメーションは付けない（二度動いて見えるため）
+      const shown = preview && preview.x === l.x && preview.y === l.y;
+      preview = null;
+      fx.move = shown ? null : { from: prev.pawns[l.who], to: next.pawns[l.who], who: l.who, t: 0 };
+      fx.crumble = { x: l.rx, y: l.ry, t: 0 };
       sound.beep(430, 0.05, 'triangle', 0.07);
     },
     tick(c, dt) {

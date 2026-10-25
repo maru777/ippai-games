@@ -35,6 +35,7 @@ function arrowMark(g, x, y, k = 1, glow = 6) {
 function makeSpec(env) {
   const { sound } = env;
   let fx = { move: null, arrow: null };
+  let preview = null; // 行き先を選んで仮置きしたクイーンの位置
 
   const after = (s, a) => {
     // 動かしたあとの盤（動かす前のマスは空き）
@@ -44,7 +45,7 @@ function makeSpec(env) {
     return cells;
   };
 
-  return {
+  const spec = {
     id: 'amazons',
     en: 'AMAZONS',
     jp: 'あまぽん',
@@ -59,6 +60,7 @@ function makeSpec(env) {
     newUi: () => ({ from: null, to: null }),
     reset() {
       fx = { move: null, arrow: null };
+      preview = null;
     },
     onPress(c, x, y) {
       const gx = Math.floor((x - X0) / CELL);
@@ -91,8 +93,10 @@ function makeSpec(env) {
     },
     onApplied(c, prev, next) {
       const l = next.last;
-      fx.move = { from: { x: l.fx, y: l.fy }, to: { x: l.tx, y: l.ty }, who: l.who, t: 0 };
-      fx.arrow = { from: { x: l.tx, y: l.ty }, to: { x: l.ax, y: l.ay }, t: -MOVE_T };
+      const shown = preview && preview.x === l.tx && preview.y === l.ty; // 仮置きで見せたなら、動きは付けない
+      preview = null;
+      fx.move = shown ? null : { from: { x: l.fx, y: l.fy }, to: { x: l.tx, y: l.ty }, who: l.who, t: 0 };
+      fx.arrow = { from: { x: l.tx, y: l.ty }, to: { x: l.ax, y: l.ay }, t: shown ? 0 : -MOVE_T };
       sound.beep(380, 0.06, 'triangle', 0.06);
     },
     tick(c, dt) {
@@ -186,6 +190,14 @@ function makeSpec(env) {
       }
     },
   };
+  // 行き先を選んで仮置きしたコマは、確定したとき同じ動きをもう一度アニメーションしない（二度動いて見えるため）
+  const inner = spec.onPress;
+  spec.onPress = (c, x, y) => {
+    const a = inner(c, x, y);
+    preview = c.ui.to ? { x: c.ui.to.x, y: c.ui.to.y } : null;
+    return a;
+  };
+  return spec;
 }
 
 export default function create(env) {
