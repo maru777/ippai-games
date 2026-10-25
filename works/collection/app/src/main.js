@@ -87,8 +87,11 @@ function syncBars() {
     }
     const css = (c) => `rgb(${Math.round(c[0])},${Math.round(c[1])},${Math.round(c[2])})`;
     const bg = `linear-gradient(to bottom, ${css(bar.top)} 50%, ${css(bar.bot)} 50%)`;
-    document.documentElement.style.background = bg;
-    document.body.style.background = bg;
+    const bgEl = document.getElementById('bg');
+    if (bgEl) bgEl.style.background = bg;
+    // 土台の色も、下の色にそろえる（読み込み前や安全領域で白く見えないように）
+    document.documentElement.style.backgroundColor = css(bar.bot);
+    document.body.style.backgroundColor = 'transparent';
     if (themeMeta) themeMeta.content = css(bar.top);
   } catch (e) {
     // 読み取れない環境では、帯の色は既定のままにする

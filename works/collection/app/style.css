@@ -1,9 +1,26 @@
 html, body {
   margin: 0;
   height: 100%;
-  background: #0f380f;
   overflow: hidden;
   overscroll-behavior: none;
+}
+html {
+  background-color: #0f380f; /* 土台（main.js が、下の帯の色に合わせて変える） */
+  min-height: 100lvh;
+}
+body {
+  background: transparent; /* 帯の色は #bg が塗る */
+}
+/* 画面の上下の帯の色（main.js が、画面の端の色に合わせて塗る）。iPhone のホーム画面アプリで、ステータスバーやホームバーの裏（安全領域）まで届くよう、上下に大きくはみ出させて固定する */
+#bg {
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: -200px;
+  bottom: -200px;
+  z-index: -1;
+  background: #0f380f;
+  pointer-events: none;
 }
 body {
   height: 100vh;
