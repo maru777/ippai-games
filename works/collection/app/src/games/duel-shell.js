@@ -53,7 +53,11 @@ const REASONS = {
 };
 
 export function createDuel(env, makeSpec) {
-  const { W, H, input, sound } = env;
+  const { W, input, sound } = env;
+  let H = env.H; // 縦長の端末では 320 より高くなる
+  // 縦長のとき: ヘッダーは上端、ボタンは下端に固定し、盤などの中身は縦の中央に置く（中央寄せのずれ = dy）。
+  const dy = () => (H - 320) / 2;
+  const iy = () => input.y - dy(); // 中央寄せの中身の座標に直した、タップの y
   const spec = makeSpec(env);
   const help = createHelp(spec.id, spec.jp); // 右上の「？」（遊び方）
 
@@ -248,7 +252,8 @@ export function createDuel(env, makeSpec) {
   // ---- 入力 ----
   function updateMenu() {
     if (!input.pressed) return;
-    const { x, y } = input;
+    const x = input.x;
+    const y = iy();
     if (help.press(x, y)) return;
     if (inside(x, y, BTN_CPU)) {
       notice = '';
@@ -275,23 +280,23 @@ export function createDuel(env, makeSpec) {
 
   function updateLevel() {
     if (!input.pressed) return;
-    if (inside(input.x, input.y, BTN_CANCEL)) {
+    if (inside(input.x, iy(), BTN_CANCEL)) {
       mode = 'menu';
       return;
     }
     LEVEL_BTNS.forEach((b, i) => {
-      if (inside(input.x, input.y, b)) startCpu(LEVELS[i].id);
+      if (inside(input.x, iy(), b)) startCpu(LEVELS[i].id);
     });
   }
 
   function updateJoin() {
     if (!input.pressed) return;
-    if (inside(input.x, input.y, BTN_CANCEL)) {
+    if (inside(input.x, iy(), BTN_CANCEL)) {
       mode = 'menu';
       return;
     }
     for (const k of KEYS) {
-      if (!inside(input.x, input.y, k)) continue;
+      if (!inside(input.x, iy(), k)) continue;
       if (k.label === '消す') entered = entered.slice(0, -1);
       else if (k.label === '入室') {
         if (entered.length === 4) {
@@ -303,7 +308,7 @@ export function createDuel(env, makeSpec) {
   }
 
   function updateWait() {
-    if (input.pressed && inside(input.x, input.y, BTN_CANCEL)) {
+    if (input.pressed && inside(input.x, iy(), BTN_CANCEL)) {
       disposeRoom();
       mode = 'menu';
       notice = '';
@@ -312,19 +317,21 @@ export function createDuel(env, makeSpec) {
 
   function updatePlay() {
     if (!input.pressed) return;
-    const { x, y } = input;
+    const x = input.x;
+    const y = iy(); // 中央寄せの中身の座標
+    const by = input.y - 2 * dy(); // 下端に固定したボタンの座標
     if (resignOpen) {
       if (inside(x, y, BTN_RESIGN_YES)) resign();
       else if (inside(x, y, BTN_RESIGN_NO) || !inside(x, y, RESIGN_BOX)) resignOpen = false;
       return;
     }
-    if (inside(x, y, BTN_RESIGN) && s.winner === -1) {
+    if (inside(x, by, BTN_RESIGN) && s.winner === -1) {
       resignOpen = true;
       return;
     }
     if (!canAct()) return;
     const c = ctx();
-    if (spec.confirm && inside(x, y, BTN_ACT)) {
+    if (spec.confirm && inside(x, by, BTN_ACT)) {
       if (spec.confirm.enabled(c)) {
         const a = spec.confirm.action(c);
         if (a) submit(a);
@@ -405,17 +412,25 @@ export function createDuel(env, makeSpec) {
   }
 
   function drawPlay(g) {
-    drawBg(g, W, H, clock);
     drawHeader(g);
     const c = ctx();
+    g.save();
+    g.translate(0, dy());
     spec.drawBoard(g, c);
+    g.restore();
+    // 下端に固定したボタン
+    g.save();
+    g.translate(0, 2 * dy());
     if (spec.confirm) {
       nbutton(g, BTN_ACT, spec.confirm.label, { on: c.canAct && spec.confirm.enabled(c), color: T.gold });
     }
     nbutton(g, BTN_RESIGN, '投了', { on: mode === 'play' && s.winner === -1, color: T.bad });
+    g.restore();
+    g.save();
+    g.translate(0, dy());
     if (resignOpen) {
       g.fillStyle = 'rgba(2, 4, 16, 0.7)';
-      g.fillRect(0, 0, W, H);
+      g.fillRect(0, -dy(), W, H);
       panel(g, RESIGN_BOX, { stroke: T.bad, glow: T.bad, blur: 12, radius: 8, lw: 1.5 });
       ntext(g, '投了しますか？', W / 2, RESIGN_BOX.y + 16, 14, T.white, 'center', 6);
       const who = local2 ? `${SEAT_NAME[s.turn]}の負けになります` : vsCpu ? '負けになります' : '相手の勝ちになります';
@@ -424,10 +439,10 @@ export function createDuel(env, makeSpec) {
       nbutton(g, BTN_RESIGN_NO, '続ける', { color: T.me, size: 13 });
     }
     parts.draw(g);
+    g.restore();
   }
 
   function drawMenu(g) {
-    drawBg(g, W, H, clock);
     const a = Math.sin(clock * 1.6) * 12;
     drawPawn(g, 62 + a, 56, T.me, clock, true);
     drawPawn(g, 178 - a, 56, T.op, clock, true);
@@ -445,7 +460,6 @@ export function createDuel(env, makeSpec) {
   }
 
   function drawLevel(g) {
-    drawBg(g, W, H, clock);
     ntext(g, 'CPU の強さ', W / 2, 20, 15, T.me, 'center', 8);
     ntext(g, '勝ち = その強さに勝った回数', W / 2, 46, 10, T.dim, 'center');
     const cols = [T.me, T.gold, T.op];
@@ -457,7 +471,6 @@ export function createDuel(env, makeSpec) {
   }
 
   function drawJoin(g) {
-    drawBg(g, W, H, clock);
     ntext(g, '部屋コードを入力', W / 2, 20, 14, T.me, 'center', 8);
     ntext(g, entered.padEnd(4, '・').split('').join(' '), W / 2, 48, 22, T.white, 'center', 10);
     for (const k of KEYS) {
@@ -469,7 +482,6 @@ export function createDuel(env, makeSpec) {
   }
 
   function drawWait(g) {
-    drawBg(g, W, H, clock);
     for (let i = 0; i < 3; i++) {
       const ph = (clock * 0.7 + i / 3) % 1;
       g.save();
@@ -489,17 +501,26 @@ export function createDuel(env, makeSpec) {
   }
 
   function draw(g) {
+    drawBg(g, W, H, clock); // 背景は画面全体
+    if (mode === 'play' || mode === 'done') {
+      if (s) drawPlay(g);
+      return;
+    }
+    g.save();
+    g.translate(0, dy()); // メニューなどの中身は縦の中央に置く
     if (mode === 'menu') drawMenu(g);
     else if (mode === 'level') drawLevel(g);
     else if (mode === 'join') drawJoin(g);
     else if (mode === 'wait') drawWait(g);
-    else if (s) drawPlay(g);
+    g.restore();
   }
 
   // 結果画面（シェルから呼ばれる）
   function drawOver(g, uiBtns) {
     g.fillStyle = 'rgba(3, 5, 20, 0.74)';
     g.fillRect(0, 0, W, H);
+    g.save();
+    g.translate(0, dy());
     let title = 'VICTORY';
     let c = T.gold;
     if (kind === 'lose') {
@@ -519,9 +540,10 @@ export function createDuel(env, makeSpec) {
       const lv = LEVELS.find((l) => l.id === level);
       ntext(g, `${lv.label} 勝ち数 ${Store.best(`${spec.id}-${level}`)}`, W / 2, 150, 10, T.dim, 'center');
     }
-    nbutton(g, uiBtns.retry, 'もう一度', { color: T.me, size: 14 });
-    nbutton(g, uiBtns.menu, 'メニュー', { color: T.dim, size: 14 });
     parts.draw(g);
+    g.restore();
+    nbutton(g, uiBtns.retry, 'もう一度', { color: T.me, size: 14 }); // ボタンはシェルが決めた位置（下寄せ）
+    nbutton(g, uiBtns.menu, 'メニュー', { color: T.dim, size: 14 });
   }
 
   reset();
@@ -536,6 +558,8 @@ export function createDuel(env, makeSpec) {
     tick,
     drawOver,
     hiRes: 2,
+    viewMode: 'tall', // 縦長の端末では、全画面で使う
+    resize(w, h) { H = h; },
     noHud: true,
     skipReady: true,
     silentOver: true,

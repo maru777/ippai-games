@@ -7,6 +7,7 @@ import { drawIcon, hasIcon } from './games/icons.js';
 
 export const W = 240;
 export const H = 320;
+let VH = H; // 今の論理高さ（縦長の端末では伸びる）
 
 export const WORLDS = [
   { id: 'keitai', tab: 'ケータイ', title: 'ケータイゲーム集', sub: 'ドット絵のミニゲームをいっぱい' },
@@ -36,6 +37,10 @@ const TAB_RECTS = [
 ];
 const MUTE = { x: 196, y: 6, w: 38, h: 18 };
 const LIST = { x: 0, y: 70, w: W, h: 232 };
+export function setViewHeight(h) {
+  VH = h;
+  LIST.h = h - LIST.y - 18; // 縦長のときは一覧も伸びる
+}
 const PITCH = 48;
 const CARD_H = 42;
 // 紹介画面（「？」を押すと出る）。パレットは、ポータルの現在の配色か、ゲーム中の 8bit の配色を渡す。
@@ -70,7 +75,8 @@ export function drawIntroCard(g, item, pal, modern) {
   const icon = hasIcon(item.id);
   g.save();
   g.fillStyle = 'rgba(0, 0, 0, 0.6)';
-  g.fillRect(0, 0, W, H);
+  g.fillRect(0, 0, W, VH);
+  g.translate(0, (VH - H) / 2); // 紹介のカードは縦の中央に置く
   rr(g, b.x, b.y, b.w, b.h, pal.radius);
   g.fillStyle = pal.card;
   g.fill();
@@ -148,6 +154,16 @@ function rr(g, x, y, w, h, r) {
 // opts: { games, best(item) → 文字列 | null, onSelect(item), store }
 export function createPortal(opts) {
   const { games, onSelect, store } = opts;
+  // PC: マウスホイールで一覧をスクロールする
+  if (opts.canvas) {
+    opts.canvas.addEventListener('wheel', (e) => {
+      if ((opts.active && !opts.active()) || intro) return;
+      e.preventDefault();
+      const k = W / opts.canvas.getBoundingClientRect().width;
+      sy = clamp(sy + e.deltaY * (e.deltaMode === 1 ? 16 : 1) * k);
+      vel = 0;
+    }, { passive: false });
+  }
   const saved = store.load('portal', {});
   let world = WORLDS.some((w) => w.id === saved.world) ? saved.world : 'keitai';
   let muted = !!saved.muted;
@@ -198,6 +214,7 @@ export function createPortal(opts) {
   function tap(x, y) {
     if (intro) {
       const it = intro;
+      y -= (VH - H) / 2;
       if (inside(x, y, INTRO_PLAY)) {
         intro = null;
         if (it.load || it.href) onSelect(it);
@@ -280,16 +297,16 @@ export function createPortal(opts) {
   }
 
   function drawBackground(g) {
-    const grad = g.createLinearGradient(0, 0, 0, H);
+    const grad = g.createLinearGradient(0, 0, 0, VH);
     grad.addColorStop(0, css(cur.top));
     grad.addColorStop(1, css(cur.bot));
     g.fillStyle = grad;
-    g.fillRect(0, 0, W, H);
+    g.fillRect(0, 0, W, VH);
     // keitai: ゆっくり流れるドットの網
     if (weight.keitai > 0.02) {
       g.fillStyle = css(cur.dim, 0.16 * weight.keitai);
       const off = (clock * 5) % 12;
-      for (let y = -12 + off; y < H; y += 12) for (let x = (((y / 12) | 0) % 2) * 6; x < W; x += 12) g.fillRect(Math.round(x), Math.round(y), 2, 2);
+      for (let y = -12 + off; y < VH; y += 12) for (let x = (((y / 12) | 0) % 2) * 6; x < W; x += 12) g.fillRect(Math.round(x), Math.round(y), 2, 2);
     }
     // versus: ゆっくり漂うやわらかい光
     if (weight.versus > 0.02) {
@@ -313,12 +330,12 @@ export function createPortal(opts) {
       g.beginPath();
       for (let i = -8; i <= 8; i++) {
         g.moveTo(W / 2 + i * 8, hz);
-        g.lineTo(W / 2 + i * 56, H);
+        g.lineTo(W / 2 + i * 56, VH);
       }
       const ph = (clock * 0.35) % 1;
       for (let i = 0; i < 7; i++) {
         const p = (i + ph) / 7;
-        const y = hz + (H - hz) * p * p;
+        const y = hz + (VH - hz) * p * p;
         g.moveTo(0, y);
         g.lineTo(W, y);
       }
@@ -326,7 +343,7 @@ export function createPortal(opts) {
       g.fillStyle = 'rgba(255,60,172,0.5)';
       for (let i = 0; i < 14; i++) {
         const x = (i * 53.7) % W;
-        const y = H - ((clock * (8 + (i % 4) * 4) + i * 31) % H);
+        const y = VH - ((clock * (8 + (i % 4) * 4) + i * 31) % VH);
         g.fillRect(x, y, 1.5, 1.5);
       }
       g.restore();
@@ -427,18 +444,18 @@ export function createPortal(opts) {
     g.restore();
     // はみ出している側に薄い影（続きがあると分かるように）
     if (maxScroll() > 0) {
-      const gb = g.createLinearGradient(0, H - 22, 0, H);
+      const gb = g.createLinearGradient(0, VH - 22, 0, VH);
       gb.addColorStop(0, css(cur.bot, 0));
       gb.addColorStop(1, css(cur.bot, sy < maxScroll() - 2 ? 0.95 : 0));
       g.fillStyle = gb;
-      g.fillRect(0, H - 22, W, 22);
+      g.fillRect(0, VH - 22, W, 22);
     }
     if (intro) {
       drawIntroCard(g, intro, {
         card: css(cur.card), line: css(cur.line), ink: css(cur.ink), dim: css(cur.dim), accent: css(cur.accent), onAccent: css(cur.onAccent), radius: cur.radius,
       }, cur.font > 0.5);
     }
-    if (!Music.running && !intro) label(g, 'タップすると ♪ が流れます', W / 2, H - 15, 8.5, css(cur.dim), 'center');
+    if (!Music.running && !intro) label(g, 'タップすると ♪ が流れます', W / 2, VH - 15, 8.5, css(cur.dim), 'center');
     g.restore();
     return `rgb(${Math.round(cur.bot[0])},${Math.round(cur.bot[1])},${Math.round(cur.bot[2])})`;
   }

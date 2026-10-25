@@ -18,7 +18,7 @@ const sound = { beep: noop, noise: noop, fall: noop, unlock: noop };
 function makeEnv() {
   const input = { pressed: false, released: false, pointerDown: false, x: 0, y: 0, keyAction: false, left: false, right: false, down: false, pointers: [], keys: new Set(), canvas: { addEventListener: noop, removeEventListener: noop } };
   let ended = 0;
-  return { env: { W: 240, H: 320, input, sound, end: () => { ended++; } }, input, ended: () => ended };
+  return { env: { W: 240, H: 520, input, sound, end: () => { ended++; } }, input, ended: () => ended };
 }
 
 function frame(game, input, dt, tap) {
@@ -43,6 +43,7 @@ for (const id of IDS) {
   for (const kind of ['cpu', 'local']) {
     const { env, input, ended } = makeEnv();
     const game = mod.default(env);
+    if (game.resize) game.resize(240, env.H); // 縦長（高さ 520）で動かす
     game.reset();
     for (let i = 0; i < 5; i++) frame(game, input, 1 / 30);
     // 「？」の遊び方を開いて閉じる

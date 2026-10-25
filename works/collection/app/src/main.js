@@ -5,7 +5,7 @@ import { Sound } from './core/sound.js';
 import { Store } from './core/storage.js';
 import { Music } from './core/music.js';
 import { createHelp, LCD_PAL } from './games/game-help.js';
-import { createPortal } from './portal.js';
+import { createPortal, setViewHeight } from './portal.js';
 import { C, text, rect, frame, inside } from './core/draw.js';
 
 const W = 240;
@@ -58,6 +58,8 @@ let help = null; // 開始前の画面の「？」（遊び方）
 const portal = createPortal({
   games: GAMES,
   store: Store,
+  canvas,
+  active: () => state === 'menu',
   best: (item) => (item.scored ? `ベスト ${Store.best(item.id)}` : null),
   onSelect: (item) => {
     if (item.href) location.href = item.href; // 別ページのゲーム（パズル集など）へ移動
@@ -100,6 +102,7 @@ const tallHeight = () => Math.max(BASE_H, Math.min(MAX_H, Math.round((W * window
 function setHeight(h) {
   if (h === H && canvas.style.getPropertyValue('--ar-h')) return false;
   H = h;
+  setViewHeight(h);
   env.H = h;
   input.H = h;
   canvas.style.setProperty('--ar-h', String(h));
@@ -110,11 +113,11 @@ function setHeight(h) {
 }
 // 今の状態（メニューか、ゲームの viewMode）に合わせて高さを決める。変わったらゲームへ知らせる。
 function applyView() {
-  const tall = state !== 'menu' && game && game.viewMode === 'tall';
+  const tall = state === 'menu' || (game && game.viewMode === 'tall'); // ポータルも縦長の端末では全画面
   if (setHeight(tall ? tallHeight() : BASE_H) && game && game.resize) game.resize(W, H);
 }
 window.addEventListener('resize', () => {
-  if (game && game.viewMode === 'tall') applyView();
+  if (state === 'menu' || (game && game.viewMode === 'tall')) applyView();
 });
 
 async function startGame(item) {
@@ -208,6 +211,7 @@ function drawOver() {
   }
 }
 
+applyView(); // 最初のポータルも、縦長の端末では全画面にする
 let last = performance.now();
 function loop(now) {
   const dt = Math.min((now - last) / 1000, 1 / 30);
