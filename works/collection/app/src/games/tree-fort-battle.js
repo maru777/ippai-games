@@ -11,7 +11,7 @@ export const ARENA = { W: 240, H: 320, cx: 120, cy: 172, towerR: 11 };
 export const STAGE_WAVES = 10;
 export const STAGE_COUNT = 10;
 export const GSTEP = 3.1; // ステージが 1 つ進むごとの難しさ（無限モードの波に換算）
-const G_FIRST = 8; // ステージ 1 の最後の波（ボス）の難しさ
+const G_FIRST = 6.5; // ステージ 1 の最後の波（ボス）の難しさ（レベルアップを遅くした分、以前の 8 から下げた）
 const G_START = 0.6; // ステージが進むごとの、最初の波の難しさの増え方（最初の波はやさしい）
 
 // 敵の種類。from = この難しさから登場、w = 出やすさ、armor/shield/phase などが特徴
@@ -91,6 +91,7 @@ export function createBattle(stats0, rng = Math.random, opts = {}) {
     eventDone: new Set(),
     contracts: [], // 結んだ契約の id
     tagMul: {}, dotMul: 1, frozenMul: 1, // 遺物による属性ごとのダメージ倍率
+    toast: null, // 取得したものの一言表示 { icon, title, sub, color, t }
     od: { gauge: 0, active: 0 }, // オーバードライブ（撃破でたまり、使うと数秒間強くなる）
     combo: { n: 0, t: 0, best: 0 },
     hits: 0, // 砦が攻撃を受けた回数（星の評価に使う）
@@ -238,7 +239,11 @@ export function createBattle(stats0, rng = Math.random, opts = {}) {
         else b.relicPending = 0; // 遺物をすべて持っている
       }
     }
-    if (b.od.active <= 0) b.od.gauge = Math.min(100, b.od.gauge + Math.min(4, e.pts) * 1.2);
+    if (b.od.active <= 0) {
+      const was = b.od.gauge;
+      b.od.gauge = Math.min(100, was + Math.min(4, e.pts) * 1.2);
+      if (was < 100 && b.od.gauge >= 100) b.toast = { icon: 'lightning', title: 'OD ゲージが満タン！', sub: '左下の OD ボタンをタップで、8 秒間 攻撃が強くなる', color: '#ffd84a', t: 3.5 };
+    }
     b.combo.n = b.combo.t > 0 ? b.combo.n + 1 : 1;
     b.combo.t = 1.3;
     b.combo.best = Math.max(b.combo.best, b.combo.n);
@@ -344,6 +349,7 @@ export function createBattle(stats0, rng = Math.random, opts = {}) {
     if (b.over || b.options || b.relicOpts || b.event) return; // レベルアップ・宝箱・契約の選択中は止まる
     b.t += dt;
     b.combo.t -= dt;
+    if (b.toast && (b.toast.t -= dt) <= 0) b.toast = null;
     if (b.od.active > 0) b.od.active = Math.max(0, b.od.active - dt);
     const speedK = b.od.active > 0 ? 1.7 : 1; // オーバードライブ中は、攻撃の勢いが上がる
     b.tower.flash = Math.max(0, b.tower.flash - dt);
@@ -524,6 +530,12 @@ export function createBattle(stats0, rng = Math.random, opts = {}) {
     if (!opt) return null;
     applyOption({ stats, loadout, discovered: b.discovered, tower: b.tower, refresh: () => W.refresh(), found: b.found }, opt);
     if (opt.kind === 'weapon-new') addFx({ kind: 'gotWeapon', life: 1.4, wid: opt.id, name: WEAPON[opt.id].name, color: WEAPON[opt.id].color, unknown: !!opt.unknown });
+    const real = opt.kind === 'weapon-new' ? WEAPON[opt.id] : null; // 未知の武器も、選んだ時点で名前が分かる
+    b.toast = {
+      icon: opt.kind === 'weapon-new' || opt.kind === 'weapon-up' || opt.kind === 'stat' ? opt.id : 'heal',
+      title: `${real ? real.name : opt.name}${opt.kind === 'weapon-up' ? ` Lv${opt.level}` : ''} を手に入れた`,
+      sub: real ? real.levels[0] : opt.desc, color: opt.color, t: 3,
+    };
     b.pending--;
     b.options = null;
     offer();
@@ -545,6 +557,7 @@ export function createBattle(stats0, rng = Math.random, opts = {}) {
       return null;
     }
     b.relics.push(r.id);
+    b.toast = { icon: 'relic', title: `遺物「${r.name}」を手に入れた`, sub: r.desc, color: r.color, t: 4 };
     applyRelic({ stats, tower: b.tower, b }, r.id);
     if (r.tagMul) for (const [k, v] of Object.entries(r.tagMul)) b.tagMul[k] = (b.tagMul[k] || 1) * v;
     if (r.dotMul) b.dotMul *= r.dotMul;
@@ -564,6 +577,7 @@ export function createBattle(stats0, rng = Math.random, opts = {}) {
       c.apply({ stats, tower: b.tower, b });
       b.contracts.push(c.id);
       addFx({ kind: 'contract', life: 1.4, name: c.name, color: c.color });
+      b.toast = { icon: 'contract', title: `契約「${c.name}」を結んだ`, sub: `代償: ${c.give}　報酬: ${c.get}`, color: c.color, t: 4 };
     }
     b.event = null;
     return c;

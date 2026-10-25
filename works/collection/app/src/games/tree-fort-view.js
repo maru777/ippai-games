@@ -1,5 +1,6 @@
 // ツリー砦の描画。スキン（kit）と演出パック（fx: standard / geometry / mandala）の組み合わせで見た目が決まる。
-// 状態は持たない（画面の状態 sc を読んで描くだけ）。論理座標は 240×320（高解像度の canvas に拡大して描く）。
+// 状態は持たない（画面の状態 sc を読んで描くだけ）。論理座標は幅 240 × 高さ H（既定 320。縦長の端末では最大 520 まで伸びる）。
+// 上端起点の部品は y を変えず、下端起点の部品（ボタン・説明パネル）は layoutView(H) で下へずらし、中央の領域を伸ばす。
 import { ARENA } from './tree-fort-battle.js';
 import { drawWeaponsUnder, drawWeaponsOver, drawBlades, drawStatus, TAG_COLOR } from './tree-fort-wview.js';
 import { drawBattleHud } from './tree-fort-rview.js';
@@ -13,7 +14,6 @@ export const STEP = 44;
 export const NODE_R = 15;
 export const MAP = { x: 0, y: 30, w: 240, h: 208 };
 export const MAP_CX = 120;
-export const MAP_CY = MAP.y + MAP.h / 2;
 export const BTN_BUY = { x: 8, y: 288, w: 108, h: 28 };
 export const BTN_GO = { x: 124, y: 288, w: 108, h: 28 };
 export const BTN_ARMORY = { x: 112, y: 4, w: 62, h: 22 };
@@ -21,12 +21,24 @@ export const BTN_SHOP = { x: 178, y: 4, w: 58, h: 22 };
 export const BTN_MENU = { x: 72, y: 4, w: 38, h: 22 };
 export const BTN_RETREAT = { x: 192, y: 4, w: 44, h: 22 };
 
-// ショップの行の配置（スキン 4 つ + 演出 3 つ）
+// 画面の高さ H に合わせて、下端起点の部品を動かす（320 からの増分 DH だけ下へ）。矩形は同じ object を書き換える。
+let DH = 0;
+export function layoutView(H) {
+  DH = Math.max(0, H - 320);
+  MAP.h = 208 + DH;
+  BTN_BUY.y = 288 + DH;
+  BTN_GO.y = 288 + DH;
+}
+const panelY = () => 241 + DH; // 下の説明パネルの上端
+
+// ショップの行の配置（スキン 4 つ + 演出 3 つ）。余った高さは、スキンと演出の間と下に配る。
 export function shopLayout() {
   const rows = [];
-  SKINS.forEach((_, i) => rows.push({ type: 'skin', idx: i, rect: { x: 8, y: 50 + i * 23, w: 224, h: 21 } }));
-  EFFECTS.forEach((_, i) => rows.push({ type: 'fx', idx: i, rect: { x: 8, y: 164 + i * 23, w: 224, h: 21 } }));
-  return { rows, headers: [{ y: 35, label: '見た目（スキン）' }, { y: 149, label: '演出（エフェクト）' }] };
+  const s0 = Math.round(DH * 0.15);
+  const f0 = Math.round(DH * 0.45);
+  SKINS.forEach((_, i) => rows.push({ type: 'skin', idx: i, rect: { x: 8, y: 50 + s0 + i * 23, w: 224, h: 21 } }));
+  EFFECTS.forEach((_, i) => rows.push({ type: 'fx', idx: i, rect: { x: 8, y: 164 + f0 + i * 23, w: 224, h: 21 } }));
+  return { rows, headers: [{ y: 35 + s0, label: '見た目（スキン）' }, { y: 149 + f0, label: '演出（エフェクト）' }] };
 }
 
 // ---- 幾何の道具 ----
@@ -417,10 +429,13 @@ function drawNewEnemy(g, kit, e, t) {
 }
 
 // 敵 1 体の描画（体・精鋭の輪・幽霊の透け・体力バー）
+const SPAWN_R = 175; // 敵の出現距離（tree-fort-battle.js の spawn と同じ）。縦長の画面では出現位置が見えるので、ふわっと現す
 function drawEnemy(g, kit, e, t) {
   const sk = kit.skin;
   g.save();
-  if (e.phased) g.globalAlpha = 0.22 + 0.08 * Math.sin(t * 10);
+  const fade = Math.max(0, Math.min(1, (SPAWN_R - Math.hypot(e.x - ARENA.cx, e.y - ARENA.cy)) / 22));
+  g.globalAlpha = fade;
+  if (e.phased) g.globalAlpha = fade * (0.22 + 0.08 * Math.sin(t * 10));
   if (e.elite) {
     g.save();
     kit.glow(g, sk.gold, 12);
@@ -698,6 +713,9 @@ function drawBackdrop(g, sc) {
 }
 
 // ---- 戦闘画面 ----
+// 戦場の縦のずれ（ロジックの座標 ARENA は 320 高さのまま。描画と手動攻撃のタップ位置だけを、このずれで変換する）
+export const battleOffset = (sc) => Math.max(0, sc.H - 320) / 2;
+
 export function drawBattle(g, sc) {
   const { kit, run, W, H, clock } = sc;
   const { b } = run;
@@ -706,6 +724,8 @@ export function drawBattle(g, sc) {
   g.save();
   if (sc.shake > 0.2) g.translate((Math.random() - 0.5) * sc.shake * 2, (Math.random() - 0.5) * sc.shake * 2);
   kit.bg(g, W, H);
+  // 戦場（砦・敵・弾・演出）は、塔が上下の部品の間の中央に来るよう、増えた高さの半分だけ下へずらして描く
+  g.translate(0, battleOffset(sc));
   drawBackdrop(g, sc);
 
   // 射程と結界
@@ -915,11 +935,7 @@ export function drawBattle(g, sc) {
       kit.text(g, '宝箱！', f.x, f.y - 14 - u * 18, 12, sk.gold, 'center', 10);
       g.restore();
     } else if (f.kind === 'gotWeapon' || f.kind === 'gotRelic' || f.kind === 'contract') {
-      g.save();
-      g.globalAlpha = Math.max(0, Math.min(1, (1 - u) * 2));
-      const txt = f.kind === 'gotWeapon' ? (f.unknown ? `NEW! ${f.name} を発見！` : `${f.name} を手に入れた`) : f.kind === 'gotRelic' ? `遺物「${f.name}」` : `契約「${f.name}」`;
-      kit.text(g, txt, W / 2, 72 - u * 8, 12, f.color || sk.gold, 'center', 8);
-      g.restore();
+      // 名前と説明は、HUD の一言（b.toast）で出す
     } else if (f.kind === 'overdrive') {
       g.save();
       g.globalAlpha = Math.max(0, 1 - u);
@@ -986,7 +1002,8 @@ export function drawBattle(g, sc) {
   g.fillStyle = hc;
   g.fill();
   g.restore();
-  kit.text(g, `+${run.earned()}P`, 138, 9, 11, sk.gold, 'left', 6);
+  kit.text(g, '耐久', bx + 5, 10, 7.5, '#06081a', 'left', 0);
+  kit.text(g, `獲得 +${run.earned()}P`, 135, 10, 10, sk.gold, 'left', 6);
   kit.button(g, BTN_RETREAT, sk.id === 'wa' ? '退' : '撤退', { color: sk.bad, size: 10 });
   // 波の進み具合: 戦闘中は「倒した割合」、波の合間は「次の波までの時間」
   {
@@ -1006,7 +1023,7 @@ export function drawBattle(g, sc) {
     let label;
     if (resting) label = b.wave === 0 ? 'まもなく開始' : `波クリア！ 次の波まで ${Math.max(0, b.restT).toFixed(1)} 秒`;
     else if (left === 0) label = 'もうすぐクリア';
-    else if (b.queue.length) label = sk.id === 'wa' ? `第${b.wave}波　あと ${left} 体（まだ来る）` : `WAVE ${b.wave}　あと ${left} 体（まだ来る）`;
+    else if (b.queue.length) label = sk.id === 'wa' ? `第${b.wave}波　あと ${left} 体（未出現 ${b.queue.length}）` : `WAVE ${b.wave}　あと ${left} 体（未出現 ${b.queue.length}）`;
     else label = sk.id === 'wa' ? `第${b.wave}波　あと ${left} 体` : `WAVE ${b.wave}　あと ${left} 体`;
     kit.text(g, label, W / 2, 39, 9.5, resting ? sk.gold : sk.text, 'center', 3);
   }
@@ -1018,7 +1035,7 @@ export function drawBattle(g, sc) {
     g.fillRect(0, 0, W, H);
   }
   drawBattleHud(g, sc);
-  if (b.wave <= 1 && b.t < 7) kit.text(g, '敵をタップで追加攻撃', W / 2, 264, 11, sk.dim, 'center');
+  if (b.wave <= 1 && b.t < 7) kit.text(g, '敵をタップで追加攻撃', W / 2, H - 56, 11, sk.dim, 'center');
 
   if (sc.flash.a > 0.01) {
     g.fillStyle = rgba(sc.flash.col, sc.flash.a);
@@ -1027,7 +1044,7 @@ export function drawBattle(g, sc) {
 }
 
 // ---- ツリー画面 ----
-const nodePos = (sc, n) => ({ x: MAP_CX + sc.pan.x + n.gx * STEP, y: MAP_CY + sc.pan.y + n.gy * STEP });
+const nodePos = (sc, n) => ({ x: MAP_CX + sc.pan.x + n.gx * STEP, y: MAP.y + MAP.h / 2 + sc.pan.y + n.gy * STEP });
 export const nodeScreenPos = nodePos;
 
 export function nodeState(sc, n) {
@@ -1226,15 +1243,16 @@ export function drawTree(g, sc) {
   const n = NODE[sc.sel];
   const st = nodeState(sc, n);
   const c = kit.branchColor(n.id, 0);
-  kit.panel(g, { x: 4, y: 241, w: W - 8, h: 44 }, { stroke: c, glow: c, blur: 8, radius: 8 });
-  kit.text(g, n.name, 12, 245, 12, c, 'left', 6);
-  if (n.unlock) kit.text(g, `NEW ${UNLOCKS[n.unlock].name}`, W - 12, 246, 9, sk.gold, 'right', 6);
-  kit.text(g, n.desc, 12, 258, 9.5, sk.text);
+  const py = panelY();
+  kit.panel(g, { x: 4, y: py, w: W - 8, h: 44 }, { stroke: c, glow: c, blur: 8, radius: 8 });
+  kit.text(g, n.name, 12, py + 4, 12, c, 'left', 6);
+  if (n.unlock) kit.text(g, `NEW ${UNLOCKS[n.unlock].name}`, W - 12, py + 5, 9, sk.gold, 'right', 6);
+  kit.text(g, n.desc, 12, py + 17, 9.5, sk.text);
   let line;
   if (sc.msgT > 0 && sc.msg) line = sc.msg;
   else if (st === 'owned') line = n.id === 'core' ? '開放済み' : `開放済み（戻すと ${n.cost} P 返る）`;
   else line = `必要: ${n.cost} P${st === 'locked' ? '（前の枝が必要）' : ''}`;
-  kit.text(g, line, 12, 269, 9, sc.msgT > 0 && sc.msg ? sk.bad : sk.dim);
+  kit.text(g, line, 12, py + 28, 9, sc.msgT > 0 && sc.msg ? sk.bad : sk.dim);
 
   const owned = save.owned.has(sc.sel);
   const ok = owned ? canRefund(save.owned, sc.sel).ok : canBuy(save.owned, save.points, sc.sel).ok;
@@ -1254,7 +1272,7 @@ export function drawTree(g, sc) {
     g.fillStyle = rgba(sc.flash.col, sc.flash.a);
     g.fillRect(0, 0, W, H);
   }
-  if (sc.t < 5 && save.runs === 0) kit.text(g, 'ドラッグで動かす・タップで選ぶ', W / 2, 232, 9, sk.dim, 'center');
+  if (sc.t < 5 && save.runs === 0) kit.text(g, 'ドラッグで動かす・タップで選ぶ', W / 2, MAP.y + MAP.h - 6, 9, sk.dim, 'center');
 }
 
 // ---- ショップ ----
@@ -1308,10 +1326,11 @@ export function drawShop(g, sc) {
   const item = type === 'skin' ? SKINS.find((s) => s.id === id) : EFFECTS.find((e) => e.id === id);
   const have = type === 'skin' ? save.skinsOwned.has(id) : save.fxOwned.has(id);
   const equipped = (type === 'skin' ? save.skin : save.fx) === id;
-  kit.panel(g, { x: 4, y: 241, w: W - 8, h: 44 }, { stroke: sk.gold, glow: sk.gold, blur: 8, radius: 8 });
-  kit.text(g, `${item.name}${type === 'skin' ? '（スキン）' : '（演出）'}`, 12, 245, 12, sk.gold, 'left', 6);
-  kit.text(g, item.desc, 12, 258, 9.5, sk.text);
-  kit.text(g, have ? (equipped ? '装備中です' : '持っています') : `プレビュー中 — ${item.price} P で購入`, 12, 270, 9, sk.dim);
+  const py = panelY();
+  kit.panel(g, { x: 4, y: py, w: W - 8, h: 44 }, { stroke: sk.gold, glow: sk.gold, blur: 8, radius: 8 });
+  kit.text(g, `${item.name}${type === 'skin' ? '（スキン）' : '（演出）'}`, 12, py + 4, 12, sk.gold, 'left', 6);
+  kit.text(g, item.desc, 12, py + 17, 9.5, sk.text);
+  kit.text(g, have ? (equipped ? '装備中です' : '持っています') : `プレビュー中 — ${item.price} P で購入`, 12, py + 29, 9, sk.dim);
   const label = equipped ? '装備中' : have ? '装備する' : '買う';
   const ok = !equipped && (have || save.points >= item.price);
   kit.button(g, BTN_BUY, label, { on: ok, color: have ? sk.me : sk.gold, size: 13 });
@@ -1331,11 +1350,14 @@ export function drawResult(g, sc, ui) {
   g.fillRect(0, 0, W, H);
   const k = Math.min(1, res.t / 1.2);
   const c = kit.c(sk.me, 0);
+  g.save();
+  g.translate(0, Math.max(0, H - 320) / 2);
   kit.text(g, res.retreat ? (sk.id === 'wa' ? '撤退' : 'RETREAT') : sk.id === 'wa' ? '落城' : 'RUN END', W / 2, 40, 28, c, 'center', 14);
   kit.text(g, sk.id === 'wa' ? `第 ${Math.round(res.wave * k)} 波` : `WAVE ${Math.round(res.wave * k)}`, W / 2, 82, 22, sk.text, 'center', 6);
   kit.text(g, `獲得  +${Math.round(res.earned * k)} P`, W / 2, 124, 15, sk.gold, 'center', 8);
   kit.text(g, `所持  ${res.total} P`, W / 2, 148, 12, sk.dim, 'center');
   if (res.newBest && res.wave > 0) kit.text(g, 'NEW RECORD!', W / 2, 168, 13, kit.c(sk.gold, 2), 'center', 10);
+  g.restore();
   kit.button(g, ui.retry, 'ツリーへ', { color: sk.me, size: 14 });
   kit.button(g, ui.menu, 'メニュー', { color: sk.dim, size: 14 });
   kit.drawParts(g);

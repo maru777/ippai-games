@@ -14,12 +14,12 @@ import { STAGE_INFO, RELICS, ACHIEVEMENTS, dailyChallenge } from './tree-fort-me
 import { SKINS, EFFECTS, makeKit } from './tree-fort-skins.js';
 import {
   MAP, NODE_R, BTN_BUY, BTN_GO, BTN_SHOP, BTN_ARMORY, BTN_MENU, BTN_RETREAT, shopLayout, nodeScreenPos,
-  drawTree, drawBattle, drawShop, spawnFx,
+  drawTree, drawBattle, drawShop, spawnFx, layoutView, battleOffset,
 } from './tree-fort-view.js';
 import {
   ST_LIST, ST_ROW_H, BTN_ST_BACK, BTN_ST_GO, stageEntries, stageRows, stageMaxScroll, drawStageSelect,
-  cardRects, BTN_REROLL, drawChoice, BTN_SPEED, BTN_OD,
-  CX_TABS, CX_LIST, BTN_CX_BACK, SLOT_STRIP, slotRect, codexItems, codexRows, codexMaxScroll, achProgress, drawCodex, drawResultNew,
+  cardRects, BTN_REROLL, drawChoice, BTN_SPEED, BTN_OD, hudToast,
+  CX_TABS, CX_LIST, BTN_CX_BACK, SLOT_STRIP, slotRect, codexItems, codexRows, codexMaxScroll, achProgress, drawCodex, drawResultNew, layoutRview,
 } from './tree-fort-rview.js';
 
 const SAVE_ID = 'tree-fort-save';
@@ -115,7 +115,8 @@ function loadSave() {
 }
 
 export default function create(env) {
-  const { W, H, input, sound } = env;
+  const { W, input, sound } = env;
+  const H = env.H;
 
   // 画面の状態（描画側 tree-fort-view / -rview / -wview が読む）
   const sc = {
@@ -125,6 +126,13 @@ export default function create(env) {
     codex: { tab: 'weapons', sel: 'bomb', scroll: 0, slotAsk: 0, slotAskT: 0 },
     stageList: [], stageSel: null, stageScroll: 0, choiceT: 0, daily: dailyChallenge(),
   };
+  // 画面の高さが変わったとき（縦長の端末で、シェルが論理高さを伸ばす）に、描画側の配置を引き直す
+  function resize(w, h) {
+    sc.H = h;
+    layoutView(h);
+    layoutRview(h);
+  }
+  resize(W, H);
   // screen: tree | shop | codex | stages | battle | result
   let screen, drag, lastFxId, waveScore, lastSnd, runInfo, listDrag, lastOpts, lastKey;
   let resumeStages = false;
@@ -497,7 +505,7 @@ export default function create(env) {
         s.points -= item.price;
         owned.add(id);
         flash('#ffffff', 0.3);
-        sc.kit.burst(120, 150, [sc.kit.skin.gold, '#ffffff', sc.kit.skin.me], 60, 160, 40);
+        sc.kit.burst(120, sc.H / 2 - 10, [sc.kit.skin.gold, '#ffffff', sc.kit.skin.me], 60, 160, 40);
         fanfare([660, 880, 1175, 1568, 1976]);
       } else {
         sound.beep(880, 0.06, 'square', 0.05);
@@ -568,7 +576,7 @@ export default function create(env) {
     sc.shownPts = s.points;
     sc.stageSel = b.cleared && stage > 0 && stage < STAGE_COUNT ? `s${stage + 1}` : runInfo.entry.id;
     sc.run = null;
-    sc.kit.burst(120, 120, [sc.kit.skin.gold, sc.kit.skin.me, '#ffffff'], b.cleared ? 90 : 40, 160, 50);
+    sc.kit.burst(120, 120 + (sc.H - 320) / 2, [sc.kit.skin.gold, sc.kit.skin.me, '#ffffff'], b.cleared ? 90 : 40, 160, 50);
     if (b.cleared) fanfare([523, 659, 784, 1047, 1319]);
     env.end();
   }
@@ -753,7 +761,12 @@ export default function create(env) {
         sc.run.overdrive();
         return;
       }
-      if (sc.run.tap(input.x, input.y)) snd('tap', 0.05, () => sound.beep(1100, 0.04, 'square', 0.04));
+      const info = hudToast(b, input.x, input.y);
+      if (info) {
+        b.toast = info;
+        return;
+      }
+      if (sc.run.tap(input.x, input.y - battleOffset(sc))) snd('tap', 0.05, () => sound.beep(1100, 0.04, 'square', 0.04));
     }
     // 倍速: 同じ時間幅で、何度か進める
     for (let k = 0; k < sc.save.speed; k++) {
@@ -810,6 +823,7 @@ export default function create(env) {
 
   return {
     reset,
+    resize,
     update,
     draw,
     tick,
@@ -826,6 +840,7 @@ export default function create(env) {
       }
     },
     hiRes: 2,
+    viewMode: 'tall', // 縦長の端末では、全画面で使う（ゲーム内の画面切替でサイズが変わらないよう、ゲーム全体で縦長）
     noHud: true,
     skipReady: true,
     silentOver: true,

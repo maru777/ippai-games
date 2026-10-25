@@ -59,8 +59,8 @@ test('stats: 何も取らなければ基本値、全部取れば全攻撃が解�
 test('buy/refund: 前提・ポイント・依存の規則どおりに動く', () => {
   const owned = new Set(START_OWNED);
   assert.equal(canBuy(owned, 100, 'atk2').ok, false); // 前の枝が必要
-  assert.equal(canBuy(owned, 5, 'atk1').ok, false); // ポイント不足
-  assert.equal(canBuy(owned, 10, 'atk1').ok, true);
+  assert.equal(canBuy(owned, NODE.atk1.cost - 1, 'atk1').ok, false); // ポイント不足
+  assert.equal(canBuy(owned, NODE.atk1.cost, 'atk1').ok, true);
   owned.add('atk1');
   assert.equal(canBuy(owned, 100, 'atk1').ok, false); // 取得済み
   owned.add('atk2');

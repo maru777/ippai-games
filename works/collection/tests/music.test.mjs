@@ -8,13 +8,13 @@ const param = () => {
   const chk = (v) => { if (!Number.isFinite(v)) bad++; };
   return {
     value: 0,
-    setValueAtTime: chk, linearRampToValueAtTime: chk, setTargetAtTime: chk,
+    setValueAtTime: chk, linearRampToValueAtTime: chk, setTargetAtTime: chk, cancelScheduledValues: () => {},
     exponentialRampToValueAtTime: (v) => { chk(v); if (v <= 0) bad++; },
   };
 };
 const node = () => ({
-  gain: param(), frequency: param(), delayTime: param(), type: '', buffer: null,
-  connect: (n) => n, start: (t) => { voices++; if (!Number.isFinite(t)) bad++; }, stop: (t) => { if (!Number.isFinite(t)) bad++; },
+  gain: param(), frequency: param(), delayTime: param(), Q: param(), detune: param(), type: '', buffer: null, loop: false,
+  connect: (n) => n, disconnect: () => {}, start: (t) => { voices++; if (!Number.isFinite(t)) bad++; }, stop: (t) => { if (!Number.isFinite(t)) bad++; },
 });
 let now = 0;
 globalThis.window = {
@@ -56,11 +56,11 @@ test('AudioContext の前は鳴らせず、作ったあとは鳴らせる', () =
   assert.ok(Music.running);
 });
 
-test('すべてのチャンネルで、数小節ぶん例外・不正な値なしに音が出る', () => {
+test('すべてのチャンネルで、数小節（アンビエントは 2 和音）ぶん例外・不正な値なしに音が出る', () => {
   for (const ch of CHANNELS) {
     Music.start(ch);
     voices = 0;
-    run(8);
+    run(26);
     assert.ok(voices > 20, `${ch}: 音が出ていない (${voices})`);
   }
   assert.equal(bad, 0, '不正な値（NaN・0 以下の指数）が渡された');
@@ -72,6 +72,8 @@ test('同じ bpm（ポータルの世界）の切り替えと、違う bpm（ゲ
   Music.setChannel('puzzle');
   run(2);
   Music.setChannel('game-wa');
+  run(2);
+  Music.setChannel('game-neon'); // アンビエントからアンビエントへ
   run(2);
   Music.setChannel('keitai');
   run(2);

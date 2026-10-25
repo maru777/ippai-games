@@ -182,9 +182,12 @@ export function makeKit(skin) {
         g.strokeStyle = 'rgba(120, 95, 60, 0.10)';
         g.lineWidth = 0.7;
         g.beginPath();
-        for (const f of FIBERS) {
-          g.moveTo(f.x, f.y);
-          g.lineTo(f.x + Math.cos(f.a) * f.l, f.y + Math.sin(f.a) * f.l);
+        for (let oy = 0; oy < H; oy += 320) {
+          // 縦長の画面では、320 ごとに繰り返して下まで敷く
+          for (const f of FIBERS) {
+            g.moveTo(f.x, f.y + oy);
+            g.lineTo(f.x + Math.cos(f.a) * f.l, f.y + oy + Math.sin(f.a) * f.l);
+          }
         }
         g.stroke();
         g.fillStyle = 'rgba(192, 57, 43, 0.14)';

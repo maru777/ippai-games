@@ -13,10 +13,11 @@ body {
   justify-content: center;
 }
 #screen {
-  /* 240:320 を保ったまま画面に収める */
-  height: min(100vh, 100vw * 4 / 3);
-  height: min(100dvh, 100vw * 4 / 3);
-  aspect-ratio: 3 / 4;
+  /* 240:H（既定 H=320 → 3:4）を保ったまま画面に収める。H は main.js が --ar-h に入れる（縦長モードで伸びる） */
+  --ar-h: 320;
+  height: min(100vh, 100vw * var(--ar-h) / 240);
+  height: min(100dvh, 100vw * var(--ar-h) / 240);
+  aspect-ratio: 240 / var(--ar-h);
   image-rendering: pixelated;
   touch-action: none;
   user-select: none;
