@@ -11,7 +11,6 @@ const cx = (x) => X0 + (x + 0.5) * CELL;
 const cy = (y) => Y0 + (y + 0.5) * CELL;
 const idx = (x, y) => y * R.N + x;
 const MOVE_T = 0.22;
-const NEIGHBORS = [[0, -1], [0, 1], [-1, 0], [1, 0], [-1, -1], [1, -1], [-1, 1], [1, 1]];
 const LEVEL_COL = ['#1a2250', '#3a56b8', '#7c8cf0', '#cfd6ff'];
 
 // 積み木: level 段ぶんを、小さくなる四角で重ねて描く
@@ -124,45 +123,17 @@ function makeSpec(env) {
           g.fillRect(X0 + x * CELL, Y0 + y * CELL, CELL, CELL);
         }
       }
-      // 候補（マスの上に出す印は、積み木より前面に描くため、いったん集める）
-      const marks = [];
+      // 候補: 積み木の上でも見えるよう、点滅する色は積み木を描いたあとに重ねる（文字は出さない）
+      const hl = [];
       if (c.canAct) {
         if (ui.w === null) {
           s.workers[c.acting].forEach((p, i) => {
-            if (!R.steps(s, c.acting, i).length) return;
-            g.strokeStyle = alpha(col, 0.35 + 0.4 * pulse);
-            g.lineWidth = 1.4;
-            g.strokeRect(X0 + p.x * CELL + 2.5, Y0 + p.y * CELL + 2.5, CELL - 5, CELL - 5);
+            if (R.steps(s, c.acting, i).length) hl.push({ x: p.x, y: p.y, color: col, fill: 0, line: 1 });
           });
         } else if (!ui.to) {
-          // 動かす先: 行ける所は色と印（▲登る / ▼下る / ＝同じ高さ）、行けない所は赤い × と理由
-          const p = s.workers[c.acting][ui.w];
-          const here = s.h[idx(p.x, p.y)];
-          const ok = new Set(R.steps(s, c.acting, ui.w).map((m) => idx(m.x, m.y)));
-          for (const [dx, dy] of NEIGHBORS) {
-            const nx = p.x + dx;
-            const ny = p.y + dy;
-            if (nx < 0 || ny < 0 || nx >= R.N || ny >= R.N) continue;
-            const lv = s.h[idx(nx, ny)];
-            if (ok.has(idx(nx, ny))) {
-              g.fillStyle = alpha(lv === 3 ? T.gold : col, 0.2 + 0.2 * pulse);
-              g.fillRect(X0 + nx * CELL + 3, Y0 + ny * CELL + 3, CELL - 6, CELL - 6);
-              marks.push({ x: nx, y: ny, t: lv === 3 ? '勝ち！' : lv > here ? '▲登る' : lv < here ? '▼下る' : '同じ高さ', color: lv === 3 ? T.gold : col });
-            } else {
-              const occupied = s.workers.some((team) => team.some((q) => q.x === nx && q.y === ny));
-              g.fillStyle = 'rgba(255, 70, 90, 0.10)';
-              g.fillRect(X0 + nx * CELL + 3, Y0 + ny * CELL + 3, CELL - 6, CELL - 6);
-              marks.push({ x: nx, y: ny, t: occupied ? '×人がいる' : lv >= 4 ? '×ドーム' : '×高すぎ', color: T.bad });
-            }
-          }
+          for (const m of R.steps(s, c.acting, ui.w)) hl.push({ x: m.x, y: m.y, color: s.h[idx(m.x, m.y)] === 3 ? T.gold : col, fill: 1, line: 1 });
         } else {
-          // 積み木を積む先: 積むと何段になるか（3 段のマスはドーム）を出す
-          for (const b of R.builds(s, c.acting, ui.w, ui.to.x, ui.to.y)) {
-            g.fillStyle = alpha(T.gold, 0.16 + 0.16 * pulse);
-            g.fillRect(X0 + b.x * CELL + 3, Y0 + b.y * CELL + 3, CELL - 6, CELL - 6);
-            const next = s.h[idx(b.x, b.y)] + 1;
-            marks.push({ x: b.x, y: b.y, t: next >= 4 ? '→ドーム' : `→${next}段`, color: T.gold });
-          }
+          for (const b of R.builds(s, c.acting, ui.w, ui.to.x, ui.to.y)) hl.push({ x: b.x, y: b.y, color: T.gold, fill: 0.8, line: 1 });
         }
       }
       // 積み木・ドーム
@@ -178,14 +149,17 @@ function makeSpec(env) {
           } else tower(g, cx(x), cy(y), level, k);
         }
       }
-      // 高さの数字（どのマスが何段かが分かるように）と、候補の印
-      for (let y = 0; y < R.N; y++) {
-        for (let x = 0; x < R.N; x++) {
-          const level = s.h[idx(x, y)];
-          if (level) ntext(g, level >= 4 ? 'ドーム' : `${level}段`, X0 + (x + 1) * CELL - 3, Y0 + (y + 1) * CELL - 11, 8, level >= 4 ? T.gold : T.white, 'right');
+      for (const h of hl) {
+        const x0 = X0 + h.x * CELL + 3;
+        const y0 = Y0 + h.y * CELL + 3;
+        if (h.fill) {
+          g.fillStyle = alpha(h.color, (0.18 + 0.3 * pulse) * h.fill);
+          g.fillRect(x0, y0, CELL - 6, CELL - 6);
         }
+        g.strokeStyle = alpha(h.color, 0.45 + 0.5 * pulse);
+        g.lineWidth = 1.6;
+        g.strokeRect(x0 - 0.5, y0 - 0.5, CELL - 5, CELL - 5);
       }
-      for (const m of marks) ntext(g, m.t, X0 + (m.x + 0.5) * CELL, Y0 + m.y * CELL + 3, 8.5, m.color, 'center');
       // 作業員（積み木の上に立つので、少し上へ）
       for (const who of [0, 1]) {
         s.workers[who].forEach((p, i) => {
