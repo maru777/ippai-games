@@ -4,6 +4,7 @@ import { Input } from './core/input.js';
 import { Sound } from './core/sound.js';
 import { Store } from './core/storage.js';
 import { Music } from './core/music.js';
+import { createHelp, LCD_PAL } from './games/game-help.js';
 import { createPortal } from './portal.js';
 import { C, text, rect, frame, inside } from './core/draw.js';
 
@@ -47,6 +48,7 @@ let newBest = false;
 let finalScore = 0;
 let overAge = 0;
 let wantMenu = false;
+let help = null; // 開始前の画面の「？」（遊び方）
 
 // ポータル（メニュー）: 世界タブとスクロールできる一覧。高解像度（×2）で描く。
 const portal = createPortal({
@@ -94,6 +96,7 @@ async function startGame(item) {
   const mod = await item.load();
   def = item;
   game = mod.default(env);
+  help = createHelp(item.id, item.title, { x: 194, y: 123, w: 22, h: 22 }, LCD_PAL, false);
   if (game.bgm) Music.start(`game-${game.bgm}`); // ゲームが専用の BGM（スキンごとなど）を持つなら鳴らす
   else Music.stop();
   best = Store.best(item.id);
@@ -140,6 +143,10 @@ function drawReady() {
   text(g, def.title, W / 2, 130, 16, C.dark, 'center');
   text(g, def.desc, W / 2, 152, 11, C.mid, 'center');
   text(g, 'タップでスタート', W / 2, 168, 12, C.dark, 'center');
+  if (help) {
+    help.drawButton(g);
+    help.drawOverlay(g);
+  }
 }
 
 function updateOver(dt) {
@@ -187,7 +194,7 @@ function loop(now) {
   } else if (state === 'ready') {
     if (input.pressed) {
       input.pressed = false; // 開始のタップをゲーム側に渡さない
-      state = 'play';
+      if (!help || !help.press(input.x, input.y)) state = 'play'; // 「？」なら遊び方を出し入れするだけ
     }
     drawReady();
   } else if (state === 'play') {

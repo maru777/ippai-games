@@ -1,4 +1,4 @@
-// かべレース: 2 人のオンライン対戦。9×9 の盤で、先に向かい側の端へ着いた方の勝ち。
+// こりぽーる（旧名: かべレース）: 2 人のオンライン対戦。9×9 の盤で、先に向かい側の端へ着いた方の勝ち。
 // 自分の番に「コマを 1 マス動かす」か「壁を 1 枚置いて相手の進路を伸ばす」（壁で道を完全に塞ぐのは禁止）。
 // 部屋コード（4 桁）で入室する。CPU と対戦（3 段階）もできる。
 // ルールは wall-race-rules.js、CPU は wall-race-cpu.js、通信は core/net.js。
@@ -7,6 +7,7 @@ import {
   T, alpha, rr, ntext, drawBg, panel, nbutton, pips, drawPawn, measure, Particles,
 } from './wall-race-theme.js';
 import { Room, newCode, relayUrl } from '../core/net.js';
+import { createHelp } from './game-help.js';
 import { Store } from '../core/storage.js';
 import { chooseAction, LEVELS } from './wall-race-cpu.js';
 import { N, newState, legalMoves, canPlaceWall, apply } from './wall-race-rules.js';
@@ -71,6 +72,7 @@ export default function create(env) {
   const { W, H, input, sound } = env;
 
   // menu | level | join | wait | play | done
+  const help = createHelp('wall-race', 'こりぽーる'); // 右上の「？」（遊び方）
   let mode, room, code, entered, notice, seat, s, tool, cand, wins, award, ended;
   let vsCpu, level, thinkT, first;
   let resignOpen;
@@ -87,6 +89,7 @@ export default function create(env) {
 
   function reset() {
     disposeRoom();
+    help.close();
     mode = 'menu';
     code = '';
     entered = '';
@@ -510,6 +513,7 @@ export default function create(env) {
     if (!input.pressed) return;
     const px = input.x;
     const py = input.y;
+    if (help.press(px, py)) return;
     if (inside(px, py, BTN_CPU)) {
       notice = '';
       mode = 'level';
@@ -776,15 +780,17 @@ export default function create(env) {
     const a = Math.sin(clock * 1.6) * 12;
     drawPawn(g, 62 + a, 74, T.me, clock, true);
     drawPawn(g, 178 - a, 74, T.op, clock, true);
-    ntext(g, 'WALL RACE', W / 2 + 1.5, 22.5, 26, T.op, 'center', 8);
-    ntext(g, 'WALL RACE', W / 2 - 1, 21.5, 26, T.me, 'center', 10);
-    ntext(g, 'かべレース', W / 2, 52, 11, T.dim, 'center');
+    ntext(g, 'CORRIDOR', W / 2 + 1.5, 22.5, 26, T.op, 'center', 8);
+    ntext(g, 'CORRIDOR', W / 2 - 1, 21.5, 26, T.me, 'center', 10);
+    ntext(g, 'こりぽーる', W / 2, 52, 11, T.dim, 'center');
     nbutton(g, BTN_CPU, 'CPU と対戦', { color: T.me, size: 13 });
     nbutton(g, BTN_CREATE, '部屋をつくる（2 人）', { color: T.op, size: 13 });
     nbutton(g, BTN_JOIN, '部屋に入る（2 人）', { color: T.op, size: 13 });
     if (notice) ntext(g, notice, W / 2, 226, 11, T.bad, 'center', 4);
     ntext(g, '先に向こう側へ着いたら勝ち', W / 2, 262, 10, T.dim, 'center');
     ntext(g, '※ 2 人とも同じページを開いて遊びます', W / 2, 290, 9, alpha(T.dim, 0.8), 'center');
+    help.drawButton(g);
+    help.drawOverlay(g);
   }
 
   function drawLevel(g) {

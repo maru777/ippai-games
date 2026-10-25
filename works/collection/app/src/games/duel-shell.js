@@ -4,7 +4,7 @@
 //
 // spec に必要なもの:
 //   id, en（英字の題）, jp（日本語の題）, rules（遊び方の短い説明 配列）
-//   newState(first) / turn(s) / winner(s)（-1 続行・0・1・2 引き分け）/ apply(s, seat, action) → 次の状態か null
+//   newState(first, seed) / turn(s) / winner(s)（-1 続行・0・1・2 引き分け）/ apply(s, seat, action) → 次の状態か null
 //   ai(s, seat, level) → action / legalMoves(s) → action[]（CPU の保険）/ score(s, seat) → 数字か null
 //   newUi() → 操作中の一時状態 / reset() / onPress(ctx, x, y) → action か null / drawBoard(g, ctx)
 //   省略可: confirm { label, enabled(ctx), action(ctx) } / onApplied(ctx, prev, next, action, who) / tick(ctx, dt)
@@ -16,6 +16,7 @@ import {
 } from './wall-race-theme.js';
 import { Room, newCode, relayUrl } from '../core/net.js';
 import { Store } from '../core/storage.js';
+import { createHelp } from './game-help.js';
 
 export const LEVELS = [
   { id: 'easy', label: 'かんたん' },
@@ -54,10 +55,11 @@ const REASONS = {
 export function createDuel(env, makeSpec) {
   const { W, H, input, sound } = env;
   const spec = makeSpec(env);
+  const help = createHelp(spec.id, spec.jp); // 右上の「？」（遊び方）
 
   // menu | level | join | wait | play | done
   let mode, room, code, entered, notice, seat, s, ui, wins, award, ended, kind;
-  let vsCpu, local2, level, thinkT, first, resignOpen;
+  let vsCpu, local2, level, thinkT, first, seed, resignOpen;
   let clock = 0;
   let parts = new Particles();
 
@@ -78,6 +80,7 @@ export function createDuel(env, makeSpec) {
 
   function reset() {
     disposeRoom();
+    help.close();
     mode = 'menu';
     code = '';
     entered = '';
@@ -100,6 +103,7 @@ export function createDuel(env, makeSpec) {
   }
 
   const randomFirst = () => (Math.random() < 0.5 ? 0 : 1);
+  const randomSeed = () => Math.floor(Math.random() * 2 ** 31); // 配札などの乱数（オンラインでは開始の知らせで共有する）
 
   function begin() {
     mode = 'play';
@@ -118,7 +122,8 @@ export function createDuel(env, makeSpec) {
     level = lv;
     seat = 0;
     first = randomFirst();
-    s = spec.newState(first);
+    seed = randomSeed();
+    s = spec.newState(first, seed);
     thinkT = CPU_THINK;
     begin();
   }
@@ -129,7 +134,8 @@ export function createDuel(env, makeSpec) {
     local2 = true;
     seat = 0;
     first = randomFirst();
-    s = spec.newState(first);
+    seed = randomSeed();
+    s = spec.newState(first, seed);
     begin();
   }
 
@@ -149,8 +155,9 @@ export function createDuel(env, makeSpec) {
       // 先に入室していた側（座席 0）が盤面を作って開始を知らせる
       if (seat === 0 && mode === 'wait') {
         first = randomFirst();
-        s = spec.newState(first);
-        room.send({ k: 'start', first });
+        seed = randomSeed();
+        s = spec.newState(first, seed);
+        room.send({ k: 'start', first, seed });
         begin();
       }
     };
@@ -162,7 +169,8 @@ export function createDuel(env, makeSpec) {
       if (!d) return;
       if (d.k === 'start' && mode === 'wait') {
         first = d.first === 1 ? 1 : 0;
-        s = spec.newState(first);
+        seed = Number.isInteger(d.seed) ? d.seed : 0;
+        s = spec.newState(first, seed);
         begin();
       } else if (d.k === 'act' && mode === 'play') {
         if (s.turn !== 1 - seat) return; // 相手の番でない手は無視
@@ -241,6 +249,7 @@ export function createDuel(env, makeSpec) {
   function updateMenu() {
     if (!input.pressed) return;
     const { x, y } = input;
+    if (help.press(x, y)) return;
     if (inside(x, y, BTN_CPU)) {
       notice = '';
       mode = 'level';
@@ -431,6 +440,8 @@ export function createDuel(env, makeSpec) {
     nbutton(g, BTN_JOIN, '部屋に入る（2 人）', { color: T.op, size: 13 });
     if (notice) ntext(g, notice, W / 2, 246, 11, T.bad, 'center', 4);
     spec.rules.forEach((line, i) => ntext(g, line, W / 2, 268 + i * 14, 10, T.dim, 'center'));
+    help.drawButton(g);
+    help.drawOverlay(g);
   }
 
   function drawLevel(g) {

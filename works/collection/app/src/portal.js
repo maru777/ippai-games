@@ -2,6 +2,8 @@
 // 世界ごとに画面の配色・形・文字・背景の動き・BGM の音色が違い、タブを切り替えると約 0.6 秒でなめらかに移り変わる。
 // 一覧はドラッグでスクロールでき、ゲームは「指を離したとき」に選ばれる（スクロール中に選ばれない）。
 import { Music } from './core/music.js';
+import { HOWTO } from './games/howto.js';
+import { drawIcon, hasIcon } from './games/icons.js';
 
 export const W = 240;
 export const H = 320;
@@ -36,7 +38,98 @@ const MUTE = { x: 196, y: 6, w: 38, h: 18 };
 const LIST = { x: 0, y: 70, w: W, h: 232 };
 const PITCH = 48;
 const CARD_H = 42;
+// 紹介画面（「？」を押すと出る）。パレットは、ポータルの現在の配色か、ゲーム中の 8bit の配色を渡す。
+export const INTRO_BOX = { x: 14, y: 40, w: 212, h: 240 };
+export const INTRO_PLAY = { x: 28, y: 244, w: 90, h: 28 };
+export const INTRO_CLOSE = { x: 122, y: 244, w: 90, h: 28 };
+const HELP_R = 9; // 「？」の丸の半径
+const helpCenter = (c) => ({ x: c.x + c.w - 16, y: c.y + c.h / 2 + 5 });
+
 const inside = (x, y, r) => x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h;
+
+// 文字を幅で折り返す（g.font を設定してから呼ぶ）
+function wrap(g, str, maxW) {
+  const out = [];
+  let line = '';
+  for (const ch of str) {
+    const t = line + ch;
+    if (g.measureText(t).width > maxW && line) {
+      out.push(line);
+      line = ch;
+    } else line = t;
+  }
+  if (line) out.push(line);
+  return out;
+}
+
+// 紹介画面を描く。pal: { card, line, ink, dim, accent, onAccent, radius }（css の色）、modern: モダンな書体にするか
+export function drawIntroCard(g, item, pal, modern) {
+  const font = modern ? FONT_MOD : FONT_PIX;
+  const info = HOWTO[item.id] || { summary: item.desc || '', lines: [] };
+  const b = INTRO_BOX;
+  const icon = hasIcon(item.id);
+  g.save();
+  g.fillStyle = 'rgba(0, 0, 0, 0.6)';
+  g.fillRect(0, 0, W, H);
+  rr(g, b.x, b.y, b.w, b.h, pal.radius);
+  g.fillStyle = pal.card;
+  g.fill();
+  g.strokeStyle = pal.line;
+  g.lineWidth = 1.5;
+  g.stroke();
+  g.textBaseline = 'top';
+  g.textAlign = 'center';
+  let y = b.y + 14;
+  if (icon) {
+    drawIcon(g, item.id, b.x + b.w / 2, b.y + 34, 40, pal.accent, 1.6);
+    y = b.y + 60;
+  }
+  g.font = `bold 16px ${font}`;
+  g.fillStyle = pal.ink;
+  g.fillText(item.title, b.x + b.w / 2, y);
+  y += 24;
+  g.font = `bold 10px ${font}`;
+  g.fillStyle = pal.dim;
+  for (const l of wrap(g, info.summary, b.w - 28)) {
+    g.fillText(l, b.x + b.w / 2, y);
+    y += 13;
+  }
+  y += 6;
+  // 遊び方（箇条書き）。長くて下のボタンに届くときは、文字を小さくする
+  const bottom = INTRO_PLAY.y - 8;
+  let size = 10;
+  let rows;
+  for (; size >= 8; size -= 0.5) {
+    g.font = `bold ${size}px ${font}`;
+    rows = info.lines.map((t) => wrap(g, t, b.w - 40));
+    const total = rows.reduce((n, r) => n + r.length, 0) * (size + 3) + rows.length * 3;
+    if (y + total <= bottom) break;
+  }
+  g.textAlign = 'left';
+  g.fillStyle = pal.ink;
+  for (const r of rows) {
+    r.forEach((l, i) => {
+      if (i === 0) g.fillText('・', b.x + 14, y);
+      g.fillText(l, b.x + 26, y);
+      y += size + 3;
+    });
+    y += 3;
+  }
+  // ボタン
+  for (const [r, label, fill] of [[INTRO_PLAY, 'あそぶ', true], [INTRO_CLOSE, 'とじる', false]]) {
+    rr(g, r.x, r.y, r.w, r.h, pal.radius * 0.6);
+    g.fillStyle = fill ? pal.accent : 'rgba(0, 0, 0, 0.0)';
+    g.fill();
+    g.strokeStyle = fill ? pal.accent : pal.line;
+    g.lineWidth = 1.2;
+    g.stroke();
+    g.font = `bold 12px ${font}`;
+    g.textAlign = 'center';
+    g.fillStyle = fill ? pal.onAccent : pal.ink;
+    g.fillText(label, r.x + r.w / 2, r.y + 8);
+  }
+  g.restore();
+}
 
 function rr(g, x, y, w, h, r) {
   g.beginPath();
@@ -72,6 +165,7 @@ export function createPortal(opts) {
   let vel = 0;
   let touch = null;
   let pressedId = null;
+  let intro = null; // 紹介画面を開いているゲーム
 
   const items = () => games.filter((it) => it.world === world);
   const maxScroll = () => Math.max(0, items().length * PITCH + 6 - LIST.h);
@@ -102,6 +196,14 @@ export function createPortal(opts) {
   }
 
   function tap(x, y) {
+    if (intro) {
+      const it = intro;
+      if (inside(x, y, INTRO_PLAY)) {
+        intro = null;
+        if (it.load || it.href) onSelect(it);
+      } else if (inside(x, y, INTRO_CLOSE) || !inside(x, y, INTRO_BOX)) intro = null;
+      return;
+    }
     if (inside(x, y, MUTE)) {
       muted = !muted;
       Music.setMuted(muted);
@@ -110,14 +212,18 @@ export function createPortal(opts) {
     }
     for (let i = 0; i < TAB_RECTS.length; i++) if (inside(x, y, TAB_RECTS[i])) return setWorld(WORLDS[i].id);
     const it = hitCard(x, y);
-    if (it && (it.load || it.href)) onSelect(it);
+    if (!it) return;
+    const items_ = items();
+    const hc = helpCenter(cardRect(items_.indexOf(it)));
+    if (Math.hypot(x - hc.x, y - hc.y) <= HELP_R + 6) intro = it; // 「？」で紹介画面
+    else if (it.load || it.href) onSelect(it);
   }
 
   function update(dt, input) {
     clock += dt;
     // ---- 入力: 押す → 動かす → 離す。離したときに、動いていなければタップ、動いていればスクロール
     if (input.pressed && !touch && (input.pointerDown || input.released)) {
-      touch = { x0: input.x, y0: input.y, sy0: sy, drag: false, lastY: input.y, lastT: clock, inList: inside(input.x, input.y, LIST) };
+      touch = { x0: input.x, y0: input.y, sy0: sy, drag: false, lastY: input.y, lastT: clock, inList: inside(input.x, input.y, LIST) && !intro };
       vel = 0;
     }
     if (touch && input.pointerDown) {
@@ -293,17 +399,30 @@ export function createPortal(opts) {
         g.fillStyle = css(cur.accent, 0.28);
         g.fill();
       }
-      // 番号のバッジ
-      rr(g, c.x + 7, c.y + 9, 24, 24, r * 0.8);
-      g.fillStyle = css(cur.accent, live ? 1 : 0.35);
-      g.fill();
-      label(g, `${i + 1}`, c.x + 19, c.y + 14, 13, css(cur.onAccent), 'center');
+      // 左の印: 線画アイコンがあるゲーム（対戦・ボード）はアイコン、それ以外は番号のバッジ
+      if (hasIcon(it.id)) {
+        drawIcon(g, it.id, c.x + 20, c.y + c.h / 2, 26, css(cur.accent, live ? 1 : 0.4), 1.5);
+      } else {
+        rr(g, c.x + 7, c.y + 9, 24, 24, r * 0.8);
+        g.fillStyle = css(cur.accent, live ? 1 : 0.35);
+        g.fill();
+        label(g, `${i + 1}`, c.x + 19, c.y + 14, 13, css(cur.onAccent), 'center');
+      }
       label(g, it.title, c.x + 38, c.y + 6, 14, css(cur.ink, live ? 1 : 0.5));
       const sub = !live ? '準備中' : it.desc;
       label(g, sub, c.x + 38, c.y + 24, 9.5, css(cur.dim), 'left');
       const best = live && opts.best ? opts.best(it) : null;
-      if (best) label(g, best, c.x + c.w - 8, c.y + 6, 8.5, css(cur.dim), 'right');
-      else if (live) label(g, '▶', c.x + c.w - 10, c.y + 15, 11, css(cur.accent), 'right');
+      if (best) label(g, best, c.x + c.w - 8, c.y + 5, 8.5, css(cur.dim), 'right');
+      // 右の「？」（紹介画面）
+      if (live) {
+        const hc = helpCenter(c);
+        g.beginPath();
+        g.arc(hc.x, hc.y, HELP_R, 0, Math.PI * 2);
+        g.strokeStyle = css(cur.accent, 0.9);
+        g.lineWidth = 1.2;
+        g.stroke();
+        label(g, '？', hc.x, hc.y - 5.5, 10, css(cur.accent), 'center');
+      }
     });
     g.restore();
     // はみ出している側に薄い影（続きがあると分かるように）
@@ -314,7 +433,12 @@ export function createPortal(opts) {
       g.fillStyle = gb;
       g.fillRect(0, H - 22, W, 22);
     }
-    if (!Music.running) label(g, 'タップすると ♪ が流れます', W / 2, H - 15, 8.5, css(cur.dim), 'center');
+    if (intro) {
+      drawIntroCard(g, intro, {
+        card: css(cur.card), line: css(cur.line), ink: css(cur.ink), dim: css(cur.dim), accent: css(cur.accent), onAccent: css(cur.onAccent), radius: cur.radius,
+      }, cur.font > 0.5);
+    }
+    if (!Music.running && !intro) label(g, 'タップすると ♪ が流れます', W / 2, H - 15, 8.5, css(cur.dim), 'center');
     g.restore();
     return `rgb(${Math.round(cur.bot[0])},${Math.round(cur.bot[1])},${Math.round(cur.bot[2])})`;
   }
@@ -323,6 +447,6 @@ export function createPortal(opts) {
     update,
     draw,
     get world() { return world; },
-    enter() { vel = 0; touch = null; pressedId = null; Music.start(world); }, // ゲームから戻ったら、世界の曲へ戻す
+    enter() { vel = 0; touch = null; pressedId = null; intro = null; Music.start(world); }, // ゲームから戻ったら、世界の曲へ戻す
   };
 }
