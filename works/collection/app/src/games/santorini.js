@@ -84,8 +84,8 @@ function makeSpec(env) {
         ui.to = dest;
         return null;
       }
-      if (own >= 0) {
-        ui.to = null; // 行き先を選び直す
+      if (gx === ui.to.x && gy === ui.to.y) {
+        ui.to = null; // 仮置きした作業員をタップで、行き先を選び直す
         return null;
       }
       const a = { w: ui.w, x: ui.to.x, y: ui.to.y, bx: gx, by: gy };

@@ -305,4 +305,15 @@ test('hex: つよい CPU の 1 手は 2 秒以内', () => {
   assert.ok(Date.now() - t0 < 2000, `${Date.now() - t0}ms`);
 });
 
+test('isolation / santorini: 動かす前にいたマスも、消す・積むことができる', () => {
+  const s = iso.newState(0);
+  const n = iso.apply(s, 0, { x: 3, y: 5, rx: 3, ry: 6 }); // 元いたマス (3,6) を消す
+  assert.ok(n);
+  assert.equal(n.gone[6 * 7 + 3], 1);
+  const t = san.newState(0);
+  const m = san.apply(t, 0, { w: 0, x: 1, y: 2, bx: 1, by: 3 }); // 元いたマス (1,3) に積む
+  assert.ok(m);
+  assert.equal(m.h[3 * 5 + 1], 1);
+});
+
 console.log(`\n${passed} 件すべて成功`);

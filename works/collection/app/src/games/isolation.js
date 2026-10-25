@@ -22,16 +22,12 @@ function makeSpec(env) {
     const gy = Math.floor((y - Y0) / CELL);
     if (gx < 0 || gy < 0 || gx >= R.N || gy >= R.N) return null;
     const me = c.s.pawns[c.acting];
-    if (gx === me.x && gy === me.y) {
-      if (c.ui.to) {
-        // 動かす前のマスしか消せない終盤は、そのマスをタップで消す
-        const others = R.legalMoves(c.s, c.acting).filter((m) => m.x === c.ui.to.x && m.y === c.ui.to.y && !(m.rx === me.x && m.ry === me.y));
-        if (!others.length) return { x: c.ui.to.x, y: c.ui.to.y, rx: me.x, ry: me.y };
-      }
-      c.ui.to = null; // 自分のコマをタップで、行き先を選び直す
+    if (c.ui.to && gx === c.ui.to.x && gy === c.ui.to.y) {
+      c.ui.to = null; // 仮置きしたコマをタップで、行き先を選び直す
       return null;
     }
     if (!c.ui.to) {
+      if (gx === me.x && gy === me.y) return null;
       const dest = R.steps(c.s, c.acting).find((m) => m.x === gx && m.y === gy);
       if (dest) c.ui.to = dest;
       return null;
@@ -151,7 +147,7 @@ function makeSpec(env) {
         }
         drawPawn(g, cx(p.x), cy(p.y), SEAT_COLOR[who], clock, s.winner === -1 && s.turn === who);
       }
-      if (c.canAct) ntext(g, c.ui.to ? '消すマスをタップ（コマで選び直し）' : '動かす先をタップ', 8, 293, 10, T.dim);
+      if (c.canAct) ntext(g, c.ui.to ? '消すマスをタップ（元の場所も消せる・仮置きのコマで選び直し）' : '動かす先をタップ', 8, 293, 10, T.dim);
     },
   };
 }
