@@ -18,7 +18,7 @@ import {
 } from './tree-fort-view.js';
 import {
   ST_LIST, ST_ROW_H, BTN_ST_BACK, BTN_ST_GO, stageEntries, stageRows, stageMaxScroll, drawStageSelect,
-  cardRects, BTN_REROLL, drawChoice, BTN_SPEED, BTN_OD,
+  cardRects, BTN_REROLL, drawChoice, BTN_SPEED, BTN_OD, hudToast,
   CX_TABS, CX_LIST, BTN_CX_BACK, SLOT_STRIP, slotRect, codexItems, codexRows, codexMaxScroll, achProgress, drawCodex, drawResultNew, layoutRview,
 } from './tree-fort-rview.js';
 
@@ -759,6 +759,11 @@ export default function create(env) {
       }
       if (inside(input.x, input.y, BTN_OD)) {
         sc.run.overdrive();
+        return;
+      }
+      const info = hudToast(b, input.x, input.y);
+      if (info) {
+        b.toast = info;
         return;
       }
       if (sc.run.tap(input.x, input.y - battleOffset(sc))) snd('tap', 0.05, () => sound.beep(1100, 0.04, 'square', 0.04));

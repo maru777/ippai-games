@@ -1,6 +1,6 @@
 // ツリー砦: 1 回の挑戦（ラン）の中の成長。敵を倒して経験値をため、レベルアップごとに 3 択から選ぶ。
 // 画面や通信とは独立（ここでは「選択肢を作る」「選んだ結果を反映する」だけ）。
-import { WEAPONS, WEAPON, SLOT_MAX, MAX_LEVEL, activeSynergies } from './tree-fort-weapons.js';
+import { WEAPONS, WEAPON, SYNERGY, SLOT_MAX, MAX_LEVEL, activeSynergies } from './tree-fort-weapons.js';
 
 // 次のレベルまでに必要な経験値（xpMul はツリーの強化で増える）
 export const xpNeed = (level, xpMul = 1) => Math.max(3, Math.round((4 + 2.4 * level + 0.5 * level * level) / xpMul));
@@ -19,6 +19,17 @@ export const STAT_OPTIONS = [
 const STAT = Object.fromEntries(STAT_OPTIONS.map((s) => [s.id, s]));
 
 const UNKNOWN = { name: '？？？', color: '#b8a0ff' };
+
+// 強化の前後の値を「現在 12 → 15」の形で返す（その場で複製して適用し、差を読む）
+const STAT_KEY = { target: 'targets' };
+const STAT_PCT = new Set(['crit']);
+function statNote(s, stats, tower) {
+  const key = STAT_KEY[s.id] || s.id;
+  const after = { ...stats };
+  s.apply(after, { tower: { max: tower.max, hp: tower.hp } });
+  const f = (v) => (STAT_PCT.has(key) ? `${Math.round(v * 100)}%` : `${Math.round(v * 10) / 10}`);
+  return `現在 ${f(stats[key])} → ${f(after[key])}`;
+}
 
 // 選択肢を作る。ctx: { rng, stats, loadout, slots, discovered, g（その時点の難しさ）, tower, count }
 export function makeOptions(ctx) {
@@ -40,24 +51,26 @@ export function makeOptions(ctx) {
     for (const def of WEAPONS) {
       if (have.has(def.id)) continue;
       const after = activeSynergies([...have, def.id]);
-      const newSyn = [...after].filter((s) => !before.has(s)).length;
+      const synNew = [...after].filter((s) => !before.has(s));
+      const newSyn = synNew.length;
+      const synNote = newSyn ? `★ 組み合わせ【${synNew.map((s) => SYNERGY[s].name).join('・')}】が発動` : '';
       if (discovered.has(def.id)) {
         cand.push({
           weight: 22 + (newSyn ? 16 : 0) + (loadout.length === 0 ? 20 : 0),
-          opt: { kind: 'weapon-new', id: def.id, name: def.name, color: def.color, level: 1, desc: def.levels[0], label: 'NEW', star: newSyn > 0 },
+          opt: { kind: 'weapon-new', id: def.id, name: def.name, color: def.color, level: 1, desc: def.levels[0], label: 'NEW', star: newSyn > 0, note: synNote },
         });
       } else {
         // まだ見つけていない武器は「？？？」として出る。波が進むほど出やすい。
         cand.push({
           weight: Math.min(28, 8 + g * 1.3) * (loadout.length === 0 ? 0.4 : 1),
-          opt: { kind: 'weapon-new', id: def.id, name: UNKNOWN.name, color: UNKNOWN.color, level: 1, desc: '未知の武器。選ぶと正体が分かる', label: 'NEW?', unknown: true, star: newSyn > 0 },
+          opt: { kind: 'weapon-new', id: def.id, name: UNKNOWN.name, color: UNKNOWN.color, level: 1, desc: '未知の武器。選ぶと正体が分かる', label: 'NEW?', unknown: true, star: newSyn > 0, note: newSyn ? '★ 持っている武器と組み合わせ効果がある' : '' },
         });
       }
     }
   }
   for (const s of STAT_OPTIONS) {
     if (s.max && (stats[s.id === 'target' ? 'targets' : s.id] || 0) >= s.max) continue;
-    cand.push({ weight: 9, opt: { kind: 'stat', id: s.id, name: s.name, color: s.color, desc: s.desc, label: 'ステータス' } });
+    cand.push({ weight: 9, opt: { kind: 'stat', id: s.id, name: s.name, color: s.color, desc: s.desc, label: 'ステータス', note: statNote(s, stats, tower) } });
   }
   const dmgd = tower.hp < tower.max * 0.7;
   cand.push({ weight: dmgd ? 14 : 3, opt: { kind: 'heal', id: 'heal', name: '応急修理', color: '#7dff8a', desc: '耐久を 40% 回復', label: '回復' } });

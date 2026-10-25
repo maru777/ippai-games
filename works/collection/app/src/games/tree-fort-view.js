@@ -935,11 +935,7 @@ export function drawBattle(g, sc) {
       kit.text(g, '宝箱！', f.x, f.y - 14 - u * 18, 12, sk.gold, 'center', 10);
       g.restore();
     } else if (f.kind === 'gotWeapon' || f.kind === 'gotRelic' || f.kind === 'contract') {
-      g.save();
-      g.globalAlpha = Math.max(0, Math.min(1, (1 - u) * 2));
-      const txt = f.kind === 'gotWeapon' ? (f.unknown ? `NEW! ${f.name} を発見！` : `${f.name} を手に入れた`) : f.kind === 'gotRelic' ? `遺物「${f.name}」` : `契約「${f.name}」`;
-      kit.text(g, txt, W / 2, 72 - u * 8, 12, f.color || sk.gold, 'center', 8);
-      g.restore();
+      // 名前と説明は、HUD の一言（b.toast）で出す
     } else if (f.kind === 'overdrive') {
       g.save();
       g.globalAlpha = Math.max(0, 1 - u);
@@ -1006,7 +1002,8 @@ export function drawBattle(g, sc) {
   g.fillStyle = hc;
   g.fill();
   g.restore();
-  kit.text(g, `+${run.earned()}P`, 138, 9, 11, sk.gold, 'left', 6);
+  kit.text(g, '耐久', bx + 5, 10, 7.5, '#06081a', 'left', 0);
+  kit.text(g, `獲得 +${run.earned()}P`, 135, 10, 10, sk.gold, 'left', 6);
   kit.button(g, BTN_RETREAT, sk.id === 'wa' ? '退' : '撤退', { color: sk.bad, size: 10 });
   // 波の進み具合: 戦闘中は「倒した割合」、波の合間は「次の波までの時間」
   {
@@ -1026,7 +1023,7 @@ export function drawBattle(g, sc) {
     let label;
     if (resting) label = b.wave === 0 ? 'まもなく開始' : `波クリア！ 次の波まで ${Math.max(0, b.restT).toFixed(1)} 秒`;
     else if (left === 0) label = 'もうすぐクリア';
-    else if (b.queue.length) label = sk.id === 'wa' ? `第${b.wave}波　あと ${left} 体（まだ来る）` : `WAVE ${b.wave}　あと ${left} 体（まだ来る）`;
+    else if (b.queue.length) label = sk.id === 'wa' ? `第${b.wave}波　あと ${left} 体（未出現 ${b.queue.length}）` : `WAVE ${b.wave}　あと ${left} 体（未出現 ${b.queue.length}）`;
     else label = sk.id === 'wa' ? `第${b.wave}波　あと ${left} 体` : `WAVE ${b.wave}　あと ${left} 体`;
     kit.text(g, label, W / 2, 39, 9.5, resting ? sk.gold : sk.text, 'center', 3);
   }
