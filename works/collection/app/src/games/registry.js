@@ -16,5 +16,5 @@ export const GAMES = [
   { id: 'four', title: '四目並べ', desc: '石を落として4つ並べる', world: 'versus', genre: 'board', load: () => import('./four.js') },
   { id: 'dots', title: 'ドット囲み', desc: '線を引いて箱を取る', world: 'versus', genre: 'board', load: () => import('./dots.js') },
   { id: 'puzzle-collection', title: 'パズル集', desc: '色つき出口・色光とミラー', world: 'puzzle', genre: 'puzzle', href: 'puzzle/' },
-  { id: 'deck-roguelite', title: '改造デッキ', desc: 'カードを分解して育てるローグライト', world: 'puzzle', genre: 'strategy', href: 'deck/' },
+  { id: 'deck-roguelite', title: '刻印の回廊', desc: 'カードを分解して育てるローグライト', world: 'puzzle', genre: 'strategy', href: 'deck/' },
 ];
