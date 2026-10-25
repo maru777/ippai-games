@@ -50,7 +50,7 @@ function makeSpec(env) {
     id: 'blockade',
     en: 'BLOCKADE',
     jp: 'ぶろっけーぽん',
-    rules: ['コマ 2 つを、相手の出発マス 2 つへ', '1 手 = コマを最大 2 マス進める か 壁を置く'],
+    rules: ['コマ 2 つを、相手の出発マスへ', '1 手 = コマ 2 マスまで か 壁 1 枚'],
     newState: R.newState,
     turn: R.turn,
     winner: R.winner,
