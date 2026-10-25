@@ -11,7 +11,7 @@ export const ARENA = { W: 240, H: 320, cx: 120, cy: 172, towerR: 11 };
 export const STAGE_WAVES = 10;
 export const STAGE_COUNT = 10;
 export const GSTEP = 3.1; // ステージが 1 つ進むごとの難しさ（無限モードの波に換算）
-const G_FIRST = 8; // ステージ 1 の最後の波（ボス）の難しさ
+const G_FIRST = 6.5; // ステージ 1 の最後の波（ボス）の難しさ（レベルアップを遅くした分、以前の 8 から下げた）
 const G_START = 0.6; // ステージが進むごとの、最初の波の難しさの増え方（最初の波はやさしい）
 
 // 敵の種類。from = この難しさから登場、w = 出やすさ、armor/shield/phase などが特徴

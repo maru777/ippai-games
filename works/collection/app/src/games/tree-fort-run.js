@@ -3,16 +3,16 @@
 import { WEAPONS, WEAPON, SLOT_MAX, MAX_LEVEL, activeSynergies } from './tree-fort-weapons.js';
 
 // 次のレベルまでに必要な経験値（xpMul はツリーの強化で増える）
-export const xpNeed = (level, xpMul = 1) => Math.max(3, Math.round((4 + 2.4 * level) / xpMul));
+export const xpNeed = (level, xpMul = 1) => Math.max(3, Math.round((4 + 2.4 * level + 0.5 * level * level) / xpMul));
 
 // その挑戦の間だけ効くステータス強化
 export const STAT_OPTIONS = [
-  { id: 'dmg', name: '攻撃力アップ', desc: '主砲・武器のダメージ +15%', color: '#ff7a8a', apply: (st) => { st.dmg *= 1.15; } },
-  { id: 'rate', name: '連射アップ', desc: '連射速度 +14%', color: '#ffd84a', apply: (st) => { st.rate *= 1.14; } },
-  { id: 'range', name: '射程アップ', desc: '射程 +10', color: '#7fd6ff', apply: (st) => { st.range += 10; } },
-  { id: 'hp', name: '装甲アップ', desc: '耐久 +20（その分回復）', color: '#7dff8a', apply: (st, ctx) => { st.hp += 20; ctx.tower.max += 20; ctx.tower.hp += 20; } },
-  { id: 'crit', name: '会心アップ', desc: '会心率 +8%', color: '#ff9ae8', apply: (st) => { st.crit = Math.min(1, st.crit + 0.08); } },
-  { id: 'regen', name: '修復アップ', desc: '毎秒の回復 +0.8', color: '#9affc8', apply: (st) => { st.regen += 0.8; } },
+  { id: 'dmg', name: '攻撃力アップ', desc: '主砲・武器のダメージ +25%', color: '#ff7a8a', apply: (st) => { st.dmg *= 1.25; } },
+  { id: 'rate', name: '連射アップ', desc: '連射速度 +22%', color: '#ffd84a', apply: (st) => { st.rate *= 1.22; } },
+  { id: 'range', name: '射程アップ', desc: '射程 +14', color: '#7fd6ff', apply: (st) => { st.range += 14; } },
+  { id: 'hp', name: '装甲アップ', desc: '耐久 +30（その分回復）', color: '#7dff8a', apply: (st, ctx) => { st.hp += 30; ctx.tower.max += 30; ctx.tower.hp += 30; } },
+  { id: 'crit', name: '会心アップ', desc: '会心率 +10%', color: '#ff9ae8', apply: (st) => { st.crit = Math.min(1, st.crit + 0.1); } },
+  { id: 'regen', name: '修復アップ', desc: '毎秒の回復 +1.2', color: '#9affc8', apply: (st) => { st.regen += 1.2; } },
   { id: 'pierce', name: '貫通アップ', desc: '主砲が敵をさらに 1 体貫通（最大 3）', color: '#fff2a0', apply: (st) => { st.pierce = Math.min(3, st.pierce + 1); }, max: 3 },
   { id: 'target', name: 'マルチショット', desc: '同時に狙う数 +1（最大 4）', color: '#c9a3ff', apply: (st) => { st.targets = Math.min(4, st.targets + 1); }, max: 4 },
 ];
