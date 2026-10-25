@@ -11,6 +11,23 @@ import { TAG_NAME } from './tree-fort-wview.js';
 const TAU = Math.PI * 2;
 
 // ---------------------------------------------------------------------------------------------
+// 画面の高さ H に合わせた配置。論理高さは 320〜520。下端起点の部品（ボタン・説明パネル）は増えた高さ DH だけ下へ、
+// 一覧は DH だけ伸ばし、中央に置く内容（選択・結果）は DH / 2 だけ下へずらす。矩形は同じ object を書き換える。
+let DH = 0;
+const panelY = () => 241 + DH;
+export function layoutRview(H) {
+  DH = Math.max(0, H - 320);
+  ST_LIST.h = 204 + DH;
+  BTN_ST_BACK.y = 288 + DH;
+  BTN_ST_GO.y = 288 + DH;
+  BTN_REROLL.y = 276 + DH / 2;
+  BTN_SPEED.y = 288 + DH;
+  BTN_OD.y = 288 + DH;
+  CX_LIST.h = 182 + DH;
+  BTN_CX_BACK.y = 288 + DH;
+}
+
+// ---------------------------------------------------------------------------------------------
 // ステージ選択
 export const ST_LIST = { x: 4, y: 34, w: 232, h: 204 };
 export const ST_ROW_H = 26;
@@ -91,20 +108,21 @@ export function drawStageSelect(g, sc) {
 
   // 下の説明
   const e = sc.stageList.find((x) => x.id === sc.stageSel) || sc.stageList[0];
-  kit.panel(g, { x: 4, y: 241, w: W - 8, h: 44 }, { stroke: sk.gold, glow: sk.gold, blur: 8, radius: 8 });
+  const py = panelY();
+  kit.panel(g, { x: 4, y: py, w: W - 8, h: 44 }, { stroke: sk.gold, glow: sk.gold, blur: 8, radius: 8 });
   if (e.locked) {
-    kit.text(g, '？？？', 12, 245, 12, sk.dim);
-    kit.text(g, e.note || `ステージ ${e.stage - 1} をクリアで解放`, 12, 261, 9.5, sk.dim);
+    kit.text(g, '？？？', 12, py + 4, 12, sk.dim);
+    kit.text(g, e.note || `ステージ ${e.stage - 1} をクリアで解放`, 12, py + 20, 9.5, sk.dim);
   } else {
     const title = e.stage > 0 ? `STAGE ${e.stage}  ${e.name}` : e.name;
-    kit.text(g, title, 12, 245, 12, sk.gold, 'left', 6);
+    kit.text(g, title, 12, py + 4, 12, sk.gold, 'left', 6);
     if (e.stage > 0) {
-      kit.text(g, `ボス: ${e.boss}`, W - 12, 247, 9, sk.bad, 'right');
-      kit.text(g, e.mods.length ? `特色: ${modNames(e.mods)}（${MODS[e.mods[0]].desc}）` : '特色: なし（穏やかな戦い）', 12, 260, 9, sk.text);
-      kit.text(g, e.cleared ? '★2 耐久が半分以上 / ★3 被弾 3 回以内' : `初クリアで ${100 * e.stage} P。星が増えるとボーナス`, 12, 271, 8.5, sk.dim);
+      kit.text(g, `ボス: ${e.boss}`, W - 12, py + 6, 9, sk.bad, 'right');
+      kit.text(g, e.mods.length ? `特色: ${modNames(e.mods)}（${MODS[e.mods[0]].desc}）` : '特色: なし（穏やかな戦い）', 12, py + 19, 9, sk.text);
+      kit.text(g, e.cleared ? '★2 耐久が半分以上 / ★3 被弾 3 回以内' : `初クリアで ${100 * e.stage} P。星が増えるとボーナス`, 12, py + 30, 8.5, sk.dim);
     } else {
-      kit.text(g, e.mods.length ? `特色: ${modNames(e.mods)}` : e.note, 12, 260, 9, sk.text);
-      kit.text(g, e.note || '', 12, 271, 8.5, sk.dim);
+      kit.text(g, e.mods.length ? `特色: ${modNames(e.mods)}` : e.note, 12, py + 19, 9, sk.text);
+      kit.text(g, e.note || '', 12, py + 30, 8.5, sk.dim);
     }
   }
   kit.button(g, BTN_ST_BACK, 'もどる', { color: sk.op, size: 13 });
@@ -121,7 +139,7 @@ export function drawStageSelect(g, sc) {
 export function cardRects(n) {
   const h = n >= 4 ? 46 : 58;
   const gap = 6;
-  return Array.from({ length: n }, (_, i) => ({ x: 10, y: 64 + i * (h + gap), w: 220, h }));
+  return Array.from({ length: n }, (_, i) => ({ x: 10, y: 64 + DH / 2 + i * (h + gap), w: 220, h }));
 }
 export const BTN_REROLL = { x: 50, y: 276, w: 140, h: 24 };
 
@@ -146,14 +164,16 @@ export function drawChoice(g, sc, kind) {
   const sk = kit.skin;
   g.fillStyle = sk.bg === 'wa' || sk.bg === 'modern' ? 'rgba(240, 235, 225, 0.78)' : 'rgba(2, 4, 16, 0.78)';
   g.fillRect(0, 0, W, H);
+  // 見出しは、カード（cardRects が DH / 2 下げている）と同じだけ下げる
+  const oy = DH / 2;
   if (kind === 'levelup') {
     const pop = 1 + Math.max(0, 1 - sc.choiceT * 5) * 0.4;
     g.save();
-    g.translate(W / 2, 34);
+    g.translate(W / 2, 34 + oy);
     g.scale(pop, pop);
     kit.text(g, b.level <= 1 ? 'START BONUS' : `LEVEL UP!  Lv ${b.level}`, 0, -11, 20, kit.c(sk.gold, 1), 'center', 12);
     g.restore();
-    kit.text(g, `1 つ選ぶ${b.pending > 1 ? `（あと ${b.pending - 1} 回）` : ''}`, W / 2, 50, 9.5, sk.dim, 'center');
+    kit.text(g, `1 つ選ぶ${b.pending > 1 ? `（あと ${b.pending - 1} 回）` : ''}`, W / 2, 50 + oy, 9.5, sk.dim, 'center');
     const rects = cardRects(b.options.length);
     b.options.forEach((o, i) => {
       const r = rects[i];
@@ -165,8 +185,8 @@ export function drawChoice(g, sc, kind) {
     });
     kit.button(g, BTN_REROLL, `選び直し（残り ${b.rerolls}）`, { on: b.rerolls > 0, color: sk.op, size: 11 });
   } else if (kind === 'relic') {
-    kit.text(g, '宝箱！', W / 2, 20, 22, kit.c(sk.gold, 2), 'center', 14);
-    kit.text(g, '遺物を 1 つ選ぶ（この挑戦の間ずっと効く）', W / 2, 50, 9.5, sk.dim, 'center');
+    kit.text(g, '宝箱！', W / 2, 20 + oy, 22, kit.c(sk.gold, 2), 'center', 14);
+    kit.text(g, '遺物を 1 つ選ぶ（この挑戦の間ずっと効く）', W / 2, 50 + oy, 9.5, sk.dim, 'center');
     const rects = cardRects(b.relicOpts.length);
     b.relicOpts.forEach((r0, i) => {
       const r = rects[i];
@@ -174,8 +194,8 @@ export function drawChoice(g, sc, kind) {
       kit.text(g, r0.desc, r.x + 28, r.y + 26, 9.5, sk.dim);
     });
   } else {
-    kit.text(g, '契約', W / 2, 20, 22, kit.c(sk.bad, 3), 'center', 14);
-    kit.text(g, `第 ${b.event.wave} 波の前。代償と報酬を見て選ぶ`, W / 2, 50, 9.5, sk.dim, 'center');
+    kit.text(g, '契約', W / 2, 20 + oy, 22, kit.c(sk.bad, 3), 'center', 14);
+    kit.text(g, `第 ${b.event.wave} 波の前。代償と報酬を見て選ぶ`, W / 2, 50 + oy, 9.5, sk.dim, 'center');
     const rects = cardRects(3);
     b.event.options.forEach((c, i) => {
       const r = rects[i];
@@ -205,6 +225,7 @@ export function drawBattleHud(g, sc) {
   const { kit, W, clock } = sc;
   const { b } = sc.run;
   const sk = kit.skin;
+  const D = DH; // 下端起点の部品は、増えた高さぶん下へ
   // ボスの体力
   let y = 50;
   if (b.boss) {
@@ -228,15 +249,15 @@ export function drawBattleHud(g, sc) {
 
   // 下: 経験値の帯
   g.save();
-  rr(g, 8, 314, W - 16, 4, 2);
+  rr(g, 8, 314 + D, W - 16, 4, 2);
   g.fillStyle = 'rgba(255,255,255,0.12)';
   g.fill();
-  rr(g, 8, 314, Math.max(4, (W - 16) * Math.min(1, b.xp / b.xpNeed)), 4, 2);
+  rr(g, 8, 314 + D, Math.max(4, (W - 16) * Math.min(1, b.xp / b.xpNeed)), 4, 2);
   kit.glow(g, sk.me, 6);
   g.fillStyle = kit.c(sk.me, 5);
   g.fill();
   g.restore();
-  kit.text(g, `Lv ${b.level}`, 8, 299 - 14, 9, sk.text, 'left', 3);
+  kit.text(g, `Lv ${b.level}`, 8, 285 + D, 9, sk.text, 'left', 3);
 
   // 持っている武器
   b.loadout.forEach((w, i) => {
@@ -244,18 +265,18 @@ export function drawBattleHud(g, sc) {
     const def = WEAPON[w.id];
     g.save();
     if (sk.glow) kit.glow(g, def.color, 6);
-    rr(g, x, 289, 15, 15, 3);
+    rr(g, x, 289 + D, 15, 15, 3);
     g.fillStyle = rgba(def.color, 0.85);
     g.fill();
     g.restore();
-    kit.text(g, `${w.level}`, x + 7.5, 291, 10, '#06081a', 'center');
+    kit.text(g, `${w.level}`, x + 7.5, 291 + D, 10, '#06081a', 'center');
   });
   // 遺物
   b.relics.forEach((id, i) => {
     const r = RELIC[id];
     g.fillStyle = r.color;
     g.beginPath();
-    g.arc(94 + i * 8, 309, 2.6, 0, TAU);
+    g.arc(94 + i * 8, 309 + D, 2.6, 0, TAU);
     g.fill();
   });
 
@@ -424,34 +445,35 @@ export function drawCodex(g, sc) {
   }
 
   // 下の説明
-  kit.panel(g, { x: 4, y: 241, w: W - 8, h: 44 }, { stroke: sk.gold, glow: sk.gold, blur: 8, radius: 8 });
+  const py = panelY();
+  kit.panel(g, { x: 4, y: py, w: W - 8, h: 44 }, { stroke: sk.gold, glow: sk.gold, blur: 8, radius: 8 });
   const it = items.find((x) => x.id === codex.sel) || items[0];
   if (codex.tab === 'weapons') {
     const known = dw.has(it.id);
-    kit.text(g, known ? it.name : '？？？', 12, 245, 12, known ? it.color : sk.dim, 'left', 6);
+    kit.text(g, known ? it.name : '？？？', 12, py + 4, 12, known ? it.color : sk.dim, 'left', 6);
     if (known) {
-      kit.text(g, it.desc, 12, 259, fitSize(g, kit, it.desc, 9, W - 24), sk.text);
+      kit.text(g, it.desc, 12, py + 18, fitSize(g, kit, it.desc, 9, W - 24), sk.text);
       const lv = `Lv1 ${it.levels[0]} → Lv5 ${it.levels[4]}`;
-      kit.text(g, lv, 12, 270, fitSize(g, kit, lv, 8.5, W - 24), sk.dim);
-    } else kit.text(g, 'まだ見つけていない武器。レベルアップの「？？？」から出会える', 12, 261, 9, sk.dim);
+      kit.text(g, lv, 12, py + 29, fitSize(g, kit, lv, 8.5, W - 24), sk.dim);
+    } else kit.text(g, 'まだ見つけていない武器。レベルアップの「？？？」から出会える', 12, py + 20, 9, sk.dim);
   } else if (codex.tab === 'syn') {
     const known = dsy.has(it.id);
-    kit.text(g, known ? it.name : '？？？', 12, 245, 12, known ? sk.gold : sk.dim, 'left', 6);
-    kit.text(g, known ? it.desc : `ヒント: ${synHint(it, save)}`, 12, 261, 9, known ? sk.text : sk.dim);
-    if (!known) kit.text(g, '材料をそろえて戦うと、発動したときに記録される', 12, 272, 8.5, sk.dim);
+    kit.text(g, known ? it.name : '？？？', 12, py + 4, 12, known ? sk.gold : sk.dim, 'left', 6);
+    kit.text(g, known ? it.desc : `ヒント: ${synHint(it, save)}`, 12, py + 20, 9, known ? sk.text : sk.dim);
+    if (!known) kit.text(g, '材料をそろえて戦うと、発動したときに記録される', 12, py + 31, 8.5, sk.dim);
   } else if (codex.tab === 'relics') {
     const known = dr.has(it.id);
-    kit.text(g, known ? it.name : '？？？', 12, 245, 12, known ? it.color : sk.dim, 'left', 6);
-    kit.text(g, known ? it.desc : '精鋭の敵が落とす宝箱から、見つけられる', 12, 261, 9, known ? sk.text : sk.dim);
+    kit.text(g, known ? it.name : '？？？', 12, py + 4, 12, known ? it.color : sk.dim, 'left', 6);
+    kit.text(g, known ? it.desc : '精鋭の敵が落とす宝箱から、見つけられる', 12, py + 20, 9, known ? sk.text : sk.dim);
   } else {
     const known = save.ach.includes(it.id);
-    kit.text(g, it.name, 12, 245, 12, known ? sk.branch.eco : sk.gold, 'left', 6);
-    kit.text(g, it.desc, 12, 261, 9, sk.text);
-    kit.text(g, known ? '達成済み' : `達成で ${it.reward} P`, 12, 272, 8.5, known ? sk.branch.eco : sk.dim);
+    kit.text(g, it.name, 12, py + 4, 12, known ? sk.branch.eco : sk.gold, 'left', 6);
+    kit.text(g, it.desc, 12, py + 20, 9, sk.text);
+    kit.text(g, known ? '達成済み' : `達成で ${it.reward} P`, 12, py + 31, 8.5, known ? sk.branch.eco : sk.dim);
   }
-  if (sc.msgT > 0 && sc.msg) kit.text(g, sc.msg, W / 2, 230, 9.5, sk.bad, 'center', 4);
+  if (sc.msgT > 0 && sc.msg) kit.text(g, sc.msg, W / 2, 230 + DH, 9.5, sk.bad, 'center', 4);
   kit.button(g, BTN_CX_BACK, 'もどる', { color: sk.op, size: 12 });
-  kit.text(g, `武器の枠 ${save.slots}/${SLOT_MAX}（上の + で増やせる）`, 10, 297, 8.5, sk.dim);
+  kit.text(g, `武器の枠 ${save.slots}/${SLOT_MAX}（上の + で増やせる）`, 10, 297 + DH, 8.5, sk.dim);
   kit.drawParts(g);
   if (sc.flash.a > 0.01) {
     g.fillStyle = rgba(sc.flash.col, sc.flash.a);
@@ -470,7 +492,9 @@ export function drawResultNew(g, sc, ui) {
   const win = res.cleared;
   const c = win ? kit.c(sk.gold, 0) : res.retreat ? sk.dim : sk.bad;
   const title = win ? (sk.id === 'wa' ? '制圧' : 'STAGE CLEAR!') : res.retreat ? (sk.id === 'wa' ? '撤退' : 'RETREAT') : sk.id === 'wa' ? '落城' : 'DEFEATED';
-  // 下のボタン（ui.retry / ui.menu）は y=196 から。それより上に収める。
+  // 下のボタン（ui.retry / ui.menu）は下端起点（H-124 から）。内容は 320 のときの配置を、増えた高さの半分だけ下げて中央に寄せる。
+  g.save();
+  g.translate(0, DH / 2);
   kit.text(g, title, W / 2, 10, win ? 22 : 24, c, 'center', 14);
   const stageName = res.stage > 0 ? `STAGE ${res.stage}  ${STAGE_INFO[res.stage].name}` : res.stage === 0 ? '無限の戦場' : '今日の挑戦';
   kit.text(g, stageName, W / 2, 38, 10, sk.dim, 'center');
@@ -492,6 +516,7 @@ export function drawResultNew(g, sc, ui) {
   for (const id of res.found.relics) lines.push([`遺物 ${RELIC[id].name}`, sk.op]);
   lines.slice(0, 4).forEach(([t, col], i) => kit.text(g, t, W / 2, 140 + i * 12.5, 9.5, col, 'center', 4));
   if (lines.length > 4) kit.text(g, `ほか ${lines.length - 4} 件`, W / 2, 140 + 4 * 12.5, 8.5, sk.dim, 'center');
+  g.restore();
   kit.button(g, ui.retry, 'ステージへ', { color: sk.me, size: 14 });
   kit.button(g, ui.menu, 'メニュー', { color: sk.dim, size: 14 });
   kit.drawParts(g);

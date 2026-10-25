@@ -8,15 +8,19 @@ import { createPortal } from './portal.js';
 import { C, text, rect, frame, inside } from './core/draw.js';
 
 const W = 240;
-const H = 320;
+const BASE_H = 320;
+const MAX_H = 520; // 縦長モードの論理高さの上限（さらに細長い端末は上下に細い帯が出る）
+let H = BASE_H;
+let resScale = 2;
 const canvas = document.getElementById('screen');
 canvas.width = W;
 canvas.height = H;
 const g = canvas.getContext('2d');
 g.imageSmoothingEnabled = false;
 
-// 解像度の切り替え。ゲームが hiRes（倍率）を持つときは高解像度で描く（光の表現用）。論理座標は常に 240×320。
+// 解像度の切り替え。ゲームが hiRes（倍率）を持つときは高解像度で描く（光の表現用）。論理座標は幅 240、高さ H（固定表示は 320）。
 function setRes(scale) {
+  resScale = scale;
   canvas.width = W * scale;
   canvas.height = H * scale;
   g.setTransform(scale, 0, 0, scale, 0, 0);
@@ -89,6 +93,28 @@ function syncBars() {
 const BTN_RETRY = { x: 30, y: 196, w: 180, h: 30 };
 const BTN_MENU = { x: 30, y: 234, w: 180, h: 30 };
 
+// 表示モード: 'fixed' は 240×320（3:4）のまま、'tall' は縦長スマホ向けに論理高さ H を画面の比率に合わせて伸ばし、全画面で使う。
+const tallHeight = () => Math.max(BASE_H, Math.min(MAX_H, Math.round((W * window.innerHeight) / Math.max(1, window.innerWidth))));
+function setHeight(h) {
+  if (h === H && canvas.style.getPropertyValue('--ar-h')) return false;
+  H = h;
+  env.H = h;
+  input.H = h;
+  canvas.style.setProperty('--ar-h', String(h));
+  BTN_RETRY.y = h - 124; // 結果のボタンは下端起点（320 のとき 196 / 234）
+  BTN_MENU.y = h - 86;
+  setRes(resScale);
+  return true;
+}
+// 今の状態（メニューか、ゲームの viewMode）に合わせて高さを決める。変わったらゲームへ知らせる。
+function applyView() {
+  const tall = state !== 'menu' && game && game.viewMode === 'tall';
+  if (setHeight(tall ? tallHeight() : BASE_H) && game && game.resize) game.resize(W, H);
+}
+window.addEventListener('resize', () => {
+  if (game && game.viewMode === 'tall') applyView();
+});
+
 async function startGame(item) {
   state = 'loading';
   const mod = await item.load();
@@ -98,6 +124,7 @@ async function startGame(item) {
   else Music.stop();
   best = Store.best(item.id);
   setRes(game.hiRes || 1);
+  applyView();
   game.reset();
   input.pressed = false; // メニューで押したタップをゲーム側に渡さない
   state = game.skipReady ? 'play' : 'ready';
@@ -119,6 +146,7 @@ function toMenu() {
   state = 'menu';
   game = null;
   def = null;
+  applyView();
   portal.enter();
 }
 
