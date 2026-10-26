@@ -21,7 +21,6 @@ export const STAT_OPTIONS = [
 ];
 const STAT = Object.fromEntries(STAT_OPTIONS.map((s) => [s.id, s]));
 
-const UNKNOWN = { name: '？？？', color: '#b8a0ff' };
 
 // 強化の前後の値を「現在 12 → 15」の形で返す（その場で複製して適用し、差を読む）
 const STAT_KEY = { target: 'targets' };
@@ -63,10 +62,10 @@ export function makeOptions(ctx) {
           opt: { kind: 'weapon-new', id: def.id, name: def.name, color: def.color, level: 1, desc: def.levels[0], label: 'NEW', star: newSyn > 0, note: synNote },
         });
       } else {
-        // まだ見つけていない武器は「？？？」として出る。波が進むほど出やすい。
+        // まだ見つけていない武器も、名前・アイコン・効果は見せる（図鑑に初めて載るので、unknown の印だけ付ける）。波が進むほど出やすい。
         cand.push({
           weight: Math.min(28, 8 + g * 1.3) * (loadout.length === 0 ? 0.4 : 1),
-          opt: { kind: 'weapon-new', id: def.id, name: UNKNOWN.name, color: UNKNOWN.color, level: 1, desc: '未知の武器。選ぶと正体が分かる', label: 'NEW?', unknown: true, star: newSyn > 0, note: newSyn ? '★ 持っている武器と組み合わせ効果がある' : '' },
+          opt: { kind: 'weapon-new', id: def.id, name: def.name, color: def.color, level: 1, desc: def.levels[0], label: 'NEW', unknown: true, star: newSyn > 0, note: synNote || '図鑑に初めて載る武器' },
         });
       }
     }

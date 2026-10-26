@@ -175,8 +175,8 @@ export function drawChoice(g, sc, kind) {
     const rects = cardRects(b.options.length);
     b.options.forEach((o, i) => {
       const r = rects[i];
-      const tag = { 'weapon-new': o.unknown ? '武器 NEW?' : '武器 NEW', 'weapon-up': '武器 強化', stat: '能力', heal: '回復' }[o.kind] || o.label;
-      const icon = o.unknown ? 'unknown' : o.kind === 'heal' ? 'heal' : o.id;
+      const tag = { 'weapon-new': o.unknown ? '武器 初発見' : '武器 NEW', 'weapon-up': '武器 強化', stat: '能力', heal: '回復' }[o.kind] || o.label;
+      const icon = o.kind === 'heal' ? 'heal' : o.id;
       card(g, kit, r, { name: o.name, color: o.color, icon, tag, tagColor: o.star ? sk.gold : sk.dim, star: o.star });
       const tight = r.h < 50;
       kit.text(g, o.kind === 'weapon-up' ? `${o.label}：${o.desc}` : o.desc, r.x + 42, r.y + (tight ? 19 : 25), 10, sk.text);
@@ -207,6 +207,15 @@ export function drawChoice(g, sc, kind) {
     const r = rects[2];
     kit.panel(g, r, { stroke: sk.dim, radius: 8 });
     kit.text(g, '見送る', W / 2, r.y + 20, 13, sk.dim, 'center');
+  }
+  if (sc.choiceLocked) {
+    // 連打の途中は選べない。手を止めると選べるようになる
+    const rs = cardRects(kind === 'levelup' ? b.options.length : kind === 'relic' ? b.relicOpts.length : 3);
+    const top = rs[0].y;
+    const bottom = rs[rs.length - 1].y + rs[rs.length - 1].h;
+    g.fillStyle = 'rgba(0, 0, 0, 0.45)';
+    g.fillRect(0, top - 4, W, bottom - top + 8);
+    kit.text(g, '連打をやめると選べます', W / 2, (top + bottom) / 2 - 7, 12, sk.gold, 'center', 6);
   }
   kit.drawParts(g);
   if (sc.flash.a > 0.01) {
@@ -513,7 +522,7 @@ export function drawCodex(g, sc) {
       kit.text(g, it.desc, 12, py + 18, fitSize(g, kit, it.desc, 9, W - 24), sk.text);
       const lv = `Lv1 ${it.levels[0]} → Lv5 ${it.levels[4]}`;
       kit.text(g, lv, 12, py + 29, fitSize(g, kit, lv, 8.5, W - 24), sk.dim);
-    } else kit.text(g, 'まだ見つけていない武器。レベルアップの「？？？」から出会える', 12, py + 20, 9, sk.dim);
+    } else kit.text(g, 'まだ見つけていない武器。レベルアップで出会える', 12, py + 20, 9, sk.dim);
   } else if (codex.tab === 'syn') {
     const known = dsy.has(it.id);
     kit.text(g, known ? it.name : '？？？', 12, py + 4, 12, known ? sk.gold : sk.dim, 'left', 6);

@@ -1086,7 +1086,8 @@ export function drawBattle(g, sc) {
   g.restore();
   kit.text(g, '耐久', bx + 5, 10, 7.5, '#06081a', 'left', 0);
   kit.text(g, `獲得 +${run.earned()}P`, 135, 10, 10, sk.gold, 'left', 6);
-  kit.button(g, BTN_RETREAT, sk.id === 'wa' ? '退' : '撤退', { color: sk.bad, size: 10 });
+  const armed = sc.retreatUntil > sc.t; // 撤退は、もう一度タップで確定
+  kit.button(g, BTN_RETREAT, armed ? 'もう一度' : sk.id === 'wa' ? '退' : '撤退', { color: sk.bad, size: armed ? 9 : 10, active: armed });
   // 波の進み具合: 戦闘中は「倒した割合」、波の合間は「次の波までの時間」
   {
     const left = run.remaining();

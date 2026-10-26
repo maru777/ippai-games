@@ -97,8 +97,16 @@ for (const H of [320, 520]) {
           for (const r of cardRects(4)) frame(game, input, 1 / 60, mid(r));
         }
       }
-      // 終わらなければ撤退して結果へ
-      if (ended() === 0) frame(game, input, 1 / 60, mid(BTN_RETREAT));
+      // 連打の間は選択が止まったまま（手を止めて 0.7 秒待つと選べる）。出ている選択を片づけてから、撤退する。
+      // 撤退は 2 回タップで確定（1 回目は「もう一度」の表示になるだけ）。間に新しい選択が出たら、やり直す。
+      for (let a = 0; a < 40 && ended() === 0; a++) {
+        for (let k = 0; k < 40; k++) frame(game, input, 1 / 60);
+        frame(game, input, 1 / 60, mid(cardRects(3)[0]));
+        frame(game, input, 1 / 60, mid(BTN_RETREAT));
+        assert.equal(ended(), 0, '1 回のタップで撤退してしまう');
+        for (let k = 0; k < 24; k++) frame(game, input, 1 / 60);
+        frame(game, input, 1 / 60, mid(BTN_RETREAT));
+      }
       assert.equal(ended(), 1, '結果画面へ進めない');
       count++;
       // 結果画面（シェルが呼ぶ形）

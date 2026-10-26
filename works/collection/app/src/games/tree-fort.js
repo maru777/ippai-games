@@ -722,6 +722,11 @@ export default function create(env) {
 
   function updateBattle(dt) {
     const { b } = sc.run;
+    // 連打の途中で選択画面が出ても、うっかり選ばないよう、最後に押してから 0.5 秒あくまで選べない
+    const quiet = sc.t - (sc.lastPressT ?? -9);
+    if (input.pressed) sc.lastPressT = sc.t;
+    const locked = sc.choiceT < 0.4 || quiet < 0.5;
+    sc.choiceLocked = !!(b.options || b.relicOpts || b.event) && locked;
     // 選択が出ている間は、戦闘が止まる
     if (b.options) {
       if (lastOpts !== b.options) {
@@ -730,13 +735,13 @@ export default function create(env) {
         sound.beep(900, 0.06, 'triangle', 0.05);
       }
       sc.choiceT += dt;
-      if (input.pressed && inside(input.x, input.y, BTN_REROLL)) {
+      if (!locked && input.pressed && inside(input.x, input.y, BTN_REROLL)) {
         if (sc.run.reroll()) sound.beep(700, 0.05, 'square', 0.05);
         else sound.beep(200, 0.08, 'sawtooth', 0.05);
         return;
       }
       chooseByTap(cardRects(b.options.length), (i) => {
-        if (sc.choiceT < 0.25) return; // 出た直後の誤タップ防止
+        if (locked) return; // 出た直後・連打の途中の誤タップ防止
         sc.run.pick(i);
         sound.beep(1100, 0.07, 'sine', 0.06);
         handleFx();
@@ -746,7 +751,7 @@ export default function create(env) {
     if (b.relicOpts) {
       sc.choiceT += dt;
       chooseByTap(cardRects(b.relicOpts.length), (i) => {
-        if (sc.choiceT < 0.3) return;
+        if (locked) return;
         sc.run.chooseRelic(i);
         sc.choiceT = 0;
         handleFx();
@@ -756,7 +761,7 @@ export default function create(env) {
     if (b.event) {
       sc.choiceT += dt;
       chooseByTap(cardRects(3), (i) => {
-        if (sc.choiceT < 0.3) return;
+        if (locked) return;
         sc.run.chooseContract(i < 2 ? i : -1);
         sc.choiceT = 0;
         handleFx();
@@ -766,7 +771,16 @@ export default function create(env) {
     sc.choiceT = 0;
     if (input.pressed) {
       if (inside(input.x, input.y, BTN_RETREAT)) {
-        finishRun(true);
+        // 撤退は、2 回タップで確定（連打でうっかり押しても、すぐには撤退しない）
+        if (sc.retreatUntil > sc.t && sc.t - sc.retreatArmedAt >= 0.35) {
+          finishRun(true);
+          return;
+        }
+        if (!(sc.retreatUntil > sc.t)) {
+          sc.retreatArmedAt = sc.t;
+          sc.retreatUntil = sc.t + 2.5;
+          sound.beep(300, 0.06, 'square', 0.04);
+        }
         return;
       }
       if (speedUnlocked(sc.save) && inside(input.x, input.y, BTN_SPEED)) {
