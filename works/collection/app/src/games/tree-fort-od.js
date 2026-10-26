@@ -10,7 +10,7 @@ export const OD_TYPES = [
   { id: 'boost', name: '加速', color: '#ffd84a', price: 0, dmg: 1.25, speed: 1.7, slow: 1, reduce: 1, fire: 1,
     desc: '攻撃速度 1.7 倍・ダメージ 1.25 倍', start: 'なし（すぐ強くなる）' },
   { id: 'blast', name: '爆裂', color: '#ff8a3c', price: 250, dmg: 1.15, speed: 1.3, slow: 1, reduce: 1, fire: 1.3,
-    desc: '火の威力 +30%・攻撃速度 1.3 倍', start: '画面の全員を爆破' },
+    desc: '火の威力 +30%・攻撃速度 1.3 倍', start: '全員を爆破（致命傷の瞬間にも自動発動）' },
   { id: 'frost', name: '氷結', color: '#9fe8ff', price: 250, dmg: 1.1, speed: 1.3, slow: 0.6, reduce: 1, fire: 1,
     desc: '敵の動き 40% 減・攻撃速度 1.3 倍', start: '全員を 2 秒凍らせる' },
   { id: 'regen', name: '再生', color: '#7dff8a', price: 250, dmg: 1.1, speed: 1.3, slow: 1, reduce: 0.6, fire: 1,
