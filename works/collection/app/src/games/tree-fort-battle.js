@@ -3,7 +3,7 @@
 //   ステージ制: stage 1〜10 は「10 波 + 最後にボス」。stage 0 は終わりのない挑戦（無限）。
 //   ローグライト: opts.leveling が true なら、敵を倒して経験値がたまり、レベルアップごとに選択肢（b.options）が出る。
 //                 選ぶまで戦闘は止まる（pick(i) / reroll()）。武器と強化は、その挑戦の間だけ。
-import { createWeapons, WEAPON } from './tree-fort-weapons.js';
+import { createWeapons, WEAPON, MAX_LEVEL, maxLevelOf } from './tree-fort-weapons.js';
 import { makeOptions, applyOption, xpNeed, autoPick } from './tree-fort-run.js';
 import { combineMods, applyRelic, relicOptions, RELIC, CONTRACTS, CONTRACT, CONTRACT_WAVES } from './tree-fort-meta.js';
 
@@ -536,6 +536,11 @@ export function createBattle(stats0, rng = Math.random, opts = {}) {
       title: `${real ? real.name : opt.name}${opt.kind === 'weapon-up' ? ` Lv${opt.level}` : ''} を手に入れた`,
       sub: real ? real.levels[0] : opt.desc, color: opt.color, t: 3,
     };
+    if (opt.kind === 'weapon-up' && opt.level >= MAX_LEVEL && opt.level >= maxLevelOf(opt.id)) {
+      const def = WEAPON[opt.id];
+      addFx({ kind: 'weaponMax', life: 2.6, wid: opt.id, name: def.name, color: def.color });
+      b.toast = { icon: opt.id, title: `${def.name} が MAX に到達！`, sub: def.levels[opt.level - 1], color: '#ffd84a', t: 5 };
+    }
     b.pending--;
     b.options = null;
     offer();

@@ -9,6 +9,7 @@ import { inside } from '../core/draw.js';
 import { Store } from '../core/storage.js';
 import { NODE, TREE, START_OWNED, computeStats, canBuy, canRefund, TREE_WEAPON_NODE } from './tree-fort-data.js';
 import { WEAPON, SYNERGIES, SLOT_BASE, SLOT_MAX, SLOT_COST } from './tree-fort-weapons.js';
+import { startLevel } from './tree-fort-run.js';
 import { createBattle, ARENA, STAGE_COUNT } from './tree-fort-battle.js';
 import { STAGE_INFO, RELICS, ACHIEVEMENTS, dailyChallenge } from './tree-fort-meta.js';
 import { SKINS, EFFECTS, makeKit } from './tree-fort-skins.js';
@@ -361,7 +362,7 @@ export default function create(env) {
     const mods = daily ? sc.daily.mods : stage > 0 ? STAGE_INFO[stage].mods : [];
     const stats = computeStats(sv.owned);
     // ツリーで「最初から装備する」武器
-    const loadout = Object.entries(TREE_WEAPON_NODE).filter(([, node]) => sv.owned.has(node)).map(([id]) => ({ id, level: 1 }));
+    const loadout = Object.entries(TREE_WEAPON_NODE).filter(([, node]) => sv.owned.has(node)).map(([id]) => ({ id, level: startLevel(id, stats) }));
     const discovered = new Set(sv.discovered.weapons);
     sc.run = createBattle(stats, daily ? seededRng(sc.daily.seed) : Math.random, {
       stage: daily ? 0 : stage, mods, leveling: true, slots: sv.slots, discovered, loadout,
@@ -670,6 +671,17 @@ export default function create(env) {
       } else if (f.kind === 'contract') {
         flash(f.color, 0.2);
         sound.noise(0.2, 0.06, 600);
+      } else if (f.kind === 'weaponMax') {
+        // 武器が MAX（Lv10）に到達: 画面全体のフラッシュ・揺れ・金色の光
+        flash('#ffffff', 0.55);
+        sc.shake = Math.max(sc.shake, 9);
+        sc.kit.burst(ARENA.cx, ARENA.cy, [f.color, sk.gold, '#ffffff'], 110, 230, 50);
+        fanfare([523, 659, 784, 1047, 1319, 1568]);
+      } else if (f.kind === 'maxPulse') {
+        // MAX の武器の大技
+        flash(sk.gold, 0.12);
+        sc.shake = Math.max(sc.shake, 3);
+        snd('maxPulse', 0.4, () => sound.noise(0.25, 0.08, 500));
       } else if (f.kind === 'overdrive') {
         flash(sk.gold, 0.35);
         sc.shake = Math.max(sc.shake, 3);

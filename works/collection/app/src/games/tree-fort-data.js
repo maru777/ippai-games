@@ -20,6 +20,7 @@ export const BASE_STATS = {
   xpMul: 1, // 経験値の倍率
   rerolls: 1, // レベルアップの選び直しの回数（1 回の挑戦あたり）
   startPicks: 0, // 挑戦の開始時に行えるレベルアップの回数
+  weaponLv: 0, // 新しく手に入れる武器（と最初から持つ武器）の、最初のレベルの上乗せ
   choices: 3, // レベルアップの選択肢の数
 };
 
@@ -67,6 +68,8 @@ const TREE_BASE = [
   { id: 'grw2', name: '選び直し', desc: 'レベルアップの選び直し +1 回', cost: 50, gx: 2, gy: 2, req: ['grw1'], fx: { rerolls: 1 }, mark: '振' },
   { id: 'grw3', name: '先行成長', desc: '出撃の直後に、レベルアップを 1 回行える', cost: 100, gx: 3, gy: 3, req: ['grw2'], fx: { startPicks: 1 }, mark: '先' },
   { id: 'grw4', name: '選択肢 +1', desc: 'レベルアップの選択肢が 4 つになる', cost: 160, gx: 4, gy: 4, req: ['grw3'], fx: { choices: 1 }, mark: '四' },
+  { id: 'wlv1', name: '武器の素質 I', desc: '武器を最初から Lv2 で手に入れる', cost: 120, gx: 2, gy: 3, req: ['grw2'], fx: { weaponLv: 1 }, mark: '武' },
+  { id: 'wlv2', name: '武器の素質 II', desc: '武器を最初から Lv3 で手に入れる', cost: 400, gx: 3, gy: 4, req: ['wlv1', 'grw3'], fx: { weaponLv: 1 }, mark: '武' },
   { id: 'grw5', name: '経験値 II', desc: '経験値 +35%', cost: 220, gx: 5, gy: 5, req: ['grw4'], fx: { xpMul: 0.35 }, mark: '経' },
 ];
 

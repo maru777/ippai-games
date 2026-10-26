@@ -636,6 +636,39 @@ function drawBolt(g, sc, f) {
   g.restore();
 }
 
+// MAX の武器の演出に重ねる、金色の光（爆発・輪は広がる光の輪と火花、雷は金色の太い線）
+function drawMaxHalo(g, sc, f) {
+  const { kit } = sc;
+  const sk = kit.skin;
+  const u = f.t / f.life;
+  g.save();
+  g.globalAlpha = Math.max(0, 1 - u) * 0.8;
+  g.strokeStyle = sk.gold;
+  g.fillStyle = sk.gold;
+  if (sk.glow) kit.glow(g, sk.gold, 14);
+  if (f.kind === 'bolt') {
+    g.lineWidth = 6 * (1 - u * 0.6);
+    g.lineCap = 'round';
+    g.globalAlpha *= 0.55;
+    g.beginPath();
+    f.pts.forEach((p, i) => (i ? g.lineTo(p.x, p.y) : g.moveTo(p.x, p.y)));
+    g.stroke();
+  } else if (f.kind === 'boom' || f.kind === 'ring') {
+    const r = f.r * (0.35 + 0.9 * (1 - (1 - u) * (1 - u)));
+    g.lineWidth = 3;
+    g.beginPath();
+    g.arc(f.x, f.y, r * 1.12, 0, TAU);
+    g.stroke();
+    for (let i = 0; i < 8; i++) {
+      const a = (i / 8) * TAU + (f.id || 0);
+      g.beginPath();
+      g.arc(f.x + Math.cos(a) * r * 1.2, f.y + Math.sin(a) * r * 1.2, 2.2 * (1 - u) + 0.6, 0, TAU);
+      g.fill();
+    }
+  }
+  g.restore();
+}
+
 function drawBoomDisc(g, sc, f) {
   const { kit } = sc;
   const sk = kit.skin;
@@ -834,6 +867,20 @@ export function drawBattle(g, sc) {
   }
   // 雷・爆発・手動攻撃
   for (const f of b.fx) {
+    if (f.max) drawMaxHalo(g, sc, f);
+    if (f.kind === 'maxPulse') {
+      // MAX の大技: 砦から広がる金色の輪
+      const u = f.t / f.life;
+      g.save();
+      g.globalAlpha = Math.max(0, 1 - u);
+      g.strokeStyle = sk.gold;
+      g.lineWidth = 5 * (1 - u) + 1;
+      if (sk.glow) kit.glow(g, sk.gold, 16);
+      g.beginPath();
+      g.arc(cx, cy, 20 + u * 220, 0, TAU);
+      g.stroke();
+      g.restore();
+    }
     if (f.kind === 'boom') drawBoomDisc(g, sc, f);
     else if (f.kind === 'bolt') drawBolt(g, sc, f);
     else if (f.kind === 'pierce') {
@@ -928,6 +975,24 @@ export function drawBattle(g, sc) {
       g.beginPath();
       g.arc(ARENA.cx, ARENA.cy, 14 + u * 90, 0, TAU);
       g.stroke();
+      g.restore();
+    } else if (f.kind === 'weaponMax') {
+      // Lv10 到達: 大きな「MAX!」と武器名、広がる輪
+      const pop = 1 + Math.max(0, 1 - u * 6) * 0.5;
+      g.save();
+      g.globalAlpha = Math.max(0, Math.min(1, (1 - u) * 2.2));
+      g.strokeStyle = f.color;
+      g.lineWidth = 4;
+      if (sk.glow) kit.glow(g, f.color, 18);
+      for (let k = 0; k < 3; k++) {
+        g.beginPath();
+        g.arc(ARENA.cx, ARENA.cy, 16 + u * (120 + k * 60), 0, TAU);
+        g.stroke();
+      }
+      g.translate(W / 2, 110);
+      g.scale(pop, pop);
+      kit.text(g, 'MAX!', 0, -16, 38, kit.c(sk.gold, 3), 'center', 20);
+      kit.text(g, f.name, 0, 22, 14, f.color, 'center', 10);
       g.restore();
     } else if (f.kind === 'chest') {
       g.save();

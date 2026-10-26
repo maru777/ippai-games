@@ -1,27 +1,29 @@
-// ツリー砦の武器: データ（12 種・各 Lv1〜5・組み合わせ効果）と、戦闘中の動き。
+// ツリー砦の武器: データ（12 種・各 Lv1〜10・組み合わせ効果）と、戦闘中の動き。
 // 武器の追加は WEAPONS に 1 件足し、下の upd に動きを書く。組み合わせ効果は SYNERGIES に足す。
 // 戦闘本体（tree-fort-battle.js）は api（敵・ダメージ・演出の道具）を渡して createWeapons を呼ぶだけ。
 export const SLOT_BASE = 3;
 export const SLOT_MAX = 6;
 export const SLOT_COST = { 4: 300, 5: 750, 6: 1500 };
-export const MAX_LEVEL = 5;
+export const MAX_LEVEL = 10; // 武器の最大レベル。levels が 5 つの武器（まだ Lv10 にしていないもの）は、そこが上限
+// その武器の上限レベル（説明が書かれているところまで）
+export const maxLevelOf = (id) => WEAPON[id].levels.length;
 
 // cost[i] = Lv(i+1) にするための費用。levels[i] = Lv(i+1) の効果の説明。
 export const WEAPONS = [
   {
     id: 'bomb', name: '爆弾', tags: ['fire'], color: '#ff9a3c', desc: '敵の群れに爆発を撃ち込む',
-    cost: [100, 70, 120, 200, 320],
-    levels: ['爆発（範囲 小）', '威力 +、範囲 +', '2 連続で爆発', '威力・範囲 ++', '子爆弾が飛び散る'],
+    cost: [100, 70, 120, 200, 320, 420, 540, 700, 900, 1200],
+    levels: ['爆発（範囲 小）', '威力 +、範囲 +', '2 連続で爆発', '威力・範囲 ++', '子爆弾が飛び散る', '威力・範囲 +++', '子爆弾が 6 個に（連鎖して爆発）', '威力 ++++・連射 +', '3 連続で爆発', 'MAX: 着弾点に巨大な爆発と衝撃波'],
   },
   {
     id: 'lightning', name: '雷撃', tags: ['lightning'], color: '#7fd6ff', desc: '敵から敵へ連鎖する雷',
-    cost: [100, 70, 120, 200, 320],
-    levels: ['3 体に連鎖', '威力 +', '連鎖 +1', '威力 ++', 'さらに 3 か所へ落雷'],
+    cost: [100, 70, 120, 200, 320, 420, 540, 700, 900, 1200],
+    levels: ['3 体に連鎖', '威力 +', '連鎖 +1', '威力 ++', 'さらに 3 か所へ落雷', '威力 +++', '連鎖 +2', '威力 ++++・連射 +', '落雷が 6 か所に', 'MAX: 数秒ごとに画面全体へ雷の嵐'],
   },
   {
     id: 'blade', name: '回転刃', tags: ['physical'], color: '#e8f0ff', desc: '砦の周りを回って近づく敵を斬る',
-    cost: [90, 60, 110, 180, 300],
-    levels: ['刃 2 枚', '威力・速度 +', '刃 3 枚', '威力 ++', '刃 4 枚＋衝撃波'],
+    cost: [90, 60, 110, 180, 300, 400, 520, 680, 880, 1150],
+    levels: ['刃 2 枚', '威力・速度 +', '刃 3 枚', '威力 ++', '刃 4 枚＋衝撃波', '威力・速度 +++', '刃 5 枚', '衝撃波が強く・速く', '刃 6 枚', 'MAX: 外周にもう 1 周の刃（逆回転）'],
   },
   {
     id: 'flame', name: '火炎放射', tags: ['fire'], color: '#ff6a2a', desc: '近距離の扇形に炎を吹き、敵を燃やす',
@@ -103,7 +105,9 @@ export const weaponCost = (id, level) => WEAPON[id].cost[level - 1];
 // ---------------------------------------------------------------------------------------------
 // 戦闘中の動き。api は battle から渡される道具、loadout は [{ id, level }]。
 export function createWeapons(api, loadout) {
-  const { b, stats, rng, ARENA, dist, alive, nearestTo, hurt, addFx, applyStatus } = api;
+  const { b, stats, rng, ARENA, dist, alive, nearestTo, hurt, applyStatus } = api;
+  let curMax = false; // いま動かしている武器が MAX か（その演出に max を付けて、描画側が金色にする）
+  const addFx = (f) => api.addFx(curMax ? { ...f, max: true } : f);
   const { cx, cy } = ARENA;
   let syn = activeSynergies(new Set(loadout.map((w) => w.id)));
   const lvOf = (id) => loadout.find((w) => w.id === id)?.level || 0;
@@ -166,13 +170,26 @@ export function createWeapons(api, loadout) {
       explode(x, y, r, dmg, 'fire');
       if (syn.has('compress')) synText('compress', x, y);
       if (L >= 3) later(0.35, () => explode(x, y, r, dmg * 0.6, 'fire'));
+      if (L >= 9) later(0.7, () => explode(x, y, r, dmg * 0.5, 'fire'));
       if (L >= 5) {
-        for (let i = 0; i < 4; i++) {
-          const a = (i / 4) * Math.PI * 2 + 0.4;
-          later(0.2 + i * 0.07, () => explode(x + Math.cos(a) * 26, y + Math.sin(a) * 26, 18, dmg * 0.5, 'fire'));
+        const kids = L >= 7 ? 6 : 4;
+        for (let i = 0; i < kids; i++) {
+          const a = (i / kids) * Math.PI * 2 + 0.4;
+          const kx = x + Math.cos(a) * 26;
+          const ky = y + Math.sin(a) * 26;
+          later(0.2 + i * 0.07, () => explode(kx, ky, 18, dmg * 0.5, 'fire'));
+          if (L >= 7) later(0.5 + i * 0.07, () => explode(kx + Math.cos(a) * 14, ky + Math.sin(a) * 14, 14, dmg * 0.3, 'fire')); // 子爆弾が連鎖
         }
       }
-      cd.bomb += (2.6 - 0.2 * (L - 1)) / speedUp();
+      if (L >= MAX_LEVEL) {
+        // MAX: 巨大な爆発と衝撃波
+        later(0.15, () => {
+          explode(x, y, r * 1.8, dmg * 1.2, 'fire');
+          addFx({ kind: 'ring', life: 0.7, x, y, r: r * 2.4, tag: 'fire' });
+          addFx({ kind: 'maxPulse', life: 0.5 });
+        });
+      }
+      cd.bomb += Math.max(0.9, 2.6 - 0.2 * (L - 1) - (L >= 8 ? 0.2 : 0)) / speedUp();
     },
 
     lightning(dt, L) {
@@ -186,7 +203,7 @@ export function createWeapons(api, loadout) {
       const pts = [{ x: cx, y: cy }, { x: cur.x, y: cur.y }];
       const base = D() * (1.5 + 0.2 * (L - 1));
       hurt(cur, base, { tag: 'lightning' });
-      const chains = 3 + Math.floor(L / 2);
+      const chains = 3 + Math.floor(L / 2) + (L >= 7 ? 2 : 0);
       for (let i = 1; i <= chains; i++) {
         const nx = nearestTo(cur.x, cur.y, 48, hit);
         if (!nx) break;
@@ -198,23 +215,44 @@ export function createWeapons(api, loadout) {
       addFx({ kind: 'bolt', life: 0.3, pts });
       if (L >= 5) {
         const pool = inRange(stats.range * 1.1).filter((e) => !hit.includes(e));
-        for (let i = 0; i < 3 && pool.length; i++) {
+        for (let i = 0; i < (L >= 9 ? 6 : 3) && pool.length; i++) {
           const e = pool.splice(Math.floor(rng() * pool.length), 1)[0];
           hurt(e, D() * 1.2, { tag: 'lightning' });
           addFx({ kind: 'bolt', life: 0.25, pts: [{ x: e.x + 6, y: e.y - 70 }, { x: e.x, y: e.y }] });
         }
       }
-      cd.lightning += (1.7 - 0.1 * (L - 1)) / speedUp();
+      if (L >= MAX_LEVEL) {
+        // MAX: 数秒ごとに、画面全体へ雷の嵐
+        cd.storm = (cd.storm ?? 3) - dt;
+        if (cd.storm <= 0) {
+          cd.storm = 4;
+          const all = alive();
+          all.forEach((e, i) => {
+            hurt(e, D() * 2.2, { tag: 'lightning' });
+            if (i < 14) addFx({ kind: 'bolt', life: 0.35, pts: [{ x: e.x + 8, y: e.y - 90 }, { x: e.x, y: e.y }] });
+          });
+          addFx({ kind: 'maxPulse', life: 0.5 });
+        }
+      }
+      cd.lightning += Math.max(0.7, 1.7 - 0.1 * (L - 1) - (L >= 8 ? 0.1 : 0)) / speedUp();
     },
 
     blade(dt, L) {
-      const n = L >= 5 ? 4 : L >= 3 ? 3 : 2;
-      const R = 34 + 6 * (L - 1);
+      const n = L >= 9 ? 6 : L >= 7 ? 5 : L >= 5 ? 4 : L >= 3 ? 3 : 2;
+      const R = Math.min(70, 34 + 6 * (L - 1));
       w.angle = (w.angle || 0) + (3.2 + 0.2 * L) * dt;
       w.blades = Array.from({ length: n }, (_, k) => {
         const a = w.angle + (k * Math.PI * 2) / n;
         return { x: cx + Math.cos(a) * R, y: cy + Math.sin(a) * R, a };
       });
+      if (L >= MAX_LEVEL) {
+        // MAX: 外周にもう 1 周の刃（逆回転）
+        const R2 = R + 30;
+        for (let k = 0; k < 6; k++) {
+          const a = -w.angle * 0.8 + (k * Math.PI * 2) / 6;
+          w.blades.push({ x: cx + Math.cos(a) * R2, y: cy + Math.sin(a) * R2, a });
+        }
+      }
       const dmg = D() * (0.9 + 0.22 * (L - 1));
       for (const e of alive()) {
         if (e.bladeCd > 0) continue;
@@ -226,9 +264,10 @@ export function createWeapons(api, loadout) {
       if (L >= 5) {
         cd.blade = (cd.blade ?? 2.5) - dt;
         if (cd.blade <= 0) {
-          cd.blade += 2.5;
-          for (const e of alive()) if (dist(e.x, e.y, cx, cy) <= 56 + e.r) hurt(e, D() * 1.8, { tag: 'physical' });
-          addFx({ kind: 'ring', life: 0.4, x: cx, y: cy, r: 56, tag: 'physical' });
+          cd.blade += L >= 8 ? 1.8 : 2.5;
+          const sr = 56 + (L >= 8 ? 14 : 0);
+          for (const e of alive()) if (dist(e.x, e.y, cx, cy) <= sr + e.r) hurt(e, D() * (L >= 8 ? 2.4 : 1.8), { tag: 'physical' });
+          addFx({ kind: 'ring', life: 0.4, x: cx, y: cy, r: sr, tag: 'physical' });
         }
       }
     },
@@ -423,7 +462,11 @@ export function createWeapons(api, loadout) {
 
   // ---- 毎フレーム ----
   function update(dt) {
-    for (const x of loadout) upd[x.id](dt, x.level);
+    for (const x of loadout) {
+      curMax = x.level >= MAX_LEVEL;
+      upd[x.id](dt, x.level);
+    }
+    curMax = false;
 
     // 少し遅れて起きる処理（二段爆発など）
     for (const l of w.later) l.t -= dt;

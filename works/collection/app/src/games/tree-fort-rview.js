@@ -3,7 +3,7 @@
 import {
   STAGE_INFO, MODS, RELICS, RELIC, ACHIEVEMENTS, ENDLESS_UNLOCK,
 } from './tree-fort-meta.js';
-import { WEAPONS, WEAPON, SYNERGIES, SYNERGY, SLOT_MAX, MAX_LEVEL } from './tree-fort-weapons.js';
+import { WEAPONS, WEAPON, SYNERGIES, SYNERGY, SLOT_MAX, MAX_LEVEL, maxLevelOf } from './tree-fort-weapons.js';
 import { STAGE_COUNT } from './tree-fort-battle.js';
 import { rgba, rr } from './tree-fort-skins.js';
 import { TAG_NAME } from './tree-fort-wview.js';
@@ -290,7 +290,18 @@ export function drawBattleHud(g, sc) {
       if (sk.glow) kit.glow(g, def.color, 5);
       drawIcon(g, r.id, r.x + 8, r.y + 8, 17, def.color, 1.9);
       g.restore();
-      kit.text(g, `${r.level}`, r.x + 15, r.y + 8, 8, sk.text, 'right', 3);
+      if (r.level >= MAX_LEVEL && r.level >= maxLevelOf(r.id)) {
+        // MAX: ゆらぐ金の枠と文字
+        const pulse = 0.5 + 0.5 * Math.sin(clock * 6);
+        g.save();
+        kit.glow(g, sk.gold, 6 + 8 * pulse);
+        g.strokeStyle = rgba(sk.gold, 0.7 + 0.3 * pulse);
+        g.lineWidth = 1.5;
+        rr(g, r.x - 1, r.y - 1, r.w + 2, r.h + 2, 4);
+        g.stroke();
+        g.restore();
+        kit.text(g, 'MAX', r.x + 8, r.y + 9, 6.5, sk.gold, 'center', 4);
+      } else kit.text(g, `${r.level}`, r.x + 15, r.y + 8, 8, sk.text, 'right', 3);
     } else {
       drawIcon(g, 'relic', r.x + 5.5, r.y + 5.5, 11, RELIC[r.id].color, 2);
     }

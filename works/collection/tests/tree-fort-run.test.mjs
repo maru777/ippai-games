@@ -1,7 +1,7 @@
 // ツリー砦のローグライト部分（経験値・レベルアップの選択・ステージ・ボス・敵の種類）の検証。描画なし。
 // 実行: node works/collection/tests/tree-fort-run.test.mjs
 import assert from 'node:assert/strict';
-import { xpNeed, makeOptions, applyOption, autoPick, STAT_OPTIONS } from '../app/src/games/tree-fort-run.js';
+import { xpNeed, makeOptions, applyOption, autoPick, startLevel, STAT_OPTIONS } from '../app/src/games/tree-fort-run.js';
 import { computeStats, TREE } from '../app/src/games/tree-fort-data.js';
 import { createBattle, simulate, TYPES, STAGE_WAVES } from '../app/src/games/tree-fort-battle.js';
 import { WEAPONS } from '../app/src/games/tree-fort-weapons.js';
@@ -56,12 +56,12 @@ test('options: 指定した数の、重複しない選択肢が出る。最初�
   }
 });
 
-test('options: 枠がいっぱいなら新しい武器は出ず、Lv5 の武器は強化に出ない', () => {
-  const loadout = [{ id: 'bomb', level: 5 }, { id: 'frost', level: 2 }, { id: 'blade', level: 1 }];
+test('options: 枠がいっぱいなら新しい武器は出ず、上限（Lv10・Lv5）の武器は強化に出ない', () => {
+  const loadout = [{ id: 'bomb', level: 10 }, { id: 'frost', level: 5 }, { id: 'blade', level: 1 }];
   for (let i = 0; i < 40; i++) {
     const opts = makeOptions(ctx({ rng: seeded(i + 1), loadout, slots: 3 }));
     assert.ok(!opts.some((o) => o.kind === 'weapon-new'), '枠が埋まっているのに新しい武器');
-    assert.ok(!opts.some((o) => o.kind === 'weapon-up' && o.id === 'bomb'), 'Lv5 の強化');
+    assert.ok(!opts.some((o) => o.kind === 'weapon-up' && (o.id === 'bomb' || o.id === 'frost')), '上限の武器の強化');
   }
 });
 
@@ -237,6 +237,16 @@ test('pierce: 貫通弾は敵を貫き、貫いた瞬間の演出（pierce）が
   assert.ok(n > 3, `貫通の演出が少ない（${n}）`);
 });
 
+test('武器の素質: ツリーで、新しい武器の最初のレベルが上がる（上限を超えない）', () => {
+  assert.equal(startLevel('bomb', { weaponLv: 0 }), 1);
+  assert.equal(startLevel('bomb', computeStats(['core', 'atk1', 'grw1', 'grw2', 'wlv1'])), 2);
+  assert.equal(startLevel('bomb', { weaponLv: 99 }), 10);
+  assert.equal(startLevel('frost', { weaponLv: 99 }), 5, 'Lv5 までの武器は 5 が上限');
+  const loadout = [];
+  applyOption({ stats: { weaponLv: 1 }, loadout, discovered: new Set(), found: [], refresh() {} }, { kind: 'weapon-new', id: 'bomb' });
+  assert.equal(loadout[0].level, 2);
+});
+
 test('倍速: 全ステージをクリアするまで使えず、通常速度は 1.2 倍', () => {
   assert.equal(speedUnlocked({ stageClear: 9 }), false);
   assert.equal(speedUnlocked({ stageClear: 10 }), true);
@@ -247,7 +257,7 @@ test('選択画面: 強化は「現在 → 新しい値」を示し、選ぶと�
   let stat;
   for (let i = 1; i < 40 && !stat; i++) stat = makeOptions(ctx({ rng: seeded(i), loadout: [{ id: 'bomb', level: 5 }], discovered: new Set(ALL) })).find((o) => o.kind === 'stat');
   assert.ok(stat, '強化の選択肢が出ない');
-  assert.match(stat.note, /^現在 [\d.]+ → [\d.]+$/);
+  assert.match(stat.note, /^現在 [\d.]+%? → [\d.]+%?$/);
   const sim = createBattle(BASE, seeded(5), { leveling: true, slots: 3, discovered: new Set(ALL) });
   sim.b.grantLevel();
   assert.ok(sim.b.options);
