@@ -10,11 +10,13 @@ import { Store } from '../core/storage.js';
 import { NODE, TREE, START_OWNED, computeStats, canBuy, canRefund, TREE_WEAPON_NODE } from './tree-fort-data.js';
 import { WEAPON, SYNERGIES, SLOT_BASE, SLOT_MAX, SLOT_COST } from './tree-fort-weapons.js';
 import { startLevel } from './tree-fort-run.js';
+import { sanitizeOd, odConfig, odInfoToast, odAct } from './tree-fort-od.js';
+import { odRows, drawOdShop } from './tree-fort-odview.js';
 import { createBattle, ARENA, STAGE_COUNT } from './tree-fort-battle.js';
 import { STAGE_INFO, RELICS, ACHIEVEMENTS, dailyChallenge } from './tree-fort-meta.js';
 import { SKINS, EFFECTS, makeKit } from './tree-fort-skins.js';
 import {
-  MAP, NODE_R, BTN_BUY, BTN_GO, BTN_SHOP, BTN_ARMORY, BTN_MENU, BTN_RETREAT, shopLayout, nodeScreenPos,
+  MAP, NODE_R, BTN_BUY, BTN_GO, BTN_SHOP, BTN_ODSHOP, BTN_ARMORY, BTN_MENU, BTN_RETREAT, shopLayout, nodeScreenPos,
   drawTree, drawBattle, drawShop, spawnFx, layoutView, battleOffset,
 } from './tree-fort-view.js';
 import {
@@ -112,6 +114,7 @@ function loadSave() {
     ach: Array.isArray(raw?.ach) ? raw.ach.filter((id) => ACHIEVEMENTS.some((a) => a.id === id)) : [],
     bestCombo: num(raw?.bestCombo),
     bestRelics: num(raw?.bestRelics),
+    od: sanitizeOd(raw?.od),
   };
 }
 
@@ -145,7 +148,7 @@ export default function create(env) {
       owned: [...s.owned], points: s.points, bestWave: s.bestWave, runs: s.runs,
       skinsOwned: [...s.skinsOwned], fxOwned: [...s.fxOwned], skin: s.skin, fx: s.fx,
       slots: s.slots, discovered: s.discovered, stageClear: s.stageClear, stars: s.stars, speed: s.speed, daily: s.daily,
-      ach: s.ach, bestCombo: s.bestCombo, bestRelics: s.bestRelics,
+      ach: s.ach, bestCombo: s.bestCombo, bestRelics: s.bestRelics, od: s.od,
     });
   };
 
@@ -285,6 +288,12 @@ export default function create(env) {
       sound.beep(740, 0.06, 'square', 0.05);
       return;
     }
+    if (inside(x, y, BTN_ODSHOP)) {
+      screen = 'od';
+      sc.od = { sel: `type:${sc.save.od.type}` };
+      sound.beep(780, 0.06, 'square', 0.05);
+      return;
+    }
     if (inside(x, y, BTN_SHOP)) {
       screen = 'shop';
       sc.shop = { sel: `skin:${sc.save.skin}`, skin: sc.save.skin, fx: sc.save.fx };
@@ -365,7 +374,7 @@ export default function create(env) {
     const loadout = Object.entries(TREE_WEAPON_NODE).filter(([, node]) => sv.owned.has(node)).map(([id]) => ({ id, level: startLevel(id, stats) }));
     const discovered = new Set(sv.discovered.weapons);
     sc.run = createBattle(stats, daily ? seededRng(sc.daily.seed) : Math.random, {
-      stage: daily ? 0 : stage, mods, leveling: true, slots: sv.slots, discovered, loadout,
+      stage: daily ? 0 : stage, mods, leveling: true, slots: sv.slots, discovered, loadout, od: odConfig(sv.od),
     });
     runInfo = { stage, entry, found: { weapons: [], syn: [], relics: [] }, discovered, dailyKey: daily ? sc.daily.key : null };
     sc.effects = [];
@@ -525,6 +534,43 @@ export default function create(env) {
       applyLook();
       sc.kit.burst(x, y, [sc.kit.skin.me, sc.kit.skin.op], 8, 60, 10);
       sound.beep(600 + row.idx * 60, 0.04, 'sine', 0.04);
+    }
+  }
+
+  // ---- OD 工房 ----
+  function updateOd(dt) {
+    sc.msgT -= dt;
+    if (!input.pressed) return;
+    const { x, y } = input;
+    if (inside(x, y, BTN_GO)) {
+      screen = 'tree';
+      sound.beep(500, 0.05, 'square', 0.05);
+      return;
+    }
+    if (inside(x, y, BTN_BUY)) {
+      const [kind, id] = sc.od.sel.split(':');
+      const s = sc.save;
+      const r = odAct(s.od, s.points, kind, id);
+      if (!r.ok) {
+        if (r.why !== '装備中' && r.why !== '最大') sound.beep(200, 0.08, 'sawtooth', 0.05);
+        return;
+      }
+      s.points -= r.paid;
+      persist();
+      if (r.did === 'equip') sound.beep(880, 0.06, 'square', 0.05);
+      else {
+        flash(sc.kit.skin.gold, 0.25);
+        sc.kit.burst(120, sc.H / 2 - 10, [sc.kit.skin.gold, '#ffffff'], 40, 140, 30);
+        fanfare([660, 988, 1319]);
+      }
+      return;
+    }
+    for (const row of odRows(sc).rows) {
+      if (!inside(x, y, row.rect)) continue;
+      sc.od.sel = `${row.kind}:${row.id}`;
+      sc.kit.burst(x, y, [sc.kit.skin.gold], 6, 50, 10);
+      sound.beep(620, 0.04, 'sine', 0.04);
+      return;
     }
   }
 
@@ -790,7 +836,8 @@ export default function create(env) {
         return;
       }
       if (inside(input.x, input.y, BTN_OD)) {
-        sc.run.overdrive();
+        // まだ使えないときは、そのタイプの説明と充電の状況を出す
+        if (!sc.run.overdrive()) b.toast = odInfoToast(b.od);
         return;
       }
       const hit = hudHit(b, input.x, input.y);
@@ -841,6 +888,7 @@ export default function create(env) {
     else if (screen === 'stages') updateStages(dt);
     else if (screen === 'codex') updateCodex(dt);
     else if (screen === 'shop') updateShop(dt);
+    else if (screen === 'od') updateOd(dt);
     else if (screen === 'battle') updateBattle(dt);
   }
 
@@ -854,6 +902,7 @@ export default function create(env) {
     } else if (screen === 'stages') drawStageSelect(g, sc);
     else if (screen === 'codex') drawCodex(g, sc);
     else if (screen === 'shop') drawShop(g, sc);
+    else if (screen === 'od') drawOdShop(g, sc);
     else drawTree(g, sc);
   }
 

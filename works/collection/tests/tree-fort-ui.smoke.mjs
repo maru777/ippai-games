@@ -6,7 +6,8 @@
 import assert from 'node:assert/strict';
 import { Store } from '../app/src/core/storage.js';
 import { SKINS, EFFECTS } from '../app/src/games/tree-fort-skins.js';
-import { BTN_SHOP, BTN_GO, BTN_RETREAT, BTN_ARMORY, shopLayout, MAP } from '../app/src/games/tree-fort-view.js';
+import { BTN_SHOP, BTN_ODSHOP, BTN_GO, BTN_BUY, BTN_RETREAT, BTN_ARMORY, shopLayout, MAP } from '../app/src/games/tree-fort-view.js';
+import { odRows } from '../app/src/games/tree-fort-odview.js';
 import {
   BTN_ST_BACK, BTN_ST_GO, ST_LIST, cardRects, BTN_REROLL, BTN_SPEED, BTN_OD, CX_TABS, CX_LIST, BTN_CX_BACK, slotRect,
 } from '../app/src/games/tree-fort-rview.js';
@@ -69,6 +70,15 @@ for (const H of [320, 520]) {
       frame(game, input, 1 / 60, mid(BTN_SHOP));
       for (let i = 0; i < 6; i++) frame(game, input, 1 / 60);
       for (const row of shopLayout().rows) frame(game, input, 1 / 60, mid(row.rect));
+      frame(game, input, 1 / 60, mid(BTN_GO)); // もどる
+      // OD 工房: 全部の行を選んで、買う（ポイントが足りれば買える）→ もどる
+      frame(game, input, 1 / 60, mid(BTN_ODSHOP));
+      for (let i = 0; i < 6; i++) frame(game, input, 1 / 60);
+      for (const row of odRows({ H }).rows) {
+        frame(game, input, 1 / 60, mid(row.rect));
+        frame(game, input, 1 / 60, mid(BTN_BUY));
+        frame(game, input, 1 / 60);
+      }
       frame(game, input, 1 / 60, mid(BTN_GO)); // もどる
       // 図鑑: 全タブの行を順にタップして、枠も押す
       frame(game, input, 1 / 60, mid(BTN_ARMORY));

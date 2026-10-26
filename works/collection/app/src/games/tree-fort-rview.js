@@ -336,42 +336,44 @@ export function drawBattleHud(g, sc) {
 
   // オーバードライブ
   const od = b.od;
+  const oc = od.cfg.def.color; // OD のタイプの色と名前（OD 工房で選ぶ）
+  const on = od.cfg.def.name;
   const ready = od.gauge >= 100 && od.active <= 0;
   if (od.active > 0) {
     g.save();
     rr(g, BTN_OD.x, BTN_OD.y, BTN_OD.w, BTN_OD.h, 6);
     g.fillStyle = 'rgba(0,0,0,0.3)';
     g.fill();
-    rr(g, BTN_OD.x, BTN_OD.y, Math.max(6, (BTN_OD.w * od.active) / 8), BTN_OD.h, 6);
-    kit.glow(g, sk.gold, 12);
-    g.fillStyle = kit.c(sk.gold, clock * 3);
+    rr(g, BTN_OD.x, BTN_OD.y, Math.max(6, (BTN_OD.w * od.active) / od.dur), BTN_OD.h, 6);
+    kit.glow(g, oc, 12);
+    g.fillStyle = oc;
     g.fill();
     g.restore();
-    kit.text(g, `OD 強化中 ${Math.ceil(od.active)}秒`, BTN_OD.x + BTN_OD.w / 2, BTN_OD.y + 6, 9, '#06081a', 'center');
+    kit.text(g, `OD ${on} ${Math.ceil(od.active)}秒`, BTN_OD.x + BTN_OD.w / 2, BTN_OD.y + 6, 9, '#06081a', 'center');
   } else if (ready) {
     const pulse = 0.5 + 0.5 * Math.sin(clock * 8);
     g.save();
-    kit.glow(g, sk.gold, 10 + 10 * pulse);
-    g.strokeStyle = rgba(sk.gold, 0.6 + 0.4 * pulse);
+    kit.glow(g, oc, 10 + 10 * pulse);
+    g.strokeStyle = rgba(oc, 0.6 + 0.4 * pulse);
     g.lineWidth = 2;
     rr(g, BTN_OD.x - 2, BTN_OD.y - 2, BTN_OD.w + 4, BTN_OD.h + 4, 8);
     g.stroke();
     g.restore();
-    kit.button(g, BTN_OD, 'OD 発動！タップ', { color: sk.gold, size: 9, active: true });
+    kit.button(g, BTN_OD, `OD ${on} 発動！`, { color: oc, size: 9, active: true });
   } else {
     g.save();
     rr(g, BTN_OD.x, BTN_OD.y, BTN_OD.w, BTN_OD.h, 6);
     g.fillStyle = 'rgba(0,0,0,0.25)';
     g.fill();
     rr(g, BTN_OD.x, BTN_OD.y, Math.max(0.1, (BTN_OD.w * od.gauge) / 100), BTN_OD.h, 6);
-    g.fillStyle = rgba(sk.gold, 0.45);
+    g.fillStyle = rgba(oc, 0.45);
     g.fill();
     g.strokeStyle = rgba(sk.dim, 0.7);
     g.lineWidth = 1;
     rr(g, BTN_OD.x, BTN_OD.y, BTN_OD.w, BTN_OD.h, 6);
     g.stroke();
     g.restore();
-    kit.text(g, `OD 充電 ${Math.floor(od.gauge)}%`, BTN_OD.x + BTN_OD.w / 2, BTN_OD.y + 6, 9, sk.dim, 'center');
+    kit.text(g, `OD ${on} ${Math.floor(od.gauge)}%`, BTN_OD.x + BTN_OD.w / 2, BTN_OD.y + 6, 9, sk.dim, 'center');
   }
   // 取得したものの一言（武器・強化・遺物・契約・OD）
   if (b.toast) {
