@@ -5,6 +5,7 @@
 //                 選ぶまで戦闘は止まる（pick(i) / reroll()）。武器と強化は、その挑戦の間だけ。
 import { createWeapons, WEAPON, MAX_LEVEL, maxLevelOf } from './tree-fort-weapons.js';
 import { makeOptions, applyOption, xpNeed, autoPick } from './tree-fort-run.js';
+import { odConfig, defaultOd } from './tree-fort-od.js';
 import { combineMods, applyRelic, relicOptions, RELIC, CONTRACTS, CONTRACT, CONTRACT_WAVES } from './tree-fort-meta.js';
 
 export const ARENA = { W: 240, H: 320, cx: 120, cy: 172, towerR: 11 };
@@ -96,7 +97,7 @@ export function createBattle(stats0, rng = Math.random, opts = {}) {
     contracts: [], // 結んだ契約の id
     tagMul: {}, dotMul: 1, frozenMul: 1, // 遺物による属性ごとのダメージ倍率
     toast: null, // 取得したものの一言表示 { icon, title, sub, color, t }
-    od: { gauge: 0, active: 0 }, // オーバードライブ（撃破でたまり、使うと数秒間強くなる）
+    od: { gauge: 0, active: 0, cfg: o.od || odConfig(defaultOd()), dur: (o.od || odConfig(defaultOd())).dur }, // オーバードライブ（撃破でたまり、使うと数秒間強くなる。タイプと強化は OD 工房で選ぶ）
     combo: { n: 0, t: 0, best: 0 },
     hits: 0, // 砦が攻撃を受けた回数（星の評価に使う）
     stars: 0,
@@ -245,8 +246,8 @@ export function createBattle(stats0, rng = Math.random, opts = {}) {
     }
     if (b.od.active <= 0) {
       const was = b.od.gauge;
-      b.od.gauge = Math.min(100, was + Math.min(4, e.pts) * 1.2);
-      if (was < 100 && b.od.gauge >= 100) b.toast = { icon: 'lightning', title: 'OD ゲージが満タン！', sub: '左下の OD ボタンをタップで、8 秒間 攻撃が強くなる', color: '#ffd84a', t: 3.5 };
+      b.od.gauge = Math.min(100, was + Math.min(4, e.pts) * 1.2 * b.od.cfg.chargeK);
+      if (was < 100 && b.od.gauge >= 100) b.toast = { icon: 'lightning', title: `OD「${b.od.cfg.def.name}」が満タン！`, sub: `左下の OD ボタンをタップで、${b.od.dur} 秒間 強くなる`, color: b.od.cfg.def.color, t: 3.5 };
     }
     b.combo.n = b.combo.t > 0 ? b.combo.n + 1 : 1;
     b.combo.t = 1.3;
@@ -261,7 +262,10 @@ export function createBattle(stats0, rng = Math.random, opts = {}) {
     a *= b.tagMul[op.tag] || 1; // 遺物: 属性ごとの強化
     if (op.dot) a *= b.dotMul;
     if (b.frozenMul > 1 && (e.freeze > 0 || (e.slow && e.slow.t > 0))) a *= b.frozenMul;
-    if (b.od.active > 0) a *= 1.25;
+    if (b.od.active > 0) {
+      a *= b.od.cfg.dmgK;
+      if (op.tag === 'fire') a *= b.od.cfg.fireK;
+    }
     if (!op.manual) a *= AUTO_K;
     const crit = !op.noCrit && !op.dot && rng() < stats.crit;
     if (crit) a *= 2;
@@ -356,7 +360,7 @@ export function createBattle(stats0, rng = Math.random, opts = {}) {
     b.combo.t -= dt;
     if (b.toast && (b.toast.t -= dt) <= 0) b.toast = null;
     if (b.od.active > 0) b.od.active = Math.max(0, b.od.active - dt);
-    const speedK = b.od.active > 0 ? 1.7 : 1; // オーバードライブ中は、攻撃の勢いが上がる
+    const speedK = b.od.active > 0 ? b.od.cfg.speedK : 1; // オーバードライブ中は、攻撃の勢いが上がる
     b.tower.flash = Math.max(0, b.tower.flash - dt);
     b.cd.tap -= dt;
 
@@ -439,12 +443,13 @@ export function createBattle(stats0, rng = Math.random, opts = {}) {
         const aura = d < SLOW_RADIUS ? 1 - stats.slow : 1;
         const fz = e.freeze > 0 ? 0 : 1;
         const sl = e.slow && e.slow.t > 0 ? e.slow.mul : 1;
-        const mv = (e.spd * aura * fz * sl * dt) / Math.max(d, 0.001);
+        const odSlow = b.od.active > 0 ? b.od.cfg.slowK : 1; // OD「氷結」: 敵が遅くなる
+        const mv = (e.spd * aura * fz * sl * odSlow * dt) / Math.max(d, 0.001);
         e.x += (cx - e.x) * mv;
         e.y += (cy - e.y) * mv;
       }
       if (d <= towerR + e.r) {
-        const dmg = e.dmg * (1 - stats.reduce);
+        const dmg = e.dmg * (1 - stats.reduce) * (b.od.active > 0 ? b.od.cfg.reduceK : 1); // OD「再生」: 受けるダメージが減る
         b.tower.hp -= dmg;
         b.tower.flash = 0.15;
         b.hits++;
@@ -466,7 +471,7 @@ export function createBattle(stats0, rng = Math.random, opts = {}) {
       s.y += s.vy * dt;
       s.life -= dt;
       if (dist(s.x, s.y, cx, cy) <= towerR + 2) {
-        const dmg = s.dmg * (1 - stats.reduce);
+        const dmg = s.dmg * (1 - stats.reduce) * (b.od.active > 0 ? b.od.cfg.reduceK : 1);
         b.tower.hp -= dmg;
         b.tower.flash = 0.15;
         b.hits++;
@@ -525,7 +530,7 @@ export function createBattle(stats0, rng = Math.random, opts = {}) {
     if (!e) return false;
     hurt(e, stats.dmg * TAP_K, { tag: 'physical', manual: true });
     b.cd.tap = TAP_CD;
-    if (b.od.active <= 0) b.od.gauge = Math.min(100, b.od.gauge + 0.8); // タップで OD ゲージも少したまる
+    if (b.od.active <= 0) b.od.gauge = Math.min(100, b.od.gauge + 0.8 * b.od.cfg.chargeK); // タップで OD ゲージも少したまる
     W.addCharge(0.012); // MAX の大技ゲージも少したまる
     addFx({ kind: 'bolt', life: 0.22, pts: [{ x: cx, y: cy }, { x: e.x, y: e.y }], manual: true });
     return true;
@@ -598,8 +603,20 @@ export function createBattle(stats0, rng = Math.random, opts = {}) {
   function overdrive() {
     if (b.over || b.options || b.od.gauge < 100 || b.od.active > 0) return false;
     b.od.gauge = 0;
-    b.od.active = 8;
+    b.od.active = b.od.dur;
     addFx({ kind: 'overdrive', life: 1.0 });
+    // タイプごとの、発動の瞬間の効果（強化の「威力」で強くなる）
+    const cfg = b.od.cfg;
+    if (cfg.id === 'blast') {
+      for (const e of alive()) hurt(e, stats.dmg * 6 * cfg.effK, { tag: 'fire', manual: true });
+      addFx({ kind: 'ring', life: 0.8, x: cx, y: cy, r: 190, tag: 'fire' });
+    } else if (cfg.id === 'frost') {
+      for (const e of alive()) applyStatus(e, 'freeze', 2 * cfg.effK, 0);
+      addFx({ kind: 'ring', life: 0.8, x: cx, y: cy, r: 190, tag: 'ice' });
+    } else if (cfg.id === 'regen') {
+      b.tower.hp = Math.min(b.tower.max, b.tower.hp + b.tower.max * 0.25 * cfg.effK);
+      addFx({ kind: 'ring', life: 0.8, x: cx, y: cy, r: 60, tag: 'poison' });
+    }
     return true;
   }
   b.grantLevel = () => {

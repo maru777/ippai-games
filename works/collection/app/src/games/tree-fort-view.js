@@ -16,8 +16,9 @@ export const MAP = { x: 0, y: 30, w: 240, h: 208 };
 export const MAP_CX = 120;
 export const BTN_BUY = { x: 8, y: 288, w: 108, h: 28 };
 export const BTN_GO = { x: 124, y: 288, w: 108, h: 28 };
-export const BTN_ARMORY = { x: 112, y: 4, w: 62, h: 22 };
-export const BTN_SHOP = { x: 178, y: 4, w: 58, h: 22 };
+export const BTN_ARMORY = { x: 112, y: 4, w: 38, h: 22 };
+export const BTN_ODSHOP = { x: 154, y: 4, w: 30, h: 22 };
+export const BTN_SHOP = { x: 188, y: 4, w: 48, h: 22 };
 export const BTN_MENU = { x: 72, y: 4, w: 38, h: 22 };
 export const BTN_RETREAT = { x: 192, y: 4, w: 44, h: 22 };
 
@@ -1313,13 +1314,14 @@ export function drawTree(g, sc) {
   kit.drawParts(g);
   g.restore();
 
-  // 上のバー: ポイント・メニューへ戻る・図鑑・ショップ
+  // 上のバー: ポイント・メニューへ戻る・図鑑・OD 工房・ショップ
   kit.panel(g, { x: 4, y: 3, w: 64, h: 24 }, { stroke: sk.gold, glow: sk.gold, blur: 6, radius: 8 });
   kit.button(g, BTN_MENU, 'メニュー', { color: sk.dim, size: 7.5 });
   const pts = `${Math.round(sc.shownPts)}`;
   kit.text(g, pts, 12, 7, 15, sk.gold, 'left', 8);
   kit.text(g, 'P', 14 + kit.measure(g, pts, 15), 11, 10, sk.dim);
   kit.button(g, BTN_ARMORY, '図鑑', { color: sk.me, size: 11 });
+  kit.button(g, BTN_ODSHOP, 'OD', { color: sk.gold, size: 11 });
   kit.button(g, BTN_SHOP, 'ショップ', { color: sk.op, size: 10 });
 
   // 下のパネル
