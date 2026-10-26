@@ -122,11 +122,15 @@ test('balance: 攻撃の種類を増やすと強くなる（爆弾・雷・刃�
 
 test('economy: 初期の 1 回の挑戦でツリーの最初の数個が買える', () => {
   let sum = 0;
-  for (let i = 0; i < 6; i++) sum += simulate(computeStats(START_OWNED), seeded(200 + i)).points;
+  for (let i = 0; i < 6; i++) sum += simulate(computeStats(START_OWNED), seeded(200 + i), { tap: true }).points; // 放置では、すぐ負けて、ほとんど稼げない
   const avg = sum / 6;
   console.log(`   初期の 1 回の獲得ポイント: ${avg.toFixed(0)}`);
   assert.ok(avg >= 10, `ポイントが少なすぎる ${avg}`);
-  assert.ok(avg <= 80, `ポイントが多すぎる ${avg}`);
+  assert.ok(avg <= 400, `ポイントが多すぎる ${avg}`);
+  // 放置より、タップするほうがずっと稼げる（操作が効いている）
+  let idle = 0;
+  for (let i = 0; i < 6; i++) idle += simulate(computeStats(START_OWNED), seeded(200 + i)).points;
+  assert.ok(avg > (idle / 6) * 1.5, `タップしても放置と変わらない（タップ ${avg} / 放置 ${idle / 6}）`);
 });
 
 console.log(`\n${passed} 件すべて成功`);

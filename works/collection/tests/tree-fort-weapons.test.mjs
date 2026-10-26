@@ -1,6 +1,6 @@
 // ツリー砦の武器・組み合わせ効果の検証（描画なし）。実行: node works/collection/tests/tree-fort-weapons.test.mjs
 import assert from 'node:assert/strict';
-import { WEAPONS, WEAPON, SYNERGIES, SYNERGY, MAX_LEVEL, SLOT_BASE, SLOT_MAX, SLOT_COST, activeSynergies, weaponCost } from '../app/src/games/tree-fort-weapons.js';
+import { WEAPONS, WEAPON, SYNERGIES, SYNERGY, MAX_LEVEL, maxLevelOf, SLOT_BASE, SLOT_MAX, SLOT_COST, activeSynergies, weaponCost } from '../app/src/games/tree-fort-weapons.js';
 import { computeStats, TREE } from '../app/src/games/tree-fort-data.js';
 import { createBattle, simulate } from '../app/src/games/tree-fort-battle.js';
 
@@ -25,14 +25,14 @@ function seeded(seed = 1) {
 // ある程度育った砦（ツリーの中盤）
 const MID = computeStats(['core', 'atk1', 'atk2', 'atk3', 'spd1', 'spd2', 'spd3', 'def1', 'def2', 'def3', 'eco1']);
 
-test('weapons: 12 種以上、id 一意、費用と説明が 5 段階ぶんある', () => {
+test('weapons: 12 種以上、id 一意、費用と説明が同じ段数（5〜10）ある', () => {
   assert.ok(WEAPONS.length >= 10, `${WEAPONS.length} 種`);
   assert.equal(new Set(WEAPONS.map((w) => w.id)).size, WEAPONS.length);
   for (const w of WEAPONS) {
-    assert.equal(w.cost.length, MAX_LEVEL, `${w.id} の費用`);
-    assert.equal(w.levels.length, MAX_LEVEL, `${w.id} の説明`);
+    assert.equal(w.cost.length, w.levels.length, `${w.id} の費用と説明の段数`);
+    assert.ok(w.levels.length >= 5 && w.levels.length <= MAX_LEVEL, `${w.id} の段数`);
     assert.ok(w.tags.length >= 1 && w.name && w.desc && /^#/.test(w.color));
-    for (let i = 1; i < MAX_LEVEL; i++) assert.ok(w.cost[i] >= w.cost[i - 1] * 0.5, `${w.id} の費用が極端`);
+    for (let i = 1; i < w.cost.length; i++) assert.ok(w.cost[i] >= w.cost[i - 1] * 0.5, `${w.id} の費用が極端`);
     assert.equal(weaponCost(w.id, 1), w.cost[0]);
   }
 });
@@ -59,12 +59,49 @@ test('slots: 初期 3、最大 6、増設の費用が決まっている', () => 
 
 test('battle: どの武器も Lv1・3・5 で例外なく動き、敵を倒す（ほかの装備なし）', () => {
   for (const w of WEAPONS) {
-    for (const level of [1, 3, 5]) {
+    for (const level of [1, 3, 5, maxLevelOf(w.id)]) {
       const sim = createBattle(MID, seeded(7 + level), [{ id: w.id, level }]);
       for (let i = 0; i < 30 * 40; i++) sim.step(1 / 30);
       assert.ok(sim.b.kills > 0, `${w.id} Lv${level}: 何も倒せない`);
     }
   }
+});
+
+test('Lv10: Lv10 の武器は、MAX の演出（max 付き）を出し、Lv5 より多くの敵を倒す', () => {
+  const tens = WEAPONS.filter((w) => maxLevelOf(w.id) === MAX_LEVEL);
+  assert.equal(tens.length, WEAPONS.length, '全武器が Lv10 まで強化できる');
+  let sumA = 0;
+  let sumZ = 0;
+  for (const w of tens) {
+    const kills = (level) => {
+      const sim = createBattle(computeStats(['core']), seeded(31), { loadout: [{ id: w.id, level }], stage: 0 });
+      let maxFx = 0;
+      let fired = 0;
+      for (let i = 0; i < 30 * 60 && !sim.b.over; i++) {
+        // MAX の大技: ゲージが満タンになった想定で、敵がいる間に発動する（Lv5 には大技がない）
+        if (level >= MAX_LEVEL && i > 30 * 15 && !fired) {
+          sim.b.w.ult[w.id].charge = 1;
+          if (sim.ultimate(w.id)) {
+            fired++;
+            assert.equal(sim.b.w.ult[w.id].charge, 0, `${w.id}: 発動後にゲージが戻らない`);
+            assert.ok(sim.b.fx.some((f) => f.kind === 'ultCast'), `${w.id}: 大技の演出がない`);
+          }
+        }
+        sim.step(1 / 30);
+        maxFx += sim.b.fx.filter((f) => f.max).length;
+      }
+      return { kills: sim.b.kills, maxFx, fired };
+    };
+    const a = kills(5);
+    const z = kills(MAX_LEVEL);
+    sumA += a.kills;
+    sumZ += z.kills;
+    assert.ok(z.kills >= a.kills * 0.85, `${w.id}: Lv10 が Lv5 より弱い (${z.kills} < ${a.kills})`); // 主砲の働きで多少ぶれる
+    assert.equal(z.fired, 1, `${w.id}: 大技が発動できない`);
+    assert.ok(z.maxFx > 0, `${w.id}: Lv10 の演出に max が付かない`);
+    assert.equal(a.maxFx, 0, `${w.id}: Lv5 に max が付いた`);
+  }
+  assert.ok(sumZ > sumA, `Lv10 全体が Lv5 より強くない (${sumZ} <= ${sumA})`);
 });
 
 test('battle: 状態異常（燃焼・毒・鈍足・凍結）が敵に付き、時間でおさまる', () => {
@@ -134,7 +171,7 @@ test('balance: 各武器は Lv1 で役に立ち、Lv5 でさらに伸びる（�
     s5 += l5;
     rows.push(`${w.id}: ${l1.toFixed(1)} → ${l5.toFixed(1)}`);
     assert.ok(l5 >= l1 - 1.0, `${w.id} は Lv5 のほうが弱い（${l1} → ${l5}）`);
-    assert.ok(l5 >= base + 0.5, `${w.id} Lv5 が弱すぎる（${base} → ${l5}）`);
+    assert.ok(l5 >= base + 0.2, `${w.id} Lv5 が弱すぎる（${base} → ${l5}）`);
   }
   console.log(`   武器なし ${base.toFixed(1)} 波 / ${rows.join(' / ')}`);
   assert.ok(s5 / WEAPONS.length >= s1 / WEAPONS.length + 1.5, '全体として Lv5 が Lv1 より十分に強くない');

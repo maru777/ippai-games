@@ -1,9 +1,12 @@
 // ツリー砦: 1 回の挑戦（ラン）の中の成長。敵を倒して経験値をため、レベルアップごとに 3 択から選ぶ。
 // 画面や通信とは独立（ここでは「選択肢を作る」「選んだ結果を反映する」だけ）。
-import { WEAPONS, WEAPON, SYNERGY, SLOT_MAX, MAX_LEVEL, activeSynergies } from './tree-fort-weapons.js';
+import { WEAPONS, WEAPON, SYNERGY, SLOT_MAX, maxLevelOf, activeSynergies } from './tree-fort-weapons.js';
 
 // 次のレベルまでに必要な経験値（xpMul はツリーの強化で増える）
-export const xpNeed = (level, xpMul = 1) => Math.max(3, Math.round((4 + 2.4 * level + 0.5 * level * level) / xpMul));
+export const xpNeed = (level, xpMul = 1) => Math.max(6, Math.round((6 + 6 * level + 0.8 * level * level) / xpMul));
+
+// 新しい武器の最初のレベル（ツリーの「武器の素質」で上がる）
+export const startLevel = (id, stats) => Math.min(maxLevelOf(id), 1 + Math.floor((stats && stats.weaponLv) || 0));
 
 // その挑戦の間だけ効くステータス強化
 export const STAT_OPTIONS = [
@@ -39,10 +42,10 @@ export function makeOptions(ctx) {
   const cand = [];
 
   for (const w of loadout) {
-    if (w.level >= MAX_LEVEL) continue;
+    if (w.level >= maxLevelOf(w.id)) continue;
     const def = WEAPON[w.id];
     cand.push({
-      weight: 30 + (w.level <= 2 ? 10 : 0),
+      weight: 40 + (w.level <= 2 ? 10 : 0), // Lv10 まで育てやすいよう、強化の選択肢は出やすい
       opt: { kind: 'weapon-up', id: w.id, name: def.name, color: def.color, level: w.level + 1, desc: def.levels[w.level], label: `Lv${w.level} → Lv${w.level + 1}` },
     });
   }
@@ -99,7 +102,7 @@ export function makeOptions(ctx) {
 // 選んだ結果を反映する。ctx: { stats, loadout, discovered, tower, refresh(), found（新しく見つけた武器の記録）}
 export function applyOption(ctx, opt) {
   if (opt.kind === 'weapon-new') {
-    ctx.loadout.push({ id: opt.id, level: 1 });
+    ctx.loadout.push({ id: opt.id, level: startLevel(opt.id, ctx.stats) });
     if (!ctx.discovered.has(opt.id)) {
       ctx.discovered.add(opt.id);
       ctx.found.push(opt.id);
@@ -107,7 +110,7 @@ export function applyOption(ctx, opt) {
     ctx.refresh();
   } else if (opt.kind === 'weapon-up') {
     const w = ctx.loadout.find((x) => x.id === opt.id);
-    if (w && w.level < MAX_LEVEL) w.level++;
+    if (w && w.level < maxLevelOf(w.id)) w.level++;
     ctx.refresh();
   } else if (opt.kind === 'stat') {
     STAT[opt.id].apply(ctx.stats, ctx);

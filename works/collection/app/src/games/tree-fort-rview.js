@@ -3,7 +3,7 @@
 import {
   STAGE_INFO, MODS, RELICS, RELIC, ACHIEVEMENTS, ENDLESS_UNLOCK,
 } from './tree-fort-meta.js';
-import { WEAPONS, WEAPON, SYNERGIES, SYNERGY, SLOT_MAX, MAX_LEVEL } from './tree-fort-weapons.js';
+import { WEAPONS, WEAPON, SYNERGIES, SYNERGY, SLOT_MAX, MAX_LEVEL, maxLevelOf } from './tree-fort-weapons.js';
 import { STAGE_COUNT } from './tree-fort-battle.js';
 import { rgba, rr } from './tree-fort-skins.js';
 import { TAG_NAME } from './tree-fort-wview.js';
@@ -220,6 +220,9 @@ export function drawChoice(g, sc, kind) {
 // ---------------------------------------------------------------------------------------------
 // 戦闘の HUD（経験値・持っている武器・倍速・オーバードライブ・ボスの体力・特色）
 export const BTN_SPEED = { x: 198, y: 288, w: 36, h: 22 };
+// 倍速（×2・×3）は、全ステージをクリアしたあとの、やりこみ要素。それまでは通常速度（1.2 倍）のみ。
+export const speedUnlocked = (save) => save.stageClear >= STAGE_COUNT;
+export const BASE_SPEED = 1.2;
 export const BTN_OD = { x: 6, y: 288, w: 84, h: 22 };
 
 // HUD の武器・遺物アイコンの位置（描画とタップ判定で共通）。タップすると、その説明が出る。
@@ -229,15 +232,23 @@ export function hudIcons(b) {
   b.relics.forEach((id, i) => out.push({ kind: 'relic', id, x: 94 + i * 12, y: 307 + DH, w: 11, h: 11 }));
   return out;
 }
-// タップした位置に HUD のアイコンがあれば、その説明（toast の形）を返す
+// タップした位置にある HUD のアイコン（なければ null）
+export const hudHit = (b, x, y) => hudIcons(b).find((r) => x >= r.x - 2 && x <= r.x + r.w + 2 && y >= r.y - 2 && y <= r.y + r.h + 2) || null;
+
+// そのアイコンの説明（toast の形）。MAX の武器は、大技ゲージの状態も書く
 export function hudToast(b, x, y) {
-  const hit = hudIcons(b).find((r) => x >= r.x - 2 && x <= r.x + r.w + 2 && y >= r.y - 2 && y <= r.y + r.h + 2);
+  const hit = hudHit(b, x, y);
   if (!hit) return null;
   if (hit.kind === 'relic') {
     const r = RELIC[hit.id];
     return { icon: 'relic', title: `遺物「${r.name}」`, sub: r.desc, color: r.color, t: 4 };
   }
   const def = WEAPON[hit.id];
+  const u = b.w.ult && b.w.ult[hit.id];
+  if (hit.level >= MAX_LEVEL && hit.level >= maxLevelOf(hit.id) && u) {
+    const pct = Math.floor(u.charge * 100);
+    return { icon: hit.id, title: `${def.name} MAX　大技 ${pct}%`, sub: u.charge >= 1 ? 'もう一度タップで大技を発動' : `大技: ${def.levels[hit.level - 1].replace('MAX: ', '')}`, color: def.color, t: 3 };
+  }
   return { icon: hit.id, title: `${def.name} Lv${hit.level}`, sub: def.levels[hit.level - 1], color: def.color, t: 4 };
 }
 
@@ -287,7 +298,28 @@ export function drawBattleHud(g, sc) {
       if (sk.glow) kit.glow(g, def.color, 5);
       drawIcon(g, r.id, r.x + 8, r.y + 8, 17, def.color, 1.9);
       g.restore();
-      kit.text(g, `${r.level}`, r.x + 15, r.y + 8, 8, sk.text, 'right', 3);
+      if (r.level >= MAX_LEVEL && r.level >= maxLevelOf(r.id)) {
+        // MAX: 大技ゲージの輪。満タンになると金の枠が強く光って、タップを促す
+        const u = b.w.ult && b.w.ult[r.id];
+        const ch = u ? u.charge : 0;
+        const ready = ch >= 1;
+        const pulse = 0.5 + 0.5 * Math.sin(clock * (ready ? 10 : 4));
+        g.save();
+        if (ready) kit.glow(g, sk.gold, 8 + 10 * pulse);
+        g.strokeStyle = rgba(sk.gold, ready ? 0.75 + 0.25 * pulse : 0.28);
+        g.lineWidth = ready ? 2 : 1.4;
+        rr(g, r.x - 1, r.y - 1, r.w + 2, r.h + 2, 4);
+        g.stroke();
+        if (!ready && ch > 0) {
+          g.strokeStyle = sk.gold;
+          g.lineWidth = 2;
+          g.beginPath();
+          g.arc(r.x + 8, r.y + 8, 10.5, -Math.PI / 2, -Math.PI / 2 + ch * TAU);
+          g.stroke();
+        }
+        g.restore();
+        kit.text(g, ready ? '大技' : 'MAX', r.x + 8, r.y + 9, 6.5, sk.gold, 'center', 4);
+      } else kit.text(g, `${r.level}`, r.x + 15, r.y + 8, 8, sk.text, 'right', 3);
     } else {
       drawIcon(g, 'relic', r.x + 5.5, r.y + 5.5, 11, RELIC[r.id].color, 2);
     }
@@ -346,7 +378,7 @@ export function drawBattleHud(g, sc) {
     g.restore();
   }
   // 倍速
-  kit.button(g, BTN_SPEED, `×${sc.save.speed}`, { color: sk.me, size: 12, active: sc.save.speed > 1 });
+  if (speedUnlocked(sc.save)) kit.button(g, BTN_SPEED, `×${sc.save.speed}`, { color: sk.me, size: 12, active: sc.save.speed > 1 });
 }
 
 // ---------------------------------------------------------------------------------------------
