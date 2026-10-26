@@ -21,6 +21,16 @@ export function drawWeaponsUnder(g, sc) {
     const u = z.t / z.life;
     const col = z.kind === 'poison' ? TAG_COLOR.poison : TAG_COLOR.fire;
     const a = Math.min(1, (1 - u) * 2) * (0.75 + 0.25 * Math.sin(clock * 4 + z.x));
+    if (z.max) {
+      // MAX: 縁に金色の輪
+      g.save();
+      g.strokeStyle = rgba(kit.skin.gold, 0.55 * a);
+      g.lineWidth = 2;
+      g.beginPath();
+      g.arc(z.x, z.y, z.r, 0, TAU);
+      g.stroke();
+      g.restore();
+    }
     const gr = g.createRadialGradient(z.x, z.y, 0, z.x, z.y, z.r);
     gr.addColorStop(0, rgba(col, 0.38 * a));
     gr.addColorStop(0.8, rgba(col, 0.22 * a));
@@ -74,16 +84,23 @@ export function drawWeaponsUnder(g, sc) {
     }
     g.fillStyle = '#1a0a3a';
     g.beginPath();
-    g.arc(0, 0, 4 + 2 * Math.sin(clock * 8), 0, TAU);
+    g.arc(0, 0, (wl.big ? 12 : 4) + 2 * Math.sin(clock * 8), 0, TAU);
     g.fill();
+    if (wl.max) {
+      g.strokeStyle = kit.skin.gold;
+      g.lineWidth = 2;
+      g.beginPath();
+      g.arc(0, 0, (wl.big ? 14 : 6) + 2 * Math.sin(clock * 8), 0, TAU);
+      g.stroke();
+    }
     g.restore();
   }
   for (const m of w.meteors) {
     if (m.t < 0) continue;
     const u = Math.min(1, m.t / m.delay);
     g.save();
-    g.strokeStyle = rgba(TAG_COLOR.fire, 0.4 + 0.5 * u);
-    g.lineWidth = 1.2;
+    g.strokeStyle = m.max ? rgba(kit.skin.gold, 0.5 + 0.5 * u) : rgba(TAG_COLOR.fire, 0.4 + 0.5 * u);
+    g.lineWidth = m.max ? 2 : 1.2;
     g.setLineDash([3, 3]);
     g.beginPath();
     g.arc(m.x, m.y, m.r * (1.15 - 0.15 * u), 0, TAU);
@@ -114,8 +131,8 @@ export function drawWeaponsOver(g, sc) {
     g.rotate(f.a);
     const L = f.range * (0.6 + 0.4 * Math.min(1, u * 3));
     const gr = g.createRadialGradient(0, 0, 4, 0, 0, L);
-    gr.addColorStop(0, rgba('#fff2a0', 0.9 * (1 - u)));
-    gr.addColorStop(0.5, rgba('#ff8a3c', 0.6 * (1 - u)));
+    gr.addColorStop(0, rgba(f.max ? '#ffffff' : '#fff2a0', 0.9 * (1 - u)));
+    gr.addColorStop(0.5, rgba(f.max ? '#ffd84a' : '#ff8a3c', 0.6 * (1 - u)));
     gr.addColorStop(1, rgba('#ff3c2a', 0));
     g.fillStyle = gr;
     g.beginPath();
@@ -132,8 +149,8 @@ export function drawWeaponsOver(g, sc) {
     const ey = cy + Math.sin(bm.a) * 240;
     g.save();
     g.lineCap = 'round';
-    if (sk.glow) kit.glow(g, TAG_COLOR.light, 14);
-    g.strokeStyle = rgba(TAG_COLOR.light, 0.55 * a);
+    if (sk.glow) kit.glow(g, bm.max ? sk.gold : TAG_COLOR.light, 14);
+    g.strokeStyle = rgba(bm.max ? sk.gold : TAG_COLOR.light, 0.55 * a);
     g.lineWidth = bm.w + 4;
     g.beginPath();
     g.moveTo(cx, cy);
@@ -147,6 +164,14 @@ export function drawWeaponsOver(g, sc) {
   }
   for (const p of w.proj) {
     g.save();
+    if (p.max) {
+      g.strokeStyle = rgba(sk.gold, 0.7);
+      g.lineWidth = 1.5;
+      if (sk.glow) kit.glow(g, sk.gold, 8);
+      g.beginPath();
+      g.arc(p.x, p.y, 6, 0, TAU);
+      g.stroke();
+    }
     if (p.kind === 'frost') {
       const ang = Math.atan2(p.vy, p.vx);
       g.translate(p.x, p.y);
@@ -227,9 +252,9 @@ export function drawWeaponsOver(g, sc) {
     g.lineTo(x - 0.4 * 26, y - 26);
     g.stroke();
     if (sk.glow) kit.glow(g, '#ff8a3c', 12);
-    g.fillStyle = '#ffd89a';
+    g.fillStyle = m.max ? '#fff2a0' : '#ffd89a';
     g.beginPath();
-    g.arc(x, y, 5 + 3 * u, 0, TAU);
+    g.arc(x, y, (m.max ? 7 : 5) + 3 * u, 0, TAU);
     g.fill();
     g.restore();
   }

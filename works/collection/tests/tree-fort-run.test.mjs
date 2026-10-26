@@ -56,8 +56,8 @@ test('options: 指定した数の、重複しない選択肢が出る。最初�
   }
 });
 
-test('options: 枠がいっぱいなら新しい武器は出ず、上限（Lv10・Lv5）の武器は強化に出ない', () => {
-  const loadout = [{ id: 'bomb', level: 10 }, { id: 'frost', level: 5 }, { id: 'blade', level: 1 }];
+test('options: 枠がいっぱいなら新しい武器は出ず、上限（Lv10）の武器は強化に出ない', () => {
+  const loadout = [{ id: 'bomb', level: 10 }, { id: 'frost', level: 10 }, { id: 'blade', level: 1 }];
   for (let i = 0; i < 40; i++) {
     const opts = makeOptions(ctx({ rng: seeded(i + 1), loadout, slots: 3 }));
     assert.ok(!opts.some((o) => o.kind === 'weapon-new'), '枠が埋まっているのに新しい武器');
@@ -241,7 +241,7 @@ test('武器の素質: ツリーで、新しい武器の最初のレベルが上
   assert.equal(startLevel('bomb', { weaponLv: 0 }), 1);
   assert.equal(startLevel('bomb', computeStats(['core', 'atk1', 'grw1', 'grw2', 'wlv1'])), 2);
   assert.equal(startLevel('bomb', { weaponLv: 99 }), 10);
-  assert.equal(startLevel('frost', { weaponLv: 99 }), 5, 'Lv5 までの武器は 5 が上限');
+  assert.equal(startLevel('frost', { weaponLv: 99 }), 10, '全武器が Lv10 まで');
   const loadout = [];
   applyOption({ stats: { weaponLv: 1 }, loadout, discovered: new Set(), found: [], refresh() {} }, { kind: 'weapon-new', id: 'bomb' });
   assert.equal(loadout[0].level, 2);

@@ -27,48 +27,48 @@ export const WEAPONS = [
   },
   {
     id: 'flame', name: '火炎放射', tags: ['fire'], color: '#ff6a2a', desc: '近距離の扇形に炎を吹き、敵を燃やす',
-    cost: [120, 80, 130, 210, 340],
-    levels: ['扇形の炎＋燃焼', '威力 +', '範囲が広がる', '燃焼ダメージ ++', '倒すと周囲に燃え移る'],
+    cost: [120, 80, 130, 210, 340, 440, 560, 720, 920, 1200],
+    levels: ['扇形の炎＋燃焼', '威力 +', '範囲が広がる', '燃焼ダメージ ++', '倒すと周囲に燃え移る', '威力・範囲 +++', '炎の扇が広がる', '燃焼ダメージ ++++', '燃え移りが広がり、倒した跡が燃え続ける', 'MAX: 全周へ炎を吹き、数秒ごとに火柱が立つ'],
   },
   {
     id: 'frost', name: '氷結弾', tags: ['ice'], color: '#9fe8ff', desc: '命中した敵を遅くし、凍らせる',
-    cost: [120, 80, 130, 210, 340],
-    levels: ['鈍足＋凍結(小)', '凍結しやすい', '周囲も鈍足に', '威力 ++・凍結しやすい', '3 方向に撃つ・凍結が長い'],
+    cost: [120, 80, 130, 210, 340, 440, 560, 720, 920, 1200],
+    levels: ['鈍足＋凍結(小)', '凍結しやすい', '周囲も鈍足に', '威力 ++・凍結しやすい', '3 方向に撃つ・凍結が長い', '威力・凍結 +++', '4 方向に撃つ', '威力 ++++・凍結が長い', '5 方向・凍った敵が砕けて氷片が飛ぶ', 'MAX: 数秒ごとに「絶対零度」で全員を凍らせる'],
   },
   {
     id: 'poison', name: '毒霧', tags: ['poison'], color: '#8dff6a', desc: '地面に残る毒の雲で、継続ダメージ',
-    cost: [130, 80, 140, 220, 360],
-    levels: ['毒の雲を 1 つ', '雲が広く・長く', '雲を 2 つ', '毒ダメージ ++', '雲が敵を追いかける'],
+    cost: [130, 80, 140, 220, 360, 460, 580, 750, 950, 1250],
+    levels: ['毒の雲を 1 つ', '雲が広く・長く', '雲を 2 つ', '毒ダメージ ++', '雲が敵を追いかける', '雲が広く・長く +++', '雲を 3 つ', '毒ダメージ ++++', '雲が速く追い、さらに広がる', 'MAX: 巨大な毒雲が広がり、毒で倒れた敵が毒をまく'],
   },
   {
     id: 'missile', name: 'ミサイル', tags: ['fire', 'physical'], color: '#ffd84a', desc: '追尾するミサイルを一斉に撃つ',
-    cost: [140, 90, 150, 240, 380],
-    levels: ['2 発', '威力 +', '4 発', '威力 ++', '6 発＋大きな爆発'],
+    cost: [140, 90, 150, 240, 380, 480, 600, 780, 980, 1300],
+    levels: ['2 発', '威力 +', '4 発', '威力 ++', '6 発＋大きな爆発', '威力 +++', '8 発', '爆発範囲 +', '10 発・追尾が鋭い', 'MAX: 14 発の一斉射。着弾で分裂して連続爆発'],
   },
   {
     id: 'laser', name: 'レーザー', tags: ['light'], color: '#fff2a0', desc: '一直線に貫く光線',
-    cost: [150, 100, 160, 260, 400],
-    levels: ['光線 1 本', '威力 +', '光線 2 本', '威力 ++', '長く照射（威力 1.5 倍）'],
+    cost: [150, 100, 160, 260, 400, 500, 640, 820, 1020, 1350],
+    levels: ['光線 1 本', '威力 +', '光線 2 本', '威力 ++', '長く照射（威力 1.5 倍）', '威力 +++', '光線 3 本', '威力 ++++・照射が長い', '光線 4 本', 'MAX: 3 本の極太レーザーが回転しながら照射'],
   },
   {
     id: 'mine', name: '地雷', tags: ['physical'], color: '#c9a36a', desc: '敵の通り道に仕掛け、踏むと爆発',
-    cost: [130, 80, 140, 220, 360],
-    levels: ['地雷を仕掛ける', '威力・範囲 +', '一度に 2 個', '威力 ++', '連鎖して爆発'],
+    cost: [130, 80, 140, 220, 360, 460, 580, 750, 950, 1250],
+    levels: ['地雷を仕掛ける', '威力・範囲 +', '一度に 2 個', '威力 ++', '連鎖して爆発', '威力・範囲 +++', '一度に 3 個', '威力 ++++・連鎖範囲 +', '設置が速く、敵を引き寄せる', 'MAX: 地雷原。一度に 5 個、連鎖で一帯が爆発'],
   },
   {
     id: 'gravity', name: '重力井戸', tags: ['gravity'], color: '#b48cff', desc: '敵を中心へ引き寄せ、固めてダメージ',
-    cost: [160, 100, 170, 270, 420],
-    levels: ['引き寄せる井戸', '範囲 +', '範囲 ++', '引力 ++', '最後に崩壊して大ダメージ'],
+    cost: [160, 100, 170, 270, 420, 520, 660, 850, 1050, 1400],
+    levels: ['引き寄せる井戸', '範囲 +', '範囲 ++', '引力 ++', '最後に崩壊して大ダメージ', '範囲・引力 +++', '井戸が 2 つ同時に', '継続ダメージ 1.6 倍', '崩壊ダメージが 2 倍', 'MAX: ブラックホール。巨大な井戸が敵を吸い込み、崩壊で大爆発'],
   },
   {
     id: 'meteor', name: '流星', tags: ['fire'], color: '#ff8a5a', desc: '空から大きな隕石を降らせる',
-    cost: [170, 110, 180, 290, 450],
-    levels: ['隕石 1 発', '威力 +', '同時に 2 発', '威力 ++', '同時に 3 発'],
+    cost: [170, 110, 180, 290, 450, 540, 680, 880, 1100, 1450],
+    levels: ['隕石 1 発', '威力 +', '同時に 2 発', '威力 ++', '同時に 3 発', '威力 +++', '同時に 4 発', '威力 ++++・範囲 +', '同時に 5 発', 'MAX: 流星群。8 発が降り、続けてもう 4 発'],
   },
   {
     id: 'drone', name: 'ドローン', tags: ['machine'], color: '#7affc8', desc: '砦に付き添って自動で撃つ小型機',
-    cost: [150, 90, 150, 240, 380],
-    levels: ['1 機', '2 機', '威力 +', '3 機', '二連射'],
+    cost: [150, 90, 150, 240, 380, 500, 640, 820, 1020, 1350],
+    levels: ['1 機', '2 機', '威力 +', '3 機', '二連射', '4 機', '威力 ++', '5 機', '三連射', 'MAX: 6 機が四連射。数秒ごとに全機が一斉射撃'],
   },
 ];
 export const WEAPON = Object.fromEntries(WEAPONS.map((w) => [w.id, w]));
@@ -273,15 +273,28 @@ export function createWeapons(api, loadout) {
     },
 
     flame(dt, L) {
+      const range = Math.min(110, 62 + 6 * (L - 1));
+      if (L >= MAX_LEVEL && b.t >= (cd.pillarAt ?? 3)) {
+        // MAX: 数秒ごとに、射程内の全員を火柱が襲う
+        cd.pillarAt = b.t + 3.5;
+        const hit = inRange(range * 1.2);
+        for (const e of hit) {
+          hurt(e, D() * 3, { tag: 'fire' });
+          applyStatus(e, 'burn', 3, D() * 1.2);
+        }
+        if (hit.length) {
+          addFx({ kind: 'ring', life: 0.7, x: cx, y: cy, r: range * 1.2, tag: 'fire' });
+          addFx({ kind: 'maxPulse', life: 0.5 });
+        }
+      }
       if ((cd.flame -= dt) > 0) return;
-      const range = 62 + 6 * (L - 1);
       const t = nearest(range + 12);
       if (!t) {
         cd.flame = 0;
         return;
       }
       const a = Math.atan2(t.y - cy, t.x - cx);
-      const half = 0.5 + (L >= 3 ? 0.15 : 0);
+      const half = L >= MAX_LEVEL ? Math.PI : 0.5 + (L >= 3 ? 0.15 : 0) + (L >= 7 ? 0.2 : 0);
       for (const e of alive()) {
         const d = dist(e.x, e.y, cx, cy);
         if (d > range + e.r) continue;
@@ -289,13 +302,27 @@ export function createWeapons(api, loadout) {
         da = Math.atan2(Math.sin(da), Math.cos(da));
         if (Math.abs(da) > half) continue;
         hurt(e, D() * (0.9 + 0.12 * (L - 1)), { tag: 'fire' });
-        applyStatus(e, 'burn', 2.5, D() * 0.5 * (1 + 0.25 * (L - 1)) * (L >= 4 ? 1.3 : 1));
+        applyStatus(e, 'burn', 2.5, D() * 0.5 * (1 + 0.25 * (L - 1)) * (L >= 4 ? 1.3 : 1) * (L >= 8 ? 1.3 : 1));
       }
-      w.flames.push({ a, range, half, t: 0, life: 0.3 });
-      cd.flame += (0.9 - 0.05 * L) / speedUp();
+      w.flames.push({ a, range, half, t: 0, life: 0.3, max: curMax });
+      cd.flame += Math.max(0.4, 0.9 - 0.05 * L) / speedUp();
     },
 
     frost(dt, L) {
+      if (L >= MAX_LEVEL && b.t >= (cd.zeroAt ?? 5)) {
+        // MAX: 絶対零度。射程内の全員を、数秒間凍らせる
+        cd.zeroAt = b.t + 6;
+        const hit = inRange(stats.range * 1.3);
+        for (const e of hit) {
+          applyStatus(e, 'slow', 2.5, 0.3);
+          applyStatus(e, 'freeze', 1.6, 0);
+          hurt(e, D() * 1.5, { tag: 'ice' });
+        }
+        if (hit.length) {
+          addFx({ kind: 'ring', life: 0.8, x: cx, y: cy, r: stats.range * 1.3, tag: 'ice' });
+          addFx({ kind: 'maxPulse', life: 0.5 });
+        }
+      }
       if ((cd.frost -= dt) > 0) return;
       const t = nearest(stats.range);
       if (!t) {
@@ -303,12 +330,12 @@ export function createWeapons(api, loadout) {
         return;
       }
       const a0 = Math.atan2(t.y - cy, t.x - cx);
-      const spread = L >= 5 ? [-0.3, 0, 0.3] : [0];
+      const spread = L >= 9 ? [-0.5, -0.25, 0, 0.25, 0.5] : L >= 7 ? [-0.45, -0.15, 0.15, 0.45] : L >= 5 ? [-0.3, 0, 0.3] : [0];
       for (const da of spread) {
         const a = a0 + da;
-        w.proj.push({ kind: 'frost', x: cx, y: cy, vx: Math.cos(a) * 240, vy: Math.sin(a) * 240, life: 1.2, L, dmg: D() * (0.9 + 0.2 * (L - 1)), t: 0 });
+        w.proj.push({ kind: 'frost', x: cx, y: cy, vx: Math.cos(a) * 240, vy: Math.sin(a) * 240, life: 1.2, L, dmg: D() * (0.9 + 0.2 * (L - 1)) * (L >= 8 ? 1.2 : 1), t: 0, max: curMax });
       }
-      cd.frost += (1.3 - 0.1 * L) / speedUp();
+      cd.frost += Math.max(0.55, 1.3 - 0.1 * L) / speedUp();
     },
 
     poison(dt, L) {
@@ -319,12 +346,19 @@ export function createWeapons(api, loadout) {
         return;
       }
       const make = (x, y) => w.zones.push({
-        kind: 'poison', x, y, r: 30 + 3 * L, life: 4 + 0.5 * L, t: 0, dps: D() * 0.7 * (1 + 0.2 * (L - 1)) * (L >= 4 ? 1.2 : 1), drift: L >= 5,
+        kind: 'poison', x, y, r: (30 + 3 * L) * (L >= 9 ? 1.25 : 1), life: 4 + 0.5 * L, t: 0,
+        dps: D() * 0.7 * (1 + 0.2 * (L - 1)) * (L >= 4 ? 1.2 : 1) * (L >= 8 ? 1.3 : 1), drift: L >= 5, driftSpd: L >= 9 ? 30 : 14, max: curMax,
       });
       make(t.x, t.y);
       if (L >= 3) {
-        const o = alive().filter((e) => dist(e.x, e.y, t.x, t.y) > 40)[0];
-        if (o) make(o.x, o.y);
+        const os = alive().filter((e) => dist(e.x, e.y, t.x, t.y) > 40);
+        if (os[0]) make(os[0].x, os[0].y);
+        if (L >= 7 && os.length > 1) make(os[os.length - 1].x, os[os.length - 1].y);
+      }
+      if (L >= MAX_LEVEL && w.zones.filter((z) => z.big).length < 2) {
+        // MAX: 画面を覆うほどの巨大な毒雲
+        w.zones.push({ kind: 'poison', x: t.x, y: t.y, r: 95, life: 8, t: 0, dps: D() * 0.7 * 3.2, drift: true, driftSpd: 30, max: true, big: true });
+        addFx({ kind: 'maxPulse', life: 0.5 });
       }
       cd.poison += 3.5 / speedUp();
     },
@@ -336,15 +370,16 @@ export function createWeapons(api, loadout) {
         cd.missile = 0;
         return;
       }
-      const n = L >= 5 ? 6 : L >= 3 ? 4 : 2;
+      const n = L >= MAX_LEVEL ? 14 : L >= 9 ? 10 : L >= 7 ? 8 : L >= 5 ? 6 : L >= 3 ? 4 : 2;
+      const mx = curMax;
       for (let i = 0; i < n; i++) {
-        const a = Math.atan2(t.y - cy, t.x - cx) + (i - (n - 1) / 2) * 0.5;
+        const a = Math.atan2(t.y - cy, t.x - cx) + (i - (n - 1) / 2) * (n > 6 ? 0.28 : 0.5);
         later(i * 0.07, () => w.proj.push({
           kind: 'missile', x: cx, y: cy, vx: Math.cos(a) * 130, vy: Math.sin(a) * 130, life: 3, L, t: 0,
-          dmg: D() * (1.6 + 0.25 * (L - 1)), aoe: L >= 5 ? 24 : 14,
+          dmg: D() * (1.6 + 0.25 * (L - 1)), aoe: L >= 8 ? 30 : L >= 5 ? 24 : 14, max: mx, split: mx,
         }));
       }
-      cd.missile += (3.0 - 0.2 * L) / speedUp();
+      cd.missile += Math.max(1.2, 3.0 - 0.2 * L) / speedUp();
     },
 
     laser(dt, L) {
@@ -355,31 +390,36 @@ export function createWeapons(api, loadout) {
         return;
       }
       const a = Math.atan2(t.y - cy, t.x - cx);
-      const life = L >= 5 ? 0.7 : 0.3;
-      const total = D() * (1.4 + 0.25 * (L - 1)) * (L >= 5 ? 1.5 : 1);
-      const angles = syn.has('prism') ? [a, a - 0.24, a + 0.24] : L >= 3 ? [a - 0.18, a + 0.18] : [a];
+      const life = L >= 8 ? 1.0 : L >= 5 ? 0.7 : 0.3;
+      const total = D() * (1.4 + 0.25 * (L - 1)) * (L >= 5 ? 1.5 : 1) * (L >= 8 ? 1.2 : 1);
+      const angles = syn.has('prism') ? [a, a - 0.24, a + 0.24] : L >= 9 ? [a - 0.36, a - 0.12, a + 0.12, a + 0.36] : L >= 7 ? [a - 0.25, a, a + 0.25] : L >= 3 ? [a - 0.18, a + 0.18] : [a];
       const k = syn.has('prism') ? 0.7 : 1;
       if (syn.has('prism')) synText('prism', cx + Math.cos(a) * 40, cy + Math.sin(a) * 40);
-      for (const ang of angles) w.beams.push({ a: ang, w: 5 + L, t: 0, life, total: total * k, tick: 0, ticks: Math.max(1, Math.round(life / 0.2)) });
-      cd.laser += (3.2 - 0.2 * L) / speedUp();
+      for (const ang of angles) w.beams.push({ a: ang, w: Math.min(11, 5 + L), t: 0, life, total: total * k, tick: 0, ticks: Math.max(1, Math.round(life / 0.2)), max: curMax });
+      if (L >= MAX_LEVEL) {
+        // MAX: 3 本の極太レーザーが、回りながら照射する
+        for (let i = 0; i < 3; i++) w.beams.push({ a: a + (i * Math.PI * 2) / 3, w: 16, t: 0, life: 2.4, total: total * 2.2, tick: 0, ticks: 12, rot: 2.2, max: true });
+        addFx({ kind: 'maxPulse', life: 0.5 });
+      }
+      cd.laser += (L >= MAX_LEVEL ? 3.0 : Math.max(1.2, 3.2 - 0.2 * L)) / speedUp();
     },
 
     mine(dt, L) {
       if ((cd.mine -= dt) > 0) return;
-      const maxMines = 3 + L;
+      const maxMines = L >= MAX_LEVEL ? 15 : 3 + L;
       if (w.mines.length >= maxMines) {
         cd.mine = 0.4;
         return;
       }
       const t = nearest(stats.range * 1.5);
       const base = t ? Math.atan2(t.y - cy, t.x - cx) : rng() * Math.PI * 2;
-      const n = L >= 3 ? 2 : 1;
+      const n = L >= MAX_LEVEL ? 5 : L >= 7 ? 3 : L >= 3 ? 2 : 1;
       for (let i = 0; i < n; i++) {
-        const a = base + (rng() - 0.5) * 0.9;
+        const a = base + (rng() - 0.5) * (n > 3 ? 1.6 : 0.9);
         const d = 42 + rng() * 28;
-        w.mines.push({ x: cx + Math.cos(a) * d, y: cy + Math.sin(a) * d, arm: 0.5, t: 0, boom: false });
+        w.mines.push({ x: cx + Math.cos(a) * d, y: cy + Math.sin(a) * d, arm: 0.5, t: 0, boom: false, max: curMax });
       }
-      cd.mine += 2.2 / speedUp();
+      cd.mine += (L >= MAX_LEVEL ? 1.2 : L >= 9 ? 1.6 : 2.2) / speedUp();
     },
 
     gravity(dt, L) {
@@ -389,9 +429,16 @@ export function createWeapons(api, loadout) {
         cd.gravity = 0;
         return;
       }
-      w.wells.push({
-        x: spot.x, y: spot.y, r: 44 + 4 * L + (L >= 3 ? 10 : 0), life: 2.2 + 0.3 * L, t: 0, pull: 55 + 5 * L + (L >= 4 ? 15 : 0), L, tickT: 0,
+      const make = (s, big) => w.wells.push({
+        x: s.x, y: s.y, r: Math.min(150, (44 + 4 * L + (L >= 3 ? 10 : 0)) * (big ? 1.8 : 1)), life: (2.2 + 0.3 * L) * (big ? 1.5 : 1), t: 0,
+        pull: (55 + 5 * L + (L >= 4 ? 15 : 0)) * (big ? 2 : 1), L, tickT: 0, dpsK: L >= 8 ? 1.6 : 1, big, max: curMax,
       });
+      // MAX: 最初の井戸がブラックホールになる
+      make(spot, L >= MAX_LEVEL);
+      if (L >= 7) {
+        const far = alive().find((e) => dist(e.x, e.y, spot.x, spot.y) > 70);
+        if (far) make(far, false);
+      }
       cd.gravity += (6 - 0.3 * L) / speedUp();
     },
 
@@ -402,23 +449,45 @@ export function createWeapons(api, loadout) {
         cd.meteor = 0;
         return;
       }
-      const n = L >= 5 ? 3 : L >= 3 ? 2 : 1;
-      for (let i = 0; i < n; i++) {
-        const e = pool[Math.floor(rng() * pool.length)];
-        w.meteors.push({
-          x: e.x + (rng() - 0.5) * 14, y: e.y + (rng() - 0.5) * 14, t: -i * 0.18, delay: 0.7,
-          r: 34 + 3 * L, dmg: D() * (3.2 + 0.6 * (L - 1)),
-        });
-      }
-      cd.meteor += (3.4 - 0.25 * L) / speedUp();
+      const n = L >= MAX_LEVEL ? 8 : L >= 9 ? 5 : L >= 7 ? 4 : L >= 5 ? 3 : L >= 3 ? 2 : 1;
+      const mx = curMax;
+      const drop = (count, t0) => {
+        for (let i = 0; i < count; i++) {
+          const e = pool[Math.floor(rng() * pool.length)];
+          w.meteors.push({
+            x: e.x + (rng() - 0.5) * 14, y: e.y + (rng() - 0.5) * 14, t: t0 - i * 0.18, delay: 0.7,
+            r: 34 + 3 * L + (L >= 8 ? 8 : 0), dmg: D() * (3.2 + 0.6 * (L - 1)), max: mx,
+          });
+        }
+      };
+      drop(n, 0);
+      // MAX: 流星群。少し遅れて、もう 4 発
+      if (mx) later(1.0, () => drop(4, 0));
+      cd.meteor += Math.max(1.4, 3.4 - 0.25 * L) / speedUp();
     },
 
     drone(dt, L) {
       const n = 1 + Math.floor(L / 2);
       while (w.drones.length < n) w.drones.push({ a: (w.drones.length / n) * Math.PI * 2, cd: rng() * 0.5, x: cx, y: cy });
       w.drones.length = n;
-      const dmg = D() * 0.7 * (1 + 0.2 * (L - 1)) * (L >= 3 ? 1.15 : 1);
+      const dmg = D() * 0.7 * (1 + 0.2 * (L - 1)) * (L >= 3 ? 1.15 : 1) * (L >= 7 ? 1.2 : 1);
       w.droneA = (w.droneA || 0) + dt * 1.6;
+      if (L >= MAX_LEVEL && b.t >= (cd.formAt ?? 4)) {
+        // MAX: 数秒ごとに、全機が一斉射撃する
+        cd.formAt = b.t + 5;
+        let fired = false;
+        for (const d of w.drones) {
+          const t0 = nearestTo(d.x, d.y, stats.range * 1.1);
+          if (!t0) continue;
+          fired = true;
+          const base = Math.atan2(t0.y - d.y, t0.x - d.x);
+          for (let i = 0; i < 5; i++) {
+            const a2 = base + (i - 2) * 0.18;
+            w.proj.push({ kind: 'dshot', x: d.x, y: d.y, vx: Math.cos(a2) * 260, vy: Math.sin(a2) * 260, life: 1.0, t: 0, dmg: dmg * 1.3, slow: false, pierce: 2, seen: new Set(), max: true });
+          }
+        }
+        if (fired) addFx({ kind: 'maxPulse', life: 0.5 });
+      }
       w.drones.forEach((d, k) => {
         const a = w.droneA + (k / n) * Math.PI * 2;
         d.x = cx + Math.cos(a) * 32;
@@ -430,7 +499,7 @@ export function createWeapons(api, loadout) {
           d.cd = 0.1;
           return;
         }
-        const shots = L >= 5 ? 2 : 1;
+        const shots = L >= MAX_LEVEL ? 4 : L >= 9 ? 3 : L >= 5 ? 2 : 1;
         for (let s = 0; s < shots; s++) {
           later(s * 0.1, () => {
             if (t.dead) return;
@@ -451,11 +520,11 @@ export function createWeapons(api, loadout) {
             if (syn.has('dlink-b')) synText('dlink-b', d.x, d.y);
             w.proj.push({
               kind: 'dshot', x: d.x, y: d.y, vx: Math.cos(a2) * 260, vy: Math.sin(a2) * 260, life: 1.0, t: 0, dmg,
-              slow: syn.has('dlink-f'), pierce: syn.has('dlink-b') ? 3 : 1, seen: new Set(),
+              slow: syn.has('dlink-f'), pierce: syn.has('dlink-b') ? 3 : 1, seen: new Set(), max: L >= MAX_LEVEL,
             });
           });
         }
-        d.cd = 0.9;
+        d.cd = L >= MAX_LEVEL ? 0.5 : 0.9;
       });
     },
   };
@@ -476,6 +545,7 @@ export function createWeapons(api, loadout) {
 
     // 弾（氷結弾・ミサイル・ドローンの弾）
     for (const p of w.proj) {
+      curMax = !!p.max;
       p.t += dt;
       p.life -= dt;
       if (p.kind === 'missile') {
@@ -485,7 +555,8 @@ export function createWeapons(api, loadout) {
           const cur = Math.atan2(p.vy, p.vx);
           let da = want - cur;
           da = Math.atan2(Math.sin(da), Math.cos(da));
-          const na = cur + Math.max(-4 * dt, Math.min(4 * dt, da));
+          const turn = (p.L >= 9 ? 6 : 4) * dt;
+          const na = cur + Math.max(-turn, Math.min(turn, da));
           const sp = Math.min(220, Math.hypot(p.vx, p.vy) + 120 * dt);
           p.vx = Math.cos(na) * sp;
           p.vy = Math.sin(na) * sp;
@@ -499,18 +570,29 @@ export function createWeapons(api, loadout) {
         if (dist(p.x, p.y, e.x, e.y) > e.r + 3) continue;
         if (p.kind === 'missile') {
           explode(p.x, p.y, p.aoe, p.dmg, 'fire');
+          if (p.split) {
+            // MAX: 着弾で分裂して、まわりで連続爆発
+            const hx = p.x;
+            const hy = p.y;
+            for (let k = 0; k < 3; k++) {
+              const a = (k / 3) * Math.PI * 2 + p.t * 5;
+              later(0.15 + k * 0.1, () => explode(hx + Math.cos(a) * 20, hy + Math.sin(a) * 20, 16, p.dmg * 0.4, 'fire'));
+            }
+          }
           p.life = 0;
         } else if (p.kind === 'frost') {
           const mul = 0.6 - 0.03 * (p.L - 1);
-          const fr = 0.1 + 0.08 * (p.L - 1);
-          const dur = p.L >= 5 ? 2.0 : 1.2;
+          const fr = Math.min(0.85, 0.1 + 0.08 * (p.L - 1));
+          const dur = p.L >= 8 ? 2.8 : p.L >= 5 ? 2.0 : 1.2;
+          // Lv9〜: すでに凍っている敵に当たると砕けて、氷片が飛ぶ
+          if (p.L >= 9 && e.freeze > 0) explode(e.x, e.y, 30, p.dmg * 0.8, 'ice');
           const apply = (t, chance) => {
             applyStatus(t, 'slow', 2.2, mul);
             if (rng() < chance) applyStatus(t, 'freeze', dur, 0);
           };
           apply(e, fr); // 先に状態異常を付けてから傷つける（倒れる一撃でも蒸気爆発などが起きる）
           hurt(e, p.dmg, { tag: 'ice' });
-          if (p.L >= 3) for (const o of alive()) if (o !== e && dist(o.x, o.y, e.x, e.y) <= 26) apply(o, p.L >= 5 ? fr : 0);
+          if (p.L >= 3) for (const o of alive()) if (o !== e && dist(o.x, o.y, e.x, e.y) <= (p.L >= 9 ? 40 : 26)) apply(o, p.L >= 5 ? fr : 0);
           addFx({ kind: 'ring', life: 0.35, x: e.x, y: e.y, r: 20 + p.L * 2, tag: 'ice' });
           p.life = 0;
         } else {
@@ -521,6 +603,7 @@ export function createWeapons(api, loadout) {
         }
       }
     }
+    curMax = false;
     w.proj = w.proj.filter((p) => p.life > 0);
 
     // 毒の雲・燃える大地
@@ -530,8 +613,8 @@ export function createWeapons(api, loadout) {
         const e = nearestTo(z.x, z.y, 200);
         if (e) {
           const d = Math.max(1, dist(e.x, e.y, z.x, z.y));
-          z.x += ((e.x - z.x) / d) * 14 * dt;
-          z.y += ((e.y - z.y) / d) * 14 * dt;
+          z.x += ((e.x - z.x) / d) * (z.driftSpd || 14) * dt;
+          z.y += ((e.y - z.y) / d) * (z.driftSpd || 14) * dt;
         }
       }
       if (z.kind === 'poison' && syn.has('vortex') && w.wells.length) {
@@ -552,6 +635,7 @@ export function createWeapons(api, loadout) {
     // レーザー
     for (const bm of w.beams) {
       bm.t += dt;
+      if (bm.rot) bm.a += bm.rot * dt;
       if (bm.t >= bm.tick * (bm.life / bm.ticks)) {
         bm.tick++;
         const ex = cx + Math.cos(bm.a) * 240;
@@ -570,12 +654,13 @@ export function createWeapons(api, loadout) {
     for (const m of w.mines) {
       m.t += dt;
       m.arm -= dt;
-      if (syn.has('lure') && m.arm <= 0) {
+      const pull = syn.has('lure') ? 22 : lvOf('mine') >= 9 ? 14 : 0; // Lv9〜: 地雷が敵を少し引き寄せる
+      if (pull && m.arm <= 0) {
         for (const e of alive()) {
           const d = dist(e.x, e.y, m.x, m.y);
           if (d < 70 && d > 4) {
-            e.x += ((m.x - e.x) / d) * 22 * dt;
-            e.y += ((m.y - e.y) / d) * 22 * dt;
+            e.x += ((m.x - e.x) / d) * pull * dt;
+            e.y += ((m.y - e.y) / d) * pull * dt;
           }
         }
       }
@@ -586,10 +671,13 @@ export function createWeapons(api, loadout) {
     }
     const L9 = lvOf('mine');
     for (const m of w.mines.filter((x) => x.boom)) {
-      const r = (26 + 2 * L9) * (syn.has('lure') ? 1.4 : 1);
+      const r = (26 + 2 * L9) * (syn.has('lure') ? 1.4 : 1) * (m.max ? 1.3 : 1);
+      curMax = !!m.max;
       explode(m.x, m.y, r, D() * (2.5 + 0.4 * (L9 - 1)) * (syn.has('lure') ? 1.3 : 1), 'physical');
+      curMax = false;
       if (syn.has('lure')) synText('lure', m.x, m.y);
-      if (L9 >= 5) for (const o of w.mines) if (o !== m && dist(o.x, o.y, m.x, m.y) <= 48) o.boom = true;
+      const chain = L9 >= MAX_LEVEL ? 90 : L9 >= 8 ? 70 : 48;
+      if (L9 >= 5) for (const o of w.mines) if (o !== m && dist(o.x, o.y, m.x, m.y) <= chain) o.boom = true;
     }
     w.mines = w.mines.filter((m) => !m.boom);
 
@@ -608,11 +696,14 @@ export function createWeapons(api, loadout) {
       }
       if (wl.tickT >= 0.4) {
         wl.tickT -= 0.4;
-        for (const e of alive()) if (dist(e.x, e.y, wl.x, wl.y) <= wl.r + e.r) hurt(e, D() * 0.35, { tag: 'gravity', dot: true });
+        for (const e of alive()) if (dist(e.x, e.y, wl.x, wl.y) <= wl.r + e.r) hurt(e, D() * 0.35 * (wl.dpsK || 1), { tag: 'gravity', dot: true });
       }
       if (wl.t >= wl.life && wl.L >= 5 && !wl.collapsed) {
         wl.collapsed = true;
-        explode(wl.x, wl.y, wl.r * 0.8, D() * 3, 'gravity');
+        curMax = !!wl.max;
+        explode(wl.x, wl.y, wl.r * (wl.big ? 1.1 : 0.8), D() * (wl.big ? 10 : wl.L >= 9 ? 6 : 3), 'gravity');
+        if (wl.big) addFx({ kind: 'maxPulse', life: 0.5 });
+        curMax = false;
       }
     }
     w.wells = w.wells.filter((wl) => wl.t < wl.life);
@@ -622,7 +713,9 @@ export function createWeapons(api, loadout) {
       m.t += dt;
       if (m.t >= m.delay && !m.hit) {
         m.hit = true;
+        curMax = !!m.max;
         explode(m.x, m.y, m.r, m.dmg, 'fire');
+        curMax = false;
         if (syn.has('burnland')) {
           w.zones.push({ kind: 'fire', x: m.x, y: m.y, r: m.r * 0.75, life: 3.2, t: 0, dps: D() * 0.6 });
           synText('burnland', m.x, m.y);
@@ -662,8 +755,15 @@ export function createWeapons(api, loadout) {
   }
 
   function onKill(e) {
-    if (lvOf('flame') >= 5 && e.burn && e.burn.t > 0) {
-      for (const n of alive()) if (dist(n.x, n.y, e.x, e.y) <= 32 + n.r) applyStatus(n, 'burn', 2.2, e.burn.dps * 0.8);
+    if (lvOf('poison') >= MAX_LEVEL && e.poison && e.poison.t > 0 && w.zones.length < 40) {
+      // MAX: 毒で倒れた敵が、毒をまき散らす
+      w.zones.push({ kind: 'poison', x: e.x, y: e.y, r: 34, life: 3, t: 0, dps: D() * 0.7, max: true });
+    }
+    const fl = lvOf('flame');
+    if (fl >= 5 && e.burn && e.burn.t > 0) {
+      for (const n of alive()) if (dist(n.x, n.y, e.x, e.y) <= (fl >= 9 ? 48 : 32) + n.r) applyStatus(n, 'burn', 2.2, e.burn.dps * 0.8);
+      // Lv9〜: 倒した跡がしばらく燃え続ける
+      if (fl >= 9 && w.zones.length < 30) w.zones.push({ kind: 'fire', x: e.x, y: e.y, r: 22, life: 2.5, t: 0, dps: D() * 0.5, max: fl >= MAX_LEVEL });
     }
   }
 
