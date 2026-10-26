@@ -9,6 +9,7 @@ import { inside } from '../core/draw.js';
 import { Store } from '../core/storage.js';
 import { NODE, TREE, START_OWNED, computeStats, canBuy, canRefund, TREE_WEAPON_NODE } from './tree-fort-data.js';
 import { WEAPON, SYNERGIES, SLOT_BASE, SLOT_MAX, SLOT_COST } from './tree-fort-weapons.js';
+import { startLevel } from './tree-fort-run.js';
 import { createBattle, ARENA, STAGE_COUNT } from './tree-fort-battle.js';
 import { STAGE_INFO, RELICS, ACHIEVEMENTS, dailyChallenge } from './tree-fort-meta.js';
 import { SKINS, EFFECTS, makeKit } from './tree-fort-skins.js';
@@ -18,7 +19,7 @@ import {
 } from './tree-fort-view.js';
 import {
   ST_LIST, ST_ROW_H, BTN_ST_BACK, BTN_ST_GO, stageEntries, stageRows, stageMaxScroll, drawStageSelect,
-  cardRects, BTN_REROLL, drawChoice, BTN_SPEED, BTN_OD, hudToast,
+  cardRects, BTN_REROLL, drawChoice, BTN_SPEED, BTN_OD, hudToast, hudHit, speedUnlocked, BASE_SPEED,
   CX_TABS, CX_LIST, BTN_CX_BACK, SLOT_STRIP, slotRect, codexItems, codexRows, codexMaxScroll, achProgress, drawCodex, drawResultNew, layoutRview,
 } from './tree-fort-rview.js';
 
@@ -361,7 +362,7 @@ export default function create(env) {
     const mods = daily ? sc.daily.mods : stage > 0 ? STAGE_INFO[stage].mods : [];
     const stats = computeStats(sv.owned);
     // ツリーで「最初から装備する」武器
-    const loadout = Object.entries(TREE_WEAPON_NODE).filter(([, node]) => sv.owned.has(node)).map(([id]) => ({ id, level: 1 }));
+    const loadout = Object.entries(TREE_WEAPON_NODE).filter(([, node]) => sv.owned.has(node)).map(([id]) => ({ id, level: startLevel(id, stats) }));
     const discovered = new Set(sv.discovered.weapons);
     sc.run = createBattle(stats, daily ? seededRng(sc.daily.seed) : Math.random, {
       stage: daily ? 0 : stage, mods, leveling: true, slots: sv.slots, discovered, loadout,
@@ -670,6 +671,23 @@ export default function create(env) {
       } else if (f.kind === 'contract') {
         flash(f.color, 0.2);
         sound.noise(0.2, 0.06, 600);
+      } else if (f.kind === 'weaponMax') {
+        // 武器が MAX（Lv10）に到達: 画面全体のフラッシュ・揺れ・金色の光
+        flash('#ffffff', 0.55);
+        sc.shake = Math.max(sc.shake, 9);
+        sc.kit.burst(ARENA.cx, ARENA.cy, [f.color, sk.gold, '#ffffff'], 110, 230, 50);
+        fanfare([523, 659, 784, 1047, 1319, 1568]);
+      } else if (f.kind === 'ultCast') {
+        // 大技の発動
+        flash(sk.gold, 0.4);
+        sc.shake = Math.max(sc.shake, 7);
+        sc.kit.burst(ARENA.cx, ARENA.cy, [f.color, sk.gold, '#ffffff'], 60, 200, 40);
+        fanfare([392, 523, 784, 1047]);
+      } else if (f.kind === 'maxPulse') {
+        // MAX の武器の大技
+        flash(sk.gold, 0.12);
+        sc.shake = Math.max(sc.shake, 3);
+        snd('maxPulse', 0.4, () => sound.noise(0.25, 0.08, 500));
       } else if (f.kind === 'overdrive') {
         flash(sk.gold, 0.35);
         sc.shake = Math.max(sc.shake, 3);
@@ -751,7 +769,7 @@ export default function create(env) {
         finishRun(true);
         return;
       }
-      if (inside(input.x, input.y, BTN_SPEED)) {
+      if (speedUnlocked(sc.save) && inside(input.x, input.y, BTN_SPEED)) {
         sc.save.speed = (sc.save.speed % 3) + 1;
         persist();
         sound.beep(500 + sc.save.speed * 150, 0.05, 'square', 0.05);
@@ -761,16 +779,22 @@ export default function create(env) {
         sc.run.overdrive();
         return;
       }
-      const info = hudToast(b, input.x, input.y);
-      if (info) {
-        b.toast = info;
+      const hit = hudHit(b, input.x, input.y);
+      if (hit) {
+        // MAX の武器のアイコンは、ゲージが満タンなら大技を発動する。そうでなければ説明を出す
+        if (hit.kind === 'weapon' && sc.run.ultimate(hit.id)) {
+          handleFx();
+          return;
+        }
+        b.toast = hudToast(b, input.x, input.y);
         return;
       }
       if (sc.run.tap(input.x, input.y - battleOffset(sc))) snd('tap', 0.05, () => sound.beep(1100, 0.04, 'square', 0.04));
     }
     // 倍速: 同じ時間幅で、何度か進める
-    for (let k = 0; k < sc.save.speed; k++) {
-      sc.run.step(dt);
+    const rep = speedUnlocked(sc.save) ? sc.save.speed : 1;
+    for (let k = 0; k < rep; k++) {
+      sc.run.step(dt * BASE_SPEED);
       handleFx();
       if (b.over || b.options || b.relicOpts || b.event) break;
     }
