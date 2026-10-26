@@ -5,6 +5,7 @@ import { xpNeed, makeOptions, applyOption, autoPick, STAT_OPTIONS } from '../app
 import { computeStats, TREE } from '../app/src/games/tree-fort-data.js';
 import { createBattle, simulate, TYPES, STAGE_WAVES } from '../app/src/games/tree-fort-battle.js';
 import { WEAPONS } from '../app/src/games/tree-fort-weapons.js';
+import { speedUnlocked, BASE_SPEED } from '../app/src/games/tree-fort-rview.js';
 
 let passed = 0;
 const test = (name, fn) => {
@@ -118,7 +119,7 @@ test('applyOption: 武器の追加・強化、未発見の武器の発見、ス�
 });
 
 test('battle: 敵を倒すと経験値がたまり、レベルアップで戦闘が止まって、選ぶと再開する', () => {
-  const sim = createBattle(BASE, seeded(11), { leveling: true, slots: 3, discovered: new Set(ALL) });
+  const sim = createBattle({ ...BASE, xpMul: 2 }, seeded(11), { leveling: true, slots: 3, discovered: new Set(ALL) }); // レベルアップが遅いので、経験値を 2 倍にして短い時間で確かめる
   let stopped = false;
   for (let i = 0; i < 30 * 120 && !stopped; i++) {
     sim.step(1 / 30);
@@ -234,6 +235,12 @@ test('pierce: 貫通弾は敵を貫き、貫いた瞬間の演出（pierce）が
     for (const f of sim.b.fx) if (f.kind === 'pierce' && f.id > lastId) { n++; lastId = f.id; }
   }
   assert.ok(n > 3, `貫通の演出が少ない（${n}）`);
+});
+
+test('倍速: 全ステージをクリアするまで使えず、通常速度は 1.2 倍', () => {
+  assert.equal(speedUnlocked({ stageClear: 9 }), false);
+  assert.equal(speedUnlocked({ stageClear: 10 }), true);
+  assert.equal(BASE_SPEED, 1.2);
 });
 
 test('選択画面: 強化は「現在 → 新しい値」を示し、選ぶと取得の一言（toast）が出る', () => {

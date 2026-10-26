@@ -220,6 +220,9 @@ export function drawChoice(g, sc, kind) {
 // ---------------------------------------------------------------------------------------------
 // 戦闘の HUD（経験値・持っている武器・倍速・オーバードライブ・ボスの体力・特色）
 export const BTN_SPEED = { x: 198, y: 288, w: 36, h: 22 };
+// 倍速（×2・×3）は、全ステージをクリアしたあとの、やりこみ要素。それまでは通常速度（1.2 倍）のみ。
+export const speedUnlocked = (save) => save.stageClear >= STAGE_COUNT;
+export const BASE_SPEED = 1.2;
 export const BTN_OD = { x: 6, y: 288, w: 84, h: 22 };
 
 // HUD の武器・遺物アイコンの位置（描画とタップ判定で共通）。タップすると、その説明が出る。
@@ -346,7 +349,7 @@ export function drawBattleHud(g, sc) {
     g.restore();
   }
   // 倍速
-  kit.button(g, BTN_SPEED, `×${sc.save.speed}`, { color: sk.me, size: 12, active: sc.save.speed > 1 });
+  if (speedUnlocked(sc.save)) kit.button(g, BTN_SPEED, `×${sc.save.speed}`, { color: sk.me, size: 12, active: sc.save.speed > 1 });
 }
 
 // ---------------------------------------------------------------------------------------------

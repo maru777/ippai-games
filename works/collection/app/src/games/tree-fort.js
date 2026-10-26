@@ -18,7 +18,7 @@ import {
 } from './tree-fort-view.js';
 import {
   ST_LIST, ST_ROW_H, BTN_ST_BACK, BTN_ST_GO, stageEntries, stageRows, stageMaxScroll, drawStageSelect,
-  cardRects, BTN_REROLL, drawChoice, BTN_SPEED, BTN_OD, hudToast,
+  cardRects, BTN_REROLL, drawChoice, BTN_SPEED, BTN_OD, hudToast, speedUnlocked, BASE_SPEED,
   CX_TABS, CX_LIST, BTN_CX_BACK, SLOT_STRIP, slotRect, codexItems, codexRows, codexMaxScroll, achProgress, drawCodex, drawResultNew, layoutRview,
 } from './tree-fort-rview.js';
 
@@ -751,7 +751,7 @@ export default function create(env) {
         finishRun(true);
         return;
       }
-      if (inside(input.x, input.y, BTN_SPEED)) {
+      if (speedUnlocked(sc.save) && inside(input.x, input.y, BTN_SPEED)) {
         sc.save.speed = (sc.save.speed % 3) + 1;
         persist();
         sound.beep(500 + sc.save.speed * 150, 0.05, 'square', 0.05);
@@ -769,8 +769,9 @@ export default function create(env) {
       if (sc.run.tap(input.x, input.y - battleOffset(sc))) snd('tap', 0.05, () => sound.beep(1100, 0.04, 'square', 0.04));
     }
     // 倍速: 同じ時間幅で、何度か進める
-    for (let k = 0; k < sc.save.speed; k++) {
-      sc.run.step(dt);
+    const rep = speedUnlocked(sc.save) ? sc.save.speed : 1;
+    for (let k = 0; k < rep; k++) {
+      sc.run.step(dt * BASE_SPEED);
       handleFx();
       if (b.over || b.options || b.relicOpts || b.event) break;
     }

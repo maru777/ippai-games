@@ -60,7 +60,7 @@ for (const H of [320, 520]) {
         owned: ['core', 'atk1', 'atk2', 'atk3', 'atk4', 'atk5', 'spd1', 'spd2', 'spd3', 'def1', 'def2', 'grw1', 'grw2', 'grw3', 'grw4'],
         points: 999, bestWave: 3, runs: 2, skinsOwned: SKINS.map((s) => s.id), fxOwned: EFFECTS.map((e) => e.id), skin: skin.id, fx: fx.id,
         slots: 5, discovered: { weapons: WEAPONS.slice(0, 5 + (combo % 7)).map((w) => w.id), syn: ['steam'], relics: ['ember'] },
-        stageClear: 3, stars: { 1: 3, 2: 2, 3: 1 }, speed: 1 + (combo % 3), daily: { key: '', done: false }, ach: ['first'], bestCombo: 12, bestRelics: 1,
+        stageClear: combo % 2 ? 3 : 10, stars: { 1: 3, 2: 2, 3: 1 }, speed: 1 + (combo % 3), daily: { key: '', done: false }, ach: ['first'], bestCombo: 12, bestRelics: 1,
       });
       const { env, input, ended } = makeEnv(H);
       const game = create(env);

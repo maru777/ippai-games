@@ -3,7 +3,7 @@
 import { WEAPONS, WEAPON, SYNERGY, SLOT_MAX, MAX_LEVEL, activeSynergies } from './tree-fort-weapons.js';
 
 // 次のレベルまでに必要な経験値（xpMul はツリーの強化で増える）
-export const xpNeed = (level, xpMul = 1) => Math.max(3, Math.round((4 + 2.4 * level + 0.5 * level * level) / xpMul));
+export const xpNeed = (level, xpMul = 1) => Math.max(6, Math.round((6 + 6 * level + 0.8 * level * level) / xpMul));
 
 // その挑戦の間だけ効くステータス強化
 export const STAT_OPTIONS = [
