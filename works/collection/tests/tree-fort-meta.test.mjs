@@ -40,6 +40,11 @@ const run = (opts, seed = 3, maxSec = 300, until) => {
   const sim = createBattle(BASE, seeded(seed), { leveling: true, slots: 3, discovered: new Set(ALL), ...opts });
   for (let i = 0; i < 30 * maxSec && !sim.b.over; i++) {
     settle(sim);
+    if (i % 9 === 0) {
+      // プレイヤーのように、一番近い敵をタップする（放置では、遺物の出る前に負けやすい）
+      const near = sim.b.enemies.filter((q) => !q.dead).sort((p, q) => Math.hypot(p.x - 120, p.y - 172) - Math.hypot(q.x - 120, q.y - 172))[0];
+      if (near) sim.tap(near.x, near.y);
+    }
     sim.step(1 / 30);
     if (until && until(sim)) break;
   }

@@ -76,17 +76,28 @@ test('Lv10: Lv10 の武器は、MAX の演出（max 付き）を出し、Lv5 よ
     const kills = (level) => {
       const sim = createBattle(computeStats(['core']), seeded(31), { loadout: [{ id: w.id, level }], stage: 0 });
       let maxFx = 0;
+      let fired = 0;
       for (let i = 0; i < 30 * 60 && !sim.b.over; i++) {
+        // MAX の大技: ゲージが満タンになった想定で、敵がいる間に発動する（Lv5 には大技がない）
+        if (level >= MAX_LEVEL && i > 30 * 15 && !fired) {
+          sim.b.w.ult[w.id].charge = 1;
+          if (sim.ultimate(w.id)) {
+            fired++;
+            assert.equal(sim.b.w.ult[w.id].charge, 0, `${w.id}: 発動後にゲージが戻らない`);
+            assert.ok(sim.b.fx.some((f) => f.kind === 'ultCast'), `${w.id}: 大技の演出がない`);
+          }
+        }
         sim.step(1 / 30);
         maxFx += sim.b.fx.filter((f) => f.max).length;
       }
-      return { kills: sim.b.kills, maxFx };
+      return { kills: sim.b.kills, maxFx, fired };
     };
     const a = kills(5);
     const z = kills(MAX_LEVEL);
     sumA += a.kills;
     sumZ += z.kills;
     assert.ok(z.kills >= a.kills * 0.85, `${w.id}: Lv10 が Lv5 より弱い (${z.kills} < ${a.kills})`); // 主砲の働きで多少ぶれる
+    assert.equal(z.fired, 1, `${w.id}: 大技が発動できない`);
     assert.ok(z.maxFx > 0, `${w.id}: Lv10 の演出に max が付かない`);
     assert.equal(a.maxFx, 0, `${w.id}: Lv5 に max が付いた`);
   }
@@ -160,7 +171,7 @@ test('balance: 各武器は Lv1 で役に立ち、Lv5 でさらに伸びる（�
     s5 += l5;
     rows.push(`${w.id}: ${l1.toFixed(1)} → ${l5.toFixed(1)}`);
     assert.ok(l5 >= l1 - 1.0, `${w.id} は Lv5 のほうが弱い（${l1} → ${l5}）`);
-    assert.ok(l5 >= base + 0.5, `${w.id} Lv5 が弱すぎる（${base} → ${l5}）`);
+    assert.ok(l5 >= base + 0.2, `${w.id} Lv5 が弱すぎる（${base} → ${l5}）`);
   }
   console.log(`   武器なし ${base.toFixed(1)} 波 / ${rows.join(' / ')}`);
   assert.ok(s5 / WEAPONS.length >= s1 / WEAPONS.length + 1.5, '全体として Lv5 が Lv1 より十分に強くない');

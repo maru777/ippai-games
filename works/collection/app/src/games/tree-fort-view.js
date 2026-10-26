@@ -976,6 +976,23 @@ export function drawBattle(g, sc) {
       g.arc(ARENA.cx, ARENA.cy, 14 + u * 90, 0, TAU);
       g.stroke();
       g.restore();
+    } else if (f.kind === 'ultCast') {
+      // 大技の発動: 武器名と広がる輪
+      const pop = 1 + Math.max(0, 1 - u * 6) * 0.4;
+      g.save();
+      g.globalAlpha = Math.max(0, Math.min(1, (1 - u) * 2.2));
+      g.strokeStyle = f.color;
+      g.lineWidth = 3;
+      if (sk.glow) kit.glow(g, f.color, 16);
+      for (let k = 0; k < 2; k++) {
+        g.beginPath();
+        g.arc(ARENA.cx, ARENA.cy, 14 + u * (140 + k * 70), 0, TAU);
+        g.stroke();
+      }
+      g.translate(W / 2, 100);
+      g.scale(pop, pop);
+      kit.text(g, `${f.name}　大技！`, 0, -10, 20, kit.c(sk.gold, 3), 'center', 14);
+      g.restore();
     } else if (f.kind === 'weaponMax') {
       // Lv10 到達: 大きな「MAX!」と武器名、広がる輪
       const pop = 1 + Math.max(0, 1 - u * 6) * 0.5;

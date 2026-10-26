@@ -19,7 +19,7 @@ import {
 } from './tree-fort-view.js';
 import {
   ST_LIST, ST_ROW_H, BTN_ST_BACK, BTN_ST_GO, stageEntries, stageRows, stageMaxScroll, drawStageSelect,
-  cardRects, BTN_REROLL, drawChoice, BTN_SPEED, BTN_OD, hudToast, speedUnlocked, BASE_SPEED,
+  cardRects, BTN_REROLL, drawChoice, BTN_SPEED, BTN_OD, hudToast, hudHit, speedUnlocked, BASE_SPEED,
   CX_TABS, CX_LIST, BTN_CX_BACK, SLOT_STRIP, slotRect, codexItems, codexRows, codexMaxScroll, achProgress, drawCodex, drawResultNew, layoutRview,
 } from './tree-fort-rview.js';
 
@@ -677,6 +677,12 @@ export default function create(env) {
         sc.shake = Math.max(sc.shake, 9);
         sc.kit.burst(ARENA.cx, ARENA.cy, [f.color, sk.gold, '#ffffff'], 110, 230, 50);
         fanfare([523, 659, 784, 1047, 1319, 1568]);
+      } else if (f.kind === 'ultCast') {
+        // 大技の発動
+        flash(sk.gold, 0.4);
+        sc.shake = Math.max(sc.shake, 7);
+        sc.kit.burst(ARENA.cx, ARENA.cy, [f.color, sk.gold, '#ffffff'], 60, 200, 40);
+        fanfare([392, 523, 784, 1047]);
       } else if (f.kind === 'maxPulse') {
         // MAX の武器の大技
         flash(sk.gold, 0.12);
@@ -773,9 +779,14 @@ export default function create(env) {
         sc.run.overdrive();
         return;
       }
-      const info = hudToast(b, input.x, input.y);
-      if (info) {
-        b.toast = info;
+      const hit = hudHit(b, input.x, input.y);
+      if (hit) {
+        // MAX の武器のアイコンは、ゲージが満タンなら大技を発動する。そうでなければ説明を出す
+        if (hit.kind === 'weapon' && sc.run.ultimate(hit.id)) {
+          handleFx();
+          return;
+        }
+        b.toast = hudToast(b, input.x, input.y);
         return;
       }
       if (sc.run.tap(input.x, input.y - battleOffset(sc))) snd('tap', 0.05, () => sound.beep(1100, 0.04, 'square', 0.04));

@@ -10,7 +10,7 @@ import { combineMods, applyRelic, relicOptions, RELIC, CONTRACTS, CONTRACT, CONT
 export const ARENA = { W: 240, H: 320, cx: 120, cy: 172, towerR: 11 };
 export const STAGE_WAVES = 10;
 export const STAGE_COUNT = 10;
-export const GSTEP = 3.1; // ステージが 1 つ進むごとの難しさ（無限モードの波に換算）
+export const GSTEP = 5; // ステージが 1 つ進むごとの難しさ（無限モードの波に換算）。放置では勝ちにくくするため、以前の 3.1 から上げた
 const G_FIRST = 4.5; // ステージ 1 の最後の波（ボス）の難しさ（レベルアップを遅くした分、元の 8 から下げた）
 const G_START = 0.6; // ステージが進むごとの、最初の波の難しさの増え方（最初の波はやさしい）
 
@@ -32,6 +32,10 @@ export const ENEMY_NAME = {
   grunt: 'ザコ', runner: '疾走', swarm: '小群', tank: '重装', splitter: '分裂体', armor: '装甲兵', shooter: '射手', healer: '癒し手', shield: '障壁兵', phantom: '幽霊', boss: 'ボス',
 };
 
+// 自動の攻撃（主砲・武器・状態異常）は弱め、タップ（手動）の攻撃を強くする。放置では勝ちにくく、触るほど強い。
+export const AUTO_K = 0.7;
+export const TAP_K = 2; // タップ 1 回の威力（攻撃力の何倍か）
+export const TAP_CD = 0.22; // タップの間隔（秒）
 const BULLET_SPEED = 280;
 const SLOW_RADIUS = 75;
 
@@ -258,6 +262,7 @@ export function createBattle(stats0, rng = Math.random, opts = {}) {
     if (op.dot) a *= b.dotMul;
     if (b.frozenMul > 1 && (e.freeze > 0 || (e.slow && e.slow.t > 0))) a *= b.frozenMul;
     if (b.od.active > 0) a *= 1.25;
+    if (!op.manual) a *= AUTO_K;
     const crit = !op.noCrit && !op.dot && rng() < stats.crit;
     if (crit) a *= 2;
     if (e.armor) a = Math.max(a * 0.2, a - e.armor); // 装甲: 小さなダメージを大きく減らす
@@ -518,8 +523,10 @@ export function createBattle(stats0, rng = Math.random, opts = {}) {
     if (b.over || b.options || b.cd.tap > 0) return false;
     const e = nearestTo(x, y, 40);
     if (!e) return false;
-    hurt(e, stats.dmg * 1.6, { tag: 'physical' });
-    b.cd.tap = 0.4;
+    hurt(e, stats.dmg * TAP_K, { tag: 'physical', manual: true });
+    b.cd.tap = TAP_CD;
+    if (b.od.active <= 0) b.od.gauge = Math.min(100, b.od.gauge + 0.8); // タップで OD ゲージも少したまる
+    W.addCharge(0.012); // MAX の大技ゲージも少したまる
     addFx({ kind: 'bolt', life: 0.22, pts: [{ x: cx, y: cy }, { x: e.x, y: e.y }], manual: true });
     return true;
   }
@@ -608,7 +615,12 @@ export function createBattle(stats0, rng = Math.random, opts = {}) {
     offer();
   }
 
-  return { b, step, tap, pick, reroll, chooseRelic, chooseContract, overdrive, remaining, earned: () => Math.floor(b.earnedF) };
+  // MAX の武器の大技（ゲージが満タンのとき、その武器の HUD アイコンをタップして発動）
+  function ultimate(id) {
+    if (b.over || b.options) return false;
+    return W.ultimate(id);
+  }
+  return { b, step, tap, pick, reroll, chooseRelic, chooseContract, overdrive, ultimate, remaining, earned: () => Math.floor(b.earnedF) };
 }
 
 // 画面なしで 1 回の挑戦を最後まで進める（バランス確認用）。レベルアップは autoPick が代わりに選ぶ。
@@ -616,7 +628,14 @@ export function simulate(stats, rng = Math.random, opts = [], maxSec = 1800) {
   const o = Array.isArray(opts) ? { loadout: opts } : opts;
   const sim = createBattle(stats, rng, o);
   const dt = 1 / 30;
+  let tapT = 0;
   for (let t = 0; t < maxSec && !sim.b.over; t += dt) {
+    // o.tap: プレイヤーのように、0.3 秒ごとに、砦に一番近い敵をタップする
+    if (o.tap && (tapT -= dt) <= 0) {
+      tapT = 0.3;
+      const near = sim.b.enemies.filter((q) => !q.dead).sort((p, q) => Math.hypot(p.x - ARENA.cx, p.y - ARENA.cy) - Math.hypot(q.x - ARENA.cx, q.y - ARENA.cy))[0];
+      if (near) sim.tap(near.x, near.y);
+    }
     while (sim.b.options || sim.b.relicOpts || sim.b.event) {
       if (sim.b.options) sim.pick(autoPick(sim.b.options));
       else if (sim.b.relicOpts) sim.chooseRelic(0);

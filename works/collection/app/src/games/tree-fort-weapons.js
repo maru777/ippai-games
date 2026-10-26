@@ -111,7 +111,8 @@ export function createWeapons(api, loadout) {
   const { cx, cy } = ARENA;
   let syn = activeSynergies(new Set(loadout.map((w) => w.id)));
   const lvOf = (id) => loadout.find((w) => w.id === id)?.level || 0;
-  const D = () => stats.dmg;
+  let curK = 1; // MAX の武器を動かしている間だけ 1.25（MAX のレベル特典）
+  const D = () => stats.dmg * curK;
   const speedUp = () => 1 + (stats.rate - 1) * 0.5;
 
   // 見た目用の状態（描画側が読む）
@@ -181,14 +182,6 @@ export function createWeapons(api, loadout) {
           if (L >= 7) later(0.5 + i * 0.07, () => explode(kx + Math.cos(a) * 14, ky + Math.sin(a) * 14, 14, dmg * 0.3, 'fire')); // 子爆弾が連鎖
         }
       }
-      if (L >= MAX_LEVEL) {
-        // MAX: 巨大な爆発と衝撃波
-        later(0.15, () => {
-          explode(x, y, r * 1.8, dmg * 1.2, 'fire');
-          addFx({ kind: 'ring', life: 0.7, x, y, r: r * 2.4, tag: 'fire' });
-          addFx({ kind: 'maxPulse', life: 0.5 });
-        });
-      }
       cd.bomb += Math.max(0.9, 2.6 - 0.2 * (L - 1) - (L >= 8 ? 0.2 : 0)) / speedUp();
     },
 
@@ -221,23 +214,10 @@ export function createWeapons(api, loadout) {
           addFx({ kind: 'bolt', life: 0.25, pts: [{ x: e.x + 6, y: e.y - 70 }, { x: e.x, y: e.y }] });
         }
       }
-      if (L >= MAX_LEVEL) {
-        // MAX: 数秒ごとに、画面全体へ雷の嵐
-        cd.storm = (cd.storm ?? 3) - dt;
-        if (cd.storm <= 0) {
-          cd.storm = 4;
-          const all = alive();
-          all.forEach((e, i) => {
-            hurt(e, D() * 2.2, { tag: 'lightning' });
-            if (i < 14) addFx({ kind: 'bolt', life: 0.35, pts: [{ x: e.x + 8, y: e.y - 90 }, { x: e.x, y: e.y }] });
-          });
-          addFx({ kind: 'maxPulse', life: 0.5 });
-        }
-      }
       cd.lightning += Math.max(0.7, 1.7 - 0.1 * (L - 1) - (L >= 8 ? 0.1 : 0)) / speedUp();
     },
 
-    blade(dt, L) {
+    blade(dt, L, mx) {
       const n = L >= 9 ? 6 : L >= 7 ? 5 : L >= 5 ? 4 : L >= 3 ? 3 : 2;
       const R = Math.min(70, 34 + 6 * (L - 1));
       w.angle = (w.angle || 0) + (3.2 + 0.2 * L) * dt;
@@ -245,7 +225,7 @@ export function createWeapons(api, loadout) {
         const a = w.angle + (k * Math.PI * 2) / n;
         return { x: cx + Math.cos(a) * R, y: cy + Math.sin(a) * R, a };
       });
-      if (L >= MAX_LEVEL) {
+      if (mx) {
         // MAX: 外周にもう 1 周の刃（逆回転）
         const R2 = R + 30;
         for (let k = 0; k < 6; k++) {
@@ -253,7 +233,7 @@ export function createWeapons(api, loadout) {
           w.blades.push({ x: cx + Math.cos(a) * R2, y: cy + Math.sin(a) * R2, a });
         }
       }
-      const dmg = D() * (0.9 + 0.22 * (L - 1));
+      const dmg = D() * (0.9 + 0.22 * (L - 1)) * (b.t < (w.bladeBoost || 0) ? 2 : 1); // 大技の間は 2 倍
       for (const e of alive()) {
         if (e.bladeCd > 0) continue;
         if (w.blades.some((bl) => dist(bl.x, bl.y, e.x, e.y) <= 8 + e.r)) {
@@ -272,21 +252,8 @@ export function createWeapons(api, loadout) {
       }
     },
 
-    flame(dt, L) {
+    flame(dt, L, mx) {
       const range = Math.min(110, 62 + 6 * (L - 1));
-      if (L >= MAX_LEVEL && b.t >= (cd.pillarAt ?? 3)) {
-        // MAX: 数秒ごとに、射程内の全員を火柱が襲う
-        cd.pillarAt = b.t + 3.5;
-        const hit = inRange(range * 1.2);
-        for (const e of hit) {
-          hurt(e, D() * 3, { tag: 'fire' });
-          applyStatus(e, 'burn', 3, D() * 1.2);
-        }
-        if (hit.length) {
-          addFx({ kind: 'ring', life: 0.7, x: cx, y: cy, r: range * 1.2, tag: 'fire' });
-          addFx({ kind: 'maxPulse', life: 0.5 });
-        }
-      }
       if ((cd.flame -= dt) > 0) return;
       const t = nearest(range + 12);
       if (!t) {
@@ -294,7 +261,7 @@ export function createWeapons(api, loadout) {
         return;
       }
       const a = Math.atan2(t.y - cy, t.x - cx);
-      const half = L >= MAX_LEVEL ? Math.PI : 0.5 + (L >= 3 ? 0.15 : 0) + (L >= 7 ? 0.2 : 0);
+      const half = mx ? Math.PI : 0.5 + (L >= 3 ? 0.15 : 0) + (L >= 7 ? 0.2 : 0);
       for (const e of alive()) {
         const d = dist(e.x, e.y, cx, cy);
         if (d > range + e.r) continue;
@@ -309,20 +276,6 @@ export function createWeapons(api, loadout) {
     },
 
     frost(dt, L) {
-      if (L >= MAX_LEVEL && b.t >= (cd.zeroAt ?? 5)) {
-        // MAX: 絶対零度。射程内の全員を、数秒間凍らせる
-        cd.zeroAt = b.t + 6;
-        const hit = inRange(stats.range * 1.3);
-        for (const e of hit) {
-          applyStatus(e, 'slow', 2.5, 0.3);
-          applyStatus(e, 'freeze', 1.6, 0);
-          hurt(e, D() * 1.5, { tag: 'ice' });
-        }
-        if (hit.length) {
-          addFx({ kind: 'ring', life: 0.8, x: cx, y: cy, r: stats.range * 1.3, tag: 'ice' });
-          addFx({ kind: 'maxPulse', life: 0.5 });
-        }
-      }
       if ((cd.frost -= dt) > 0) return;
       const t = nearest(stats.range);
       if (!t) {
@@ -355,11 +308,6 @@ export function createWeapons(api, loadout) {
         if (os[0]) make(os[0].x, os[0].y);
         if (L >= 7 && os.length > 1) make(os[os.length - 1].x, os[os.length - 1].y);
       }
-      if (L >= MAX_LEVEL && w.zones.filter((z) => z.big).length < 2) {
-        // MAX: 画面を覆うほどの巨大な毒雲
-        w.zones.push({ kind: 'poison', x: t.x, y: t.y, r: 95, life: 8, t: 0, dps: D() * 0.7 * 3.2, drift: true, driftSpd: 30, max: true, big: true });
-        addFx({ kind: 'maxPulse', life: 0.5 });
-      }
       cd.poison += 3.5 / speedUp();
     },
 
@@ -370,13 +318,13 @@ export function createWeapons(api, loadout) {
         cd.missile = 0;
         return;
       }
-      const n = L >= MAX_LEVEL ? 14 : L >= 9 ? 10 : L >= 7 ? 8 : L >= 5 ? 6 : L >= 3 ? 4 : 2;
+      const n = L >= 9 ? 10 : L >= 7 ? 8 : L >= 5 ? 6 : L >= 3 ? 4 : 2;
       const mx = curMax;
       for (let i = 0; i < n; i++) {
         const a = Math.atan2(t.y - cy, t.x - cx) + (i - (n - 1) / 2) * (n > 6 ? 0.28 : 0.5);
         later(i * 0.07, () => w.proj.push({
           kind: 'missile', x: cx, y: cy, vx: Math.cos(a) * 130, vy: Math.sin(a) * 130, life: 3, L, t: 0,
-          dmg: D() * (1.6 + 0.25 * (L - 1)), aoe: L >= 8 ? 30 : L >= 5 ? 24 : 14, max: mx, split: mx,
+          dmg: D() * (1.6 + 0.25 * (L - 1)), aoe: L >= 8 ? 30 : L >= 5 ? 24 : 14, max: mx, split: false,
         }));
       }
       cd.missile += Math.max(1.2, 3.0 - 0.2 * L) / speedUp();
@@ -396,30 +344,25 @@ export function createWeapons(api, loadout) {
       const k = syn.has('prism') ? 0.7 : 1;
       if (syn.has('prism')) synText('prism', cx + Math.cos(a) * 40, cy + Math.sin(a) * 40);
       for (const ang of angles) w.beams.push({ a: ang, w: Math.min(11, 5 + L), t: 0, life, total: total * k, tick: 0, ticks: Math.max(1, Math.round(life / 0.2)), max: curMax });
-      if (L >= MAX_LEVEL) {
-        // MAX: 3 本の極太レーザーが、回りながら照射する
-        for (let i = 0; i < 3; i++) w.beams.push({ a: a + (i * Math.PI * 2) / 3, w: 16, t: 0, life: 2.4, total: total * 2.2, tick: 0, ticks: 12, rot: 2.2, max: true });
-        addFx({ kind: 'maxPulse', life: 0.5 });
-      }
-      cd.laser += (L >= MAX_LEVEL ? 3.0 : Math.max(1.2, 3.2 - 0.2 * L)) / speedUp();
+      cd.laser += Math.max(1.2, 3.2 - 0.2 * L) / speedUp();
     },
 
-    mine(dt, L) {
+    mine(dt, L, mx) {
       if ((cd.mine -= dt) > 0) return;
-      const maxMines = L >= MAX_LEVEL ? 15 : 3 + L;
+      const maxMines = mx ? 15 : 3 + L;
       if (w.mines.length >= maxMines) {
         cd.mine = 0.4;
         return;
       }
       const t = nearest(stats.range * 1.5);
       const base = t ? Math.atan2(t.y - cy, t.x - cx) : rng() * Math.PI * 2;
-      const n = L >= MAX_LEVEL ? 5 : L >= 7 ? 3 : L >= 3 ? 2 : 1;
+      const n = mx ? 5 : L >= 7 ? 3 : L >= 3 ? 2 : 1;
       for (let i = 0; i < n; i++) {
         const a = base + (rng() - 0.5) * (n > 3 ? 1.6 : 0.9);
         const d = 42 + rng() * 28;
         w.mines.push({ x: cx + Math.cos(a) * d, y: cy + Math.sin(a) * d, arm: 0.5, t: 0, boom: false, max: curMax });
       }
-      cd.mine += (L >= MAX_LEVEL ? 1.2 : L >= 9 ? 1.6 : 2.2) / speedUp();
+      cd.mine += (mx ? 1.2 : L >= 9 ? 1.6 : 2.2) / speedUp();
     },
 
     gravity(dt, L) {
@@ -433,8 +376,7 @@ export function createWeapons(api, loadout) {
         x: s.x, y: s.y, r: Math.min(150, (44 + 4 * L + (L >= 3 ? 10 : 0)) * (big ? 1.8 : 1)), life: (2.2 + 0.3 * L) * (big ? 1.5 : 1), t: 0,
         pull: (55 + 5 * L + (L >= 4 ? 15 : 0)) * (big ? 2 : 1), L, tickT: 0, dpsK: L >= 8 ? 1.6 : 1, big, max: curMax,
       });
-      // MAX: 最初の井戸がブラックホールになる
-      make(spot, L >= MAX_LEVEL);
+      make(spot, false);
       if (L >= 7) {
         const far = alive().find((e) => dist(e.x, e.y, spot.x, spot.y) > 70);
         if (far) make(far, false);
@@ -449,7 +391,7 @@ export function createWeapons(api, loadout) {
         cd.meteor = 0;
         return;
       }
-      const n = L >= MAX_LEVEL ? 8 : L >= 9 ? 5 : L >= 7 ? 4 : L >= 5 ? 3 : L >= 3 ? 2 : 1;
+      const n = L >= 9 ? 5 : L >= 7 ? 4 : L >= 5 ? 3 : L >= 3 ? 2 : 1;
       const mx = curMax;
       const drop = (count, t0) => {
         for (let i = 0; i < count; i++) {
@@ -461,33 +403,15 @@ export function createWeapons(api, loadout) {
         }
       };
       drop(n, 0);
-      // MAX: 流星群。少し遅れて、もう 4 発
-      if (mx) later(1.0, () => drop(4, 0));
       cd.meteor += Math.max(1.4, 3.4 - 0.25 * L) / speedUp();
     },
 
-    drone(dt, L) {
+    drone(dt, L, mx) {
       const n = 1 + Math.floor(L / 2);
       while (w.drones.length < n) w.drones.push({ a: (w.drones.length / n) * Math.PI * 2, cd: rng() * 0.5, x: cx, y: cy });
       w.drones.length = n;
       const dmg = D() * 0.7 * (1 + 0.2 * (L - 1)) * (L >= 3 ? 1.15 : 1) * (L >= 7 ? 1.2 : 1);
       w.droneA = (w.droneA || 0) + dt * 1.6;
-      if (L >= MAX_LEVEL && b.t >= (cd.formAt ?? 4)) {
-        // MAX: 数秒ごとに、全機が一斉射撃する
-        cd.formAt = b.t + 5;
-        let fired = false;
-        for (const d of w.drones) {
-          const t0 = nearestTo(d.x, d.y, stats.range * 1.1);
-          if (!t0) continue;
-          fired = true;
-          const base = Math.atan2(t0.y - d.y, t0.x - d.x);
-          for (let i = 0; i < 5; i++) {
-            const a2 = base + (i - 2) * 0.18;
-            w.proj.push({ kind: 'dshot', x: d.x, y: d.y, vx: Math.cos(a2) * 260, vy: Math.sin(a2) * 260, life: 1.0, t: 0, dmg: dmg * 1.3, slow: false, pierce: 2, seen: new Set(), max: true });
-          }
-        }
-        if (fired) addFx({ kind: 'maxPulse', life: 0.5 });
-      }
       w.drones.forEach((d, k) => {
         const a = w.droneA + (k / n) * Math.PI * 2;
         d.x = cx + Math.cos(a) * 32;
@@ -499,7 +423,7 @@ export function createWeapons(api, loadout) {
           d.cd = 0.1;
           return;
         }
-        const shots = L >= MAX_LEVEL ? 4 : L >= 9 ? 3 : L >= 5 ? 2 : 1;
+        const shots = mx ? 4 : L >= 9 ? 3 : L >= 5 ? 2 : 1;
         for (let s = 0; s < shots; s++) {
           later(s * 0.1, () => {
             if (t.dead) return;
@@ -520,22 +444,169 @@ export function createWeapons(api, loadout) {
             if (syn.has('dlink-b')) synText('dlink-b', d.x, d.y);
             w.proj.push({
               kind: 'dshot', x: d.x, y: d.y, vx: Math.cos(a2) * 260, vy: Math.sin(a2) * 260, life: 1.0, t: 0, dmg,
-              slow: syn.has('dlink-f'), pierce: syn.has('dlink-b') ? 3 : 1, seen: new Set(), max: L >= MAX_LEVEL,
+              slow: syn.has('dlink-f'), pierce: syn.has('dlink-b') ? 3 : 1, seen: new Set(), max: mx,
             });
           });
         }
-        d.cd = L >= MAX_LEVEL ? 0.5 : 0.9;
+        d.cd = mx ? 0.5 : 0.9;
       });
     },
   };
 
+  // ---- MAX の大技: ゲージがたまったら、HUD の武器アイコンをタップして発動する ----
+  const ULT_SEC = 14; // ゲージが満タンになるまでの秒数（敵を倒すと早くたまる）
+  w.ult = {}; // 武器 id → { charge: 0〜1 }
+  const ultOf = (id) => (w.ult[id] = w.ult[id] || { charge: 0 });
+  function chargeUlt(id, dt) {
+    const u = ultOf(id);
+    const was = u.charge;
+    u.charge = Math.min(1, u.charge + dt / ULT_SEC);
+    if (was < 1 && u.charge >= 1) b.toast = { icon: id, title: `${WEAPON[id].name} の大技が使える！`, sub: '下の武器アイコンをタップで発動', color: '#ffd84a', t: 3 };
+  }
+  // 敵を倒す・タップが当たるたびに、MAX の武器の大技ゲージが少したまる
+  function addCharge(k) {
+    for (const x of loadout) if (x.level >= MAX_LEVEL) ultOf(x.id).charge = Math.min(1, ultOf(x.id).charge + k);
+  }
+  const ults = {
+    bomb() {
+      const t = densest(stats.range * 1.3, 40) || nearest(stats.range * 1.3);
+      if (!t) return false;
+      const r = 62;
+      explode(t.x, t.y, r * 1.8, D() * 10, 'fire');
+      later(0.25, () => explode(t.x, t.y, r * 1.2, D() * 5, 'fire'));
+      addFx({ kind: 'ring', life: 0.8, x: t.x, y: t.y, r: r * 2.6, tag: 'fire' });
+      return true;
+    },
+    lightning() {
+      const all = alive();
+      if (!all.length) return false;
+      all.forEach((e, i) => {
+        hurt(e, D() * 4, { tag: 'lightning' });
+        if (i < 14) addFx({ kind: 'bolt', life: 0.35, pts: [{ x: e.x + 8, y: e.y - 90 }, { x: e.x, y: e.y }] });
+      });
+      return true;
+    },
+    blade() {
+      if (!alive().length) return false;
+      w.bladeBoost = b.t + 6; // 6 秒間、刃のダメージが 2 倍
+      for (const e of alive()) if (dist(e.x, e.y, cx, cy) <= 120 + e.r) hurt(e, D() * 5, { tag: 'physical' });
+      addFx({ kind: 'ring', life: 0.7, x: cx, y: cy, r: 120, tag: 'physical' });
+      return true;
+    },
+    flame() {
+      const hit = inRange(150);
+      if (!hit.length) return false;
+      for (const e of hit) {
+        hurt(e, D() * 5, { tag: 'fire' });
+        applyStatus(e, 'burn', 4, D() * 1.5);
+      }
+      addFx({ kind: 'ring', life: 0.8, x: cx, y: cy, r: 150, tag: 'fire' });
+      return true;
+    },
+    frost() {
+      const hit = inRange(stats.range * 1.5);
+      if (!hit.length) return false;
+      for (const e of hit) {
+        applyStatus(e, 'slow', 3.5, 0.3);
+        applyStatus(e, 'freeze', 2.4, 0);
+        hurt(e, D() * 2.5, { tag: 'ice' });
+      }
+      addFx({ kind: 'ring', life: 0.9, x: cx, y: cy, r: stats.range * 1.5, tag: 'ice' });
+      return true;
+    },
+    poison() {
+      const t = densest(stats.range * 1.3, 40) || nearest(stats.range * 1.3);
+      if (!t) return false;
+      w.zones.push({ kind: 'poison', x: t.x, y: t.y, r: 110, life: 9, t: 0, dps: D() * 0.7 * 3.2, drift: true, driftSpd: 30, max: true, big: true });
+      return true;
+    },
+    missile() {
+      const t = nearest(stats.range * 1.4);
+      if (!t) return false;
+      const n = 14;
+      for (let i = 0; i < n; i++) {
+        const a = Math.atan2(t.y - cy, t.x - cx) + (i - (n - 1) / 2) * 0.28;
+        later(i * 0.05, () => w.proj.push({
+          kind: 'missile', x: cx, y: cy, vx: Math.cos(a) * 130, vy: Math.sin(a) * 130, life: 3, L: 10, t: 0,
+          dmg: D() * 3.5, aoe: 30, max: true, split: true,
+        }));
+      }
+      return true;
+    },
+    laser() {
+      const t = nearest(stats.range * 1.5);
+      if (!t) return false;
+      const a = Math.atan2(t.y - cy, t.x - cx);
+      const total = D() * 22;
+      for (let i = 0; i < 3; i++) w.beams.push({ a: a + (i * Math.PI * 2) / 3, w: 16, t: 0, life: 2.4, total, tick: 0, ticks: 12, rot: 2.2, max: true });
+      return true;
+    },
+    mine() {
+      const es = alive();
+      if (!es.length) return false;
+      for (const m of w.mines) m.boom = true; // 仕掛けた地雷を、すべて起爆
+      for (const e of es.slice(0, 8)) explode(e.x, e.y, 40, D() * 6, 'physical');
+      return true;
+    },
+    gravity() {
+      const spot = densest(stats.range * 1.3, 50) || nearest(stats.range * 1.3);
+      if (!spot) return false;
+      w.wells.push({ x: spot.x, y: spot.y, r: 150, life: 5, t: 0, pull: 220, L: 10, tickT: 0, dpsK: 2.2, big: true, max: true });
+      return true;
+    },
+    meteor() {
+      const pool = inRange(stats.range * 1.4);
+      if (!pool.length) return false;
+      for (let i = 0; i < 12; i++) {
+        const e = pool[Math.floor(rng() * pool.length)];
+        w.meteors.push({ x: e.x + (rng() - 0.5) * 20, y: e.y + (rng() - 0.5) * 20, t: -i * 0.15, delay: 0.7, r: 46, dmg: D() * 8, max: true });
+      }
+      return true;
+    },
+    drone() {
+      let fired = false;
+      for (const d of w.drones) {
+        const t0 = nearestTo(d.x, d.y, stats.range * 1.2);
+        if (!t0) continue;
+        fired = true;
+        const base = Math.atan2(t0.y - d.y, t0.x - d.x);
+        for (let i = 0; i < 9; i++) {
+          const a2 = base + (i - 4) * 0.14;
+          w.proj.push({ kind: 'dshot', x: d.x, y: d.y, vx: Math.cos(a2) * 260, vy: Math.sin(a2) * 260, life: 1.0, t: 0, dmg: D() * 2.4, slow: false, pierce: 3, seen: new Set(), max: true });
+        }
+      }
+      return fired;
+    },
+  };
+  // 武器 id の大技を発動する（MAX で、ゲージが満タンのときだけ）
+  function ultimate(id) {
+    const x = loadout.find((q) => q.id === id);
+    const u = w.ult[id];
+    if (!x || x.level < MAX_LEVEL || !u || u.charge < 1) return false;
+    curMax = true;
+    curK = 1.25;
+    const ok = ults[id]();
+    curMax = false;
+    curK = 1;
+    if (!ok) return false;
+    u.charge = 0;
+    api.addFx({ kind: 'ultCast', life: 1.3, wid: id, name: WEAPON[id].name, color: WEAPON[id].color });
+    api.addFx({ kind: 'maxPulse', life: 0.5, max: true });
+    return true;
+  }
+
   // ---- 毎フレーム ----
   function update(dt) {
     for (const x of loadout) {
-      curMax = x.level >= MAX_LEVEL;
-      upd[x.id](dt, x.level);
+      const mx = x.level >= MAX_LEVEL;
+      curMax = mx;
+      curK = mx ? 1.25 : 1;
+      // MAX の武器も、ふだんの動きは Lv9 と同じ（大技は手動。ゲージがたまったらタップで発動）
+      upd[x.id](dt, Math.min(x.level, MAX_LEVEL - 1), mx);
+      if (mx) chargeUlt(x.id, dt);
     }
     curMax = false;
+    curK = 1;
 
     // 少し遅れて起きる処理（二段爆発など）
     for (const l of w.later) l.t -= dt;
@@ -755,6 +826,7 @@ export function createWeapons(api, loadout) {
   }
 
   function onKill(e) {
+    addCharge(0.02);
     if (lvOf('poison') >= MAX_LEVEL && e.poison && e.poison.t > 0 && w.zones.length < 40) {
       // MAX: 毒で倒れた敵が、毒をまき散らす
       w.zones.push({ kind: 'poison', x: e.x, y: e.y, r: 34, life: 3, t: 0, dps: D() * 0.7, max: true });
@@ -774,5 +846,5 @@ export function createWeapons(api, loadout) {
     for (const x of loadout) if (cd[x.id] === undefined) cd[x.id] = 0.4;
   }
 
-  return { update, modify, onHit, onKill, refresh, get syn() { return syn; } };
+  return { update, modify, onHit, onKill, refresh, ultimate, addCharge, get syn() { return syn; } };
 }
