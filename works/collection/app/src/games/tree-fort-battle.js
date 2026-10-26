@@ -482,6 +482,12 @@ export function createBattle(stats0, rng = Math.random, opts = {}) {
     b.eshots = b.eshots.filter((s) => s.life > 0);
 
     b.tower.hp = Math.min(b.tower.max, b.tower.hp + stats.regen * dt);
+    // OD「爆裂」: 致命傷を受けた瞬間に、ゲージが満タンなら自動で発動し、耐久 15% で踏みとどまる
+    if (b.tower.hp <= 0 && b.od.cfg.id === 'blast' && b.od.gauge >= 100 && b.od.active <= 0 && overdrive()) {
+      b.tower.hp = Math.max(1, b.tower.max * 0.15);
+      b.odSaves = (b.odSaves || 0) + 1;
+      b.toast = { icon: 'lightning', title: 'OD「爆裂」が自動発動！', sub: '致命傷の瞬間に爆破して、耐久 15% で踏みとどまった', color: b.od.cfg.def.color, t: 4 };
+    }
     if (b.tower.hp <= 0) {
       b.tower.hp = 0;
       b.over = true;

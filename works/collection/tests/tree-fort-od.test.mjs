@@ -133,4 +133,30 @@ test('battle: タイプごとに、OD 中のダメージ倍率と攻撃の勢い
   assert.ok(cfg('frost').slowK < 1 && cfg('regen').reduceK < 1 && cfg('blast').fireK > 1);
 });
 
+test('battle: 爆裂は、致命傷の瞬間にゲージが満タンなら自動発動して踏みとどまる（ほかのタイプ・ゲージ不足では倒れる）', () => {
+  const od = (type) => ({ ...defaultOd(), type, owned: ['boost', type] });
+  const hit = (sim) => {
+    // 砦の耐久をほぼゼロにして、敵に触れさせる
+    sim.b.tower.hp = 0.5;
+    const e = sim.b.enemies.find((q) => !q.dead);
+    e.x = 120;
+    e.y = 172;
+    sim.step(1 / 30);
+  };
+  const a = ready(od('blast'));
+  hit(a);
+  assert.ok(!a.b.over, '爆裂なのに倒れた');
+  assert.ok(a.b.od.active > 0, 'OD が発動していない');
+  assert.ok(a.b.tower.hp >= a.b.tower.max * 0.15 - 1e-6, '耐久が戻らない');
+  assert.equal(a.b.odSaves, 1);
+  assert.equal(a.b.od.gauge, 0, 'ゲージを使っていない');
+  const b = ready(od('frost'));
+  hit(b);
+  assert.ok(b.b.over, '爆裂以外は踏みとどまらない');
+  const c = ready(od('blast'));
+  c.b.od.gauge = 99;
+  hit(c);
+  assert.ok(c.b.over, 'ゲージ不足でも踏みとどまった');
+});
+
 console.log(`\n${passed} 件すべて成功`);
