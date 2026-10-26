@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { xpNeed, makeOptions, applyOption, autoPick, startLevel, STAT_OPTIONS } from '../app/src/games/tree-fort-run.js';
 import { computeStats, TREE } from '../app/src/games/tree-fort-data.js';
 import { createBattle, simulate, TYPES, STAGE_WAVES } from '../app/src/games/tree-fort-battle.js';
-import { WEAPONS } from '../app/src/games/tree-fort-weapons.js';
+import { WEAPONS, WEAPON } from '../app/src/games/tree-fort-weapons.js';
 import { speedUnlocked, BASE_SPEED } from '../app/src/games/tree-fort-rview.js';
 
 let passed = 0;
@@ -65,15 +65,16 @@ test('options: 枠がいっぱいなら新しい武器は出ず、上限（Lv10�
   }
 });
 
-test('options: 未発見の武器は「？？？」で出て、名前も効果も隠される', () => {
+test('options: 未発見の武器も、名前・効果を見せる（図鑑に初めて載る印だけ付く）', () => {
   let seen = 0;
   for (let i = 0; i < 80; i++) {
     const opts = makeOptions(ctx({ rng: seeded(i + 1), loadout: [{ id: 'bomb', level: 1 }], discovered: new Set(['bomb']), g: 20 }));
     for (const o of opts) {
       if (o.unknown) {
         seen++;
-        assert.equal(o.name, '？？？');
-        assert.ok(!WEAPONS.some((w) => o.desc.includes(w.name)), '説明に正体が出ている');
+        assert.equal(o.name, WEAPON[o.id].name, '名前が隠れている');
+        assert.equal(o.desc, WEAPON[o.id].levels[0], '効果が隠れている');
+        assert.ok(o.note, '図鑑に載る旨か、組み合わせの注記がない');
       }
     }
   }
