@@ -9,6 +9,7 @@ import { SKINS, EFFECTS } from '../app/src/games/tree-fort-skins.js';
 import { BTN_SHOP, BTN_ODSHOP, BTN_GO, BTN_BUY, BTN_RETREAT, BTN_ARMORY, shopLayout, MAP } from '../app/src/games/tree-fort-view.js';
 import { odRows } from '../app/src/games/tree-fort-odview.js';
 import { closeRect } from '../app/src/games/tree-fort-panelview.js';
+import { loadoutCards } from '../app/src/games/tree-fort-loadoutview.js';
 import {
   BTN_ST_BACK, BTN_ST_GO, ST_LIST, cardRects, BTN_REROLL, BTN_SPEED, BTN_STATUS, BTN_OD, CX_TABS, CX_LIST, BTN_CX_BACK, slotRect,
 } from '../app/src/games/tree-fort-rview.js';
@@ -59,7 +60,7 @@ for (const H of [320, 520]) {
       combo++;
       Store.save('tree-fort-save', {
         ver: 2,
-        owned: ['core', 'atk1', 'atk2', 'atk3', 'atk4', 'atk5', 'spd1', 'spd2', 'spd3', 'def1', 'def2', 'grw1', 'grw2', 'grw3', 'grw4'],
+        owned: ['core', 'atk1', 'atk2', 'atk3', 'atk4', 'atk5', 'spd1', 'spd2', 'spd3', 'def1', 'def2', 'grw1', 'grw2', 'grw3', 'grw4', ...(combo % 2 ? ['st1', 'st4', 'st5'] : [])], // 奇数の組は、武器庫あり（出撃前に開始装備を選ぶ画面を通る）
         points: 999, bestWave: 3, runs: 2, skinsOwned: SKINS.map((s) => s.id), fxOwned: EFFECTS.map((e) => e.id), skin: skin.id, fx: fx.id,
         slots: 5, discovered: { weapons: WEAPONS.slice(0, 5 + (combo % 7)).map((w) => w.id), syn: ['steam'], relics: ['ember'] },
         stageClear: combo % 2 ? 3 : 10, stars: { 1: 3, 2: 2, 3: 1 }, speed: 1 + (combo % 3), daily: { key: '', done: false }, ach: ['first'], bestCombo: 12, bestRelics: 1,
@@ -97,6 +98,11 @@ for (const H of [320, 520]) {
       frame(game, input, 1 / 60, mid(BTN_GO));
       frame(game, input, 1 / 60, { x: 100, y: ST_LIST.y + 12 }); // 1 つ目（ステージ 1）
       frame(game, input, 1 / 60, mid(BTN_ST_GO));
+      if (combo % 2) {
+        // 開始装備の画面: 武器を選んで出撃する
+        for (const c of loadoutCards({ save: { owned: new Set(['atk5', 'st4', 'st5']) }, H })) frame(game, input, 1 / 60, mid(c.rect));
+        frame(game, input, 1 / 60, mid(BTN_BUY));
+      }
       // 戦闘: レベルアップ等の選択は、出たらカードを順にタップ。倍速・オーバードライブ・手動攻撃も混ぜる。
       for (let i = 0; i < 60 * 240 && ended() === 0; i++) {
         const tap = i % 41 === 0 ? { x: 60 + (i % 120), y: 150 } : i % 400 === 0 ? mid(BTN_SPEED) : i % 233 === 0 ? mid(BTN_OD) : null;

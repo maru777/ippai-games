@@ -29,6 +29,7 @@ export const BASE_STATS = {
   wtime: 0, // 持続 +%
   // 属性（ツリーの「属性」の枝）: その属性の与ダメージ +%（0.2 = +20%）。対応するタグは ATTR_TAGS
   tfire: 0, tice: 0, tlightning: 0, tpoison: 0, tlight: 0, tgravity: 0,
+  startSlots: 0, // 出撃時に装備できる武器の数の上乗せ（開始装備の枝。基本は 1 つ）
   choices: 3, // レベルアップの選択肢の数
 };
 
@@ -36,6 +37,15 @@ export const UNLOCKS = {
   bomb: { name: '爆弾砲', desc: '敵の群れに爆発を撃ち込む' },
   lightning: { name: '雷撃', desc: '敵から敵へ連鎖する雷' },
   blade: { name: '回転刃', desc: '砦の周りを回って近づく敵を斬る' },
+  flame: { name: '火炎放射', desc: '近距離の扇形に炎を吹き、敵を燃やす' },
+  frost: { name: '氷結弾', desc: '命中した敵を遅くし、凍らせる' },
+  poison: { name: '毒霧', desc: '地面に残る毒の雲で、継続ダメージ' },
+  missile: { name: 'ミサイル', desc: '追尾するミサイルを一斉に撃つ' },
+  laser: { name: 'レーザー', desc: '一直線に貫く光線' },
+  mine: { name: '地雷', desc: '敵の通り道に仕掛け、踏むと爆発' },
+  gravity: { name: '重力井戸', desc: '敵を中心へ引き寄せ、固めてダメージ' },
+  meteor: { name: '流星', desc: '空から大きな隕石を降らせる' },
+  drone: { name: 'ドローン', desc: '砦に付き添って自動で撃つ小型機' },
 };
 
 // ツリーの値段の倍率（獲得ポイントはそのままで、買い物を重くする）
@@ -96,6 +106,19 @@ const TREE_BASE = [
   { id: 'elem4', name: '毒の祝福', desc: '毒属性のダメージ +20%（毒霧）', cost: 60, gx: 4, gy: -4, req: ['elem3'], fx: { tpoison: 0.2 }, mark: '毒' },
   { id: 'elem5', name: '光・機械の祝福', desc: '光・機械属性のダメージ +20%（レーザー・ドローン）', cost: 60, gx: 5, gy: -5, req: ['elem4'], fx: { tlight: 0.2 }, mark: '光' },
   { id: 'elem6', name: '重力・物理の祝福', desc: '重力・物理属性のダメージ +20%（重力井戸・地雷・回転刃・ミサイル・タップ）', cost: 60, gx: 6, gy: -6, req: ['elem5'], fx: { tgravity: 0.2 }, mark: '重' },
+  // 開始装備: 武器庫を開けると、出撃前に開始装備を選べる。武器を解放し、開始枠を増やす。左下へ伸びる
+  { id: 'st1', name: '武器庫', desc: '出撃の前に、開始装備を選べるようになる', cost: 40, gx: -1, gy: 1, req: ['core'], mark: '庫' },
+  { id: 'st2', name: '開始枠 +1', desc: '出撃時に装備できる武器が 1 つ増える', cost: 160, gx: -1, gy: 2, req: ['st1'], fx: { startSlots: 1 }, mark: '枠' },
+  { id: 'st3', name: '開始枠 +2', desc: '出撃時に装備できる武器が、さらに 1 つ増える', cost: 360, gx: -1, gy: 3, req: ['st2'], fx: { startSlots: 1 }, mark: '枠' },
+  { id: 'st4', name: '火炎放射', desc: '火炎放射を、開始装備に選べる（新しい攻撃）', cost: 80, gx: -3, gy: 1, req: ['st1'], unlock: 'flame', mark: '炎' },
+  { id: 'st5', name: '氷結弾', desc: '氷結弾を、開始装備に選べる（新しい攻撃）', cost: 80, gx: -4, gy: 1, req: ['st1'], unlock: 'frost', mark: '氷' },
+  { id: 'st6', name: '毒霧', desc: '毒霧を、開始装備に選べる（新しい攻撃）', cost: 100, gx: -5, gy: 1, req: ['st1'], unlock: 'poison', mark: '毒' },
+  { id: 'st7', name: 'ミサイル', desc: 'ミサイルを、開始装備に選べる（新しい攻撃）', cost: 120, gx: -3, gy: 2, req: ['st1'], unlock: 'missile', mark: '弾' },
+  { id: 'st8', name: 'レーザー', desc: 'レーザーを、開始装備に選べる（新しい攻撃）', cost: 140, gx: -4, gy: 2, req: ['st1'], unlock: 'laser', mark: '光' },
+  { id: 'st9', name: '地雷', desc: '地雷を、開始装備に選べる（新しい攻撃）', cost: 120, gx: -5, gy: 2, req: ['st1'], unlock: 'mine', mark: '雷' },
+  { id: 'st10', name: '重力井戸', desc: '重力井戸を、開始装備に選べる（新しい攻撃）', cost: 160, gx: -3, gy: 3, req: ['st1'], unlock: 'gravity', mark: '重' },
+  { id: 'st11', name: '流星', desc: '流星を、開始装備に選べる（新しい攻撃）', cost: 180, gx: -4, gy: 3, req: ['st1'], unlock: 'meteor', mark: '星' },
+  { id: 'st12', name: 'ドローン', desc: 'ドローンを、開始装備に選べる（新しい攻撃）', cost: 200, gx: -5, gy: 3, req: ['st1'], unlock: 'drone', mark: '機' },
   { id: 'grw5', name: '経験値 II', desc: '経験値 +35%', cost: 220, gx: 5, gy: 5, req: ['grw4'], fx: { xpMul: 0.35 }, mark: '経' },
 ];
 
@@ -112,7 +135,7 @@ export const START_OWNED = ['core'];
 // 取得済みノード（id の配列または Set）から能力値を求める
 export function computeStats(owned) {
   const set = owned instanceof Set ? owned : new Set(owned);
-  const st = { ...BASE_STATS, weapons: { bomb: false, lightning: false, blade: false } };
+  const st = { ...BASE_STATS, weapons: Object.fromEntries(Object.keys(TREE_WEAPON_NODE).map((k) => [k, false])) };
   for (const n of TREE) {
     if (!set.has(n.id)) continue;
     if (n.fx) for (const [k, v] of Object.entries(n.fx)) st[k] += v;
@@ -142,7 +165,30 @@ export function canRefund(owned, id) {
 }
 
 // ツリーのノードで解放される武器（Lv1 を無料で得る）
-export const TREE_WEAPON_NODE = { bomb: 'atk5', lightning: 'spd5', blade: 'def5' };
+export const TREE_WEAPON_NODE = {
+  bomb: 'atk5', lightning: 'spd5', blade: 'def5',
+  flame: 'st4', frost: 'st5', poison: 'st6', missile: 'st7', laser: 'st8', mine: 'st9', gravity: 'st10', meteor: 'st11', drone: 'st12',
+};
+
+// ---- 開始装備（出撃時に持つ武器）----
+// 「武器庫」（st1）を取るまでは、いままでどおり、解放した武器をすべて装備して出撃する。取ったあとは、出撃前に選ぶ（最大 = 1 + 開始枠）。
+export const START_GATE = 'st1';
+const LEGACY_UNLOCKS = ['bomb', 'lightning', 'blade'];
+export const startSelectable = (owned) => owned.has(START_GATE);
+export const unlockedWeapons = (owned) => Object.keys(TREE_WEAPON_NODE).filter((id) => owned.has(TREE_WEAPON_NODE[id]));
+// 装備できる数。以前の 3 武器をすでに解放している人が減らないよう、その数を下限にする
+export function startSlotCount(owned, stats) {
+  const legacy = LEGACY_UNLOCKS.filter((id) => owned.has(TREE_WEAPON_NODE[id])).length;
+  return Math.max(1, legacy, 1 + Math.floor((stats && stats.startSlots) || 0));
+}
+// 出撃時の武器の id（saved = 前回選んだもの）
+export function startWeapons(owned, saved, stats) {
+  const un = unlockedWeapons(owned);
+  if (!startSelectable(owned)) return un;
+  const slots = startSlotCount(owned, stats);
+  const pick = (saved || []).filter((id, i, a) => un.includes(id) && a.indexOf(id) === i).slice(0, slots);
+  return pick.length ? pick : un.slice(0, slots);
+}
 
 // 武器の現在のレベル。ツリーのノードで解放された武器は、最低でも Lv1。
 export const weaponLevelOf = (owned, levels, id) => Math.max(levels[id] || 0, TREE_WEAPON_NODE[id] && owned.has(TREE_WEAPON_NODE[id]) ? 1 : 0);
