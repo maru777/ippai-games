@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import { xpNeed, makeOptions, applyOption, autoPick, startLevel, STAT_OPTIONS } from '../app/src/games/tree-fort-run.js';
 import { computeStats, TREE } from '../app/src/games/tree-fort-data.js';
-import { createBattle, simulate, TYPES, STAGE_WAVES } from '../app/src/games/tree-fort-battle.js';
+import { createBattle, simulate, TYPES, STAGE_WAVES, TUNE } from '../app/src/games/tree-fort-battle.js';
 import { WEAPONS, WEAPON } from '../app/src/games/tree-fort-weapons.js';
 import { speedUnlocked, BASE_SPEED } from '../app/src/games/tree-fort-rview.js';
 
@@ -156,6 +156,8 @@ test('battle: 経験値ボーナスのノードで、レベルが早く上がる
 
 test('stage: 10 波の最後にボスが出て、倒すとクリアできる（序盤のステージ）', () => {
   const st = computeStats(['core', 'atk1', 'spd1', 'def1']);
+  const keep = { ...TUNE };
+  Object.assign(TUNE, { bossHp: 1, bossAutoK: 1, bossGrow: 0 }); // 放置のボットでも倒せるように、ボスの強さを戻す（放置では厳しい設計は、別のテストで見る）
   const sim = createBattle(st, seeded(21), { stage: 1, leveling: true, slots: 3, discovered: new Set(ALL) });
   let bossSeen = false;
   let cleared = false;
@@ -165,6 +167,7 @@ test('stage: 10 波の最後にボスが出て、倒すとクリアできる（�
     if (sim.b.boss) bossSeen = true;
     if (sim.b.cleared) cleared = true;
   }
+  Object.assign(TUNE, keep);
   assert.ok(bossSeen, 'ボスが出ない');
   assert.ok(cleared && sim.b.wave === STAGE_WAVES, `クリアできない（${sim.b.wave} 波）`);
   assert.ok(sim.earned() > 40, 'ステージクリアの報酬がない');
@@ -174,7 +177,7 @@ test('stage: 後ろのステージほど難しく、無限モードには終わ�
   const st = computeStats(['core', 'atk1', 'spd1', 'def1']);
   const rate = (stage) => {
     let n = 0;
-    for (let i = 0; i < 6; i++) if (simulate(st, seeded(40 + i), { stage, leveling: true, slots: 3, discovered: new Set(ALL) }).cleared) n++;
+    for (let i = 0; i < 6; i++) if (simulate(st, seeded(40 + i), { stage, leveling: true, slots: 3, discovered: new Set(ALL), noBoss: true }).cleared) n++;
     return n;
   };
   const r1 = rate(1);
@@ -217,7 +220,7 @@ test('enemies: 新しい 9 種の敵が、それぞれの特徴どおりに動�
 test('enemies: 難しさに応じた種類が混ざって出る（全 10 種が登場しうる）', () => {
   const seen = new Set();
   const sim = createBattle(computeStats(TREE.map((n) => n.id)), seeded(5), { stage: 0, leveling: true, slots: 6, discovered: new Set(ALL), loadout: ['bomb', 'frost', 'lightning', 'meteor', 'laser'].map((id) => ({ id, level: 5 })) });
-  for (let i = 0; i < 30 * 1500 && !sim.b.over && sim.b.wave < 26; i++) {
+  for (let i = 0; i < 30 * 1500 && !sim.b.over && sim.b.wave < 45; i++) {
     settle(sim);
     sim.step(1 / 30);
     for (const e of sim.b.enemies) seen.add(e.type);

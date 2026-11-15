@@ -1,7 +1,7 @@
 // ツリー砦の、30 波・中ボス/大ボス（HP の段階）・接触ルールの検証（描画なし）。
 // 実行: node works/collection/tests/tree-fort-boss.test.mjs
 import assert from 'node:assert/strict';
-import { createBattle, STAGE_WAVES, TYPES, ARENA } from '../app/src/games/tree-fort-battle.js';
+import { createBattle, STAGE_WAVES, TYPES, ARENA, TUNE } from '../app/src/games/tree-fort-battle.js';
 import { computeStats } from '../app/src/games/tree-fort-data.js';
 import { CONTRACT_WAVES } from '../app/src/games/tree-fort-meta.js';
 
@@ -162,6 +162,24 @@ test('contact: ボスは、砦にぶつかると、ダメージを受けつつ�
 test('contract: 契約が出る波は、ボス（10・20・30 波）の前に準備できる位置にある', () => {
   assert.deepEqual(CONTRACT_WAVES, [5, 15, 25]);
   for (const w of CONTRACT_WAVES) assert.ok(w % 10 !== 0 && w < STAGE_WAVES);
+});
+
+test('balance: ボスは自動の攻撃に強く、手動の攻撃は通る。介入（OD）はボーナスポイントになる', () => {
+  assert.ok(TUNE.bossAutoK < 1 && TUNE.bossHp > 1, 'ボスは放置では厳しい設定');
+  const sim = createBattle(STRONG, seeded(7), { stage: 1, leveling: false, slots: 3, loadout: [{ id: 'bomb', level: 10 }] });
+  const e = { type: 'boss', hp: 1000, max: 1000, x: cx + 60, y: cy, r: 10, hitT: 0, st: {} };
+  sim.b.enemies.push(e);
+  sim.hurt(e, 100, {});
+  const auto = 1000 - e.hp;
+  e.hp = 1000;
+  sim.hurt(e, 100, { manual: true });
+  const manual = 1000 - e.hp;
+  assert.ok(manual > auto * 2, `手動 ${manual} / 自動 ${auto}`);
+  const p0 = sim.b.act.pts;
+  sim.b.od.gauge = 100;
+  assert.ok(sim.overdrive());
+  assert.equal(sim.b.act.od, 1);
+  assert.ok(sim.b.act.pts > p0, 'ODでボーナスポイントが入る');
 });
 
 console.log(`\n${passed} 件すべて成功`);

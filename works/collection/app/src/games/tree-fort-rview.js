@@ -123,7 +123,7 @@ export function drawStageSelect(g, sc) {
     if (e.stage > 0) {
       kit.text(g, `ボス: ${e.boss}`, W - 12, py + 6, 9, sk.bad, 'right');
       kit.text(g, e.mods.length ? `特色: ${modNames(e.mods)}（${MODS[e.mods[0]].desc}）` : '特色: なし（穏やかな戦い）', 12, py + 19, 9, sk.text);
-      kit.text(g, e.cleared ? '★2 耐久が半分以上 / ★3 被弾 3 回以内' : `初クリアで ${100 * e.stage} P。星が増えるとボーナス`, 12, py + 30, 8.5, sk.dim);
+      kit.text(g, e.cleared ? '★2 耐久が半分以上 / ★3 被弾 3 回以内＋大技・OD・タップ' : `初クリアで ${100 * e.stage} P。星が増えるとボーナス`, 12, py + 30, 8.5, sk.dim);
     } else {
       kit.text(g, e.mods.length ? `特色: ${modNames(e.mods)}` : e.note, 12, py + 19, 9, sk.text);
       kit.text(g, e.note || '', 12, py + 30, 8.5, sk.dim);
