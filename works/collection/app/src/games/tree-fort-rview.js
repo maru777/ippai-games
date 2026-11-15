@@ -6,7 +6,9 @@ import {
 import { WEAPONS, WEAPON, SYNERGIES, SYNERGY, SLOT_MAX, MAX_LEVEL, maxLevelOf } from './tree-fort-weapons.js';
 import { STAGE_COUNT } from './tree-fort-battle.js';
 import { rgba, rr } from './tree-fort-skins.js';
-import { TAG_NAME } from './tree-fort-wview.js';
+import { TAG_NAME, TAG_COLOR } from './tree-fort-wview.js';
+import { attrChips } from './tree-fort-panelview.js';
+import { upgradeChanges } from './tree-fort-elements.js';
 import { drawIcon } from './tree-fort-icons.js';
 
 const TAU = Math.PI * 2;
@@ -22,7 +24,8 @@ export function layoutRview(H) {
   BTN_ST_BACK.y = 288 + DH;
   BTN_ST_GO.y = 288 + DH;
   BTN_REROLL.y = 276 + DH / 2;
-  BTN_SPEED.y = 288 + DH;
+  BTN_SPEED.y = 264 + DH;
+  BTN_STATUS.y = 288 + DH;
   BTN_OD.y = 288 + DH;
   CX_LIST.h = 182 + DH;
   BTN_CX_BACK.y = 288 + DH;
@@ -180,9 +183,9 @@ export function drawChoice(g, sc, kind) {
       card(g, kit, r, { name: o.name, color: o.color, icon, tag, tagColor: o.star ? sk.gold : sk.dim, star: o.star });
       const tight = r.h < 50;
       kit.text(g, o.kind === 'weapon-up' ? `${o.label}：${o.desc}` : o.desc, r.x + 42, r.y + (tight ? 19 : 25), 10, sk.text);
-      const note = o.note || '';
+      const note = o.kind === 'weapon-up' ? upgradeChanges(o.id, o.level - 1, 2).join(' / ') : o.note || '';
       if (note) kit.text(g, note, r.x + 42, r.y + (tight ? 32 : 40), 9, o.star || o.unknown ? rgba(sk.gold, 0.95) : sk.dim);
-      kit.text(g, `${i + 1}`, r.x + r.w - 8, r.y + r.h - 14, 8, rgba(sk.dim, 0.7), 'right');
+      if (o.kind === 'weapon-new' || o.kind === 'weapon-up') attrChips(g, kit, r.x + 42 + kit.measure(g, o.name, 13) + 6, r.y + (tight ? 4 : 7) + 1, WEAPON[o.id].tags, 8);
     });
     kit.button(g, BTN_REROLL, `選び直し（残り ${b.rerolls}）`, { on: b.rerolls > 0, color: sk.op, size: 11 });
   } else if (kind === 'relic') {
@@ -228,38 +231,22 @@ export function drawChoice(g, sc, kind) {
 
 // ---------------------------------------------------------------------------------------------
 // 戦闘の HUD（経験値・持っている武器・倍速・オーバードライブ・ボスの体力・特色）
-export const BTN_SPEED = { x: 198, y: 288, w: 36, h: 22 };
+export const BTN_SPEED = { x: 192, y: 264, w: 44, h: 20 };
+export const BTN_STATUS = { x: 192, y: 288, w: 44, h: 22 }; // ステータス画面（武器以外の強さ・遺物・契約）を開く
 // 倍速（×2・×3）は、全ステージをクリアしたあとの、やりこみ要素。それまでは通常速度（1.2 倍）のみ。
 export const speedUnlocked = (save) => save.stageClear >= STAGE_COUNT;
 export const BASE_SPEED = 1.2;
 export const BTN_OD = { x: 6, y: 288, w: 84, h: 22 };
 
-// HUD の武器・遺物アイコンの位置（描画とタップ判定で共通）。タップすると、その説明が出る。
+// HUD の武器アイコンの位置（描画とタップ判定で共通）。タップすると、その武器の要素の一覧が開く。遺物は、ステータス画面で見る。
 export function hudIcons(b) {
   const out = [];
-  b.loadout.forEach((w, i) => out.push({ kind: 'weapon', id: w.id, level: w.level, x: 94 + i * 17, y: 289 + DH, w: 16, h: 16 }));
-  b.relics.forEach((id, i) => out.push({ kind: 'relic', id, x: 94 + i * 12, y: 307 + DH, w: 11, h: 11 }));
+  b.loadout.forEach((w, i) => out.push({ kind: 'weapon', id: w.id, level: w.level, x: 94 + i * 16, y: 289 + DH, w: 15, h: 16 }));
   return out;
 }
 // タップした位置にある HUD のアイコン（なければ null）
 export const hudHit = (b, x, y) => hudIcons(b).find((r) => x >= r.x - 2 && x <= r.x + r.w + 2 && y >= r.y - 2 && y <= r.y + r.h + 2) || null;
 
-// そのアイコンの説明（toast の形）。MAX の武器は、大技ゲージの状態も書く
-export function hudToast(b, x, y) {
-  const hit = hudHit(b, x, y);
-  if (!hit) return null;
-  if (hit.kind === 'relic') {
-    const r = RELIC[hit.id];
-    return { icon: 'relic', title: `遺物「${r.name}」`, sub: r.desc, color: r.color, t: 4 };
-  }
-  const def = WEAPON[hit.id];
-  const u = b.w.ult && b.w.ult[hit.id];
-  if (hit.level >= MAX_LEVEL && hit.level >= maxLevelOf(hit.id) && u) {
-    const pct = Math.floor(u.charge * 100);
-    return { icon: hit.id, title: `${def.name} MAX　大技 ${pct}%`, sub: u.charge >= 1 ? 'もう一度タップで大技を発動' : `大技: ${def.levels[hit.level - 1].replace('MAX: ', '')}`, color: def.color, t: 3 };
-  }
-  return { icon: hit.id, title: `${def.name} Lv${hit.level}`, sub: def.levels[hit.level - 1], color: def.color, t: 4 };
-}
 
 export function drawBattleHud(g, sc) {
   const { kit, W, clock } = sc;
@@ -307,6 +294,11 @@ export function drawBattleHud(g, sc) {
       if (sk.glow) kit.glow(g, def.color, 5);
       drawIcon(g, r.id, r.x + 8, r.y + 8, 17, def.color, 1.9);
       g.restore();
+      // 属性の色の点（火・氷・雷など）
+      g.fillStyle = TAG_COLOR[def.tags[0]] || '#ffffff';
+      g.beginPath();
+      g.arc(r.x + 13, r.y + 2.5, 2.2, 0, TAU);
+      g.fill();
       if (r.level >= MAX_LEVEL && r.level >= maxLevelOf(r.id)) {
         // MAX: 大技ゲージの輪。満タンになると金の枠が強く光って、タップを促す
         const u = b.w.ult && b.w.ult[r.id];
@@ -329,8 +321,6 @@ export function drawBattleHud(g, sc) {
         g.restore();
         kit.text(g, ready ? '大技' : 'MAX', r.x + 8, r.y + 9, 6.5, sk.gold, 'center', 4);
       } else kit.text(g, `${r.level}`, r.x + 15, r.y + 8, 8, sk.text, 'right', 3);
-    } else {
-      drawIcon(g, 'relic', r.x + 5.5, r.y + 5.5, 11, RELIC[r.id].color, 2);
     }
   }
 
@@ -379,7 +369,7 @@ export function drawBattleHud(g, sc) {
   if (b.toast) {
     const t = b.toast;
     const a = Math.min(1, t.t * 3);
-    const r = { x: 10, y: 236 + D, w: W - 20, h: 32 };
+    const r = { x: 10, y: 230 + D, w: W - 20, h: 32 };
     g.save();
     g.globalAlpha = a;
     kit.panel(g, r, { stroke: t.color, glow: t.color, blur: 8, radius: 8, lw: 1.3 });

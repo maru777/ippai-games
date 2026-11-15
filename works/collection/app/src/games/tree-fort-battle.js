@@ -53,6 +53,8 @@ export function createBattle(stats0, rng = Math.random, opts = {}) {
   const { cx, cy, towerR } = ARENA;
   const b = {
     stats,
+    stats0, // 出撃時（ツリー込み）の能力値。ステータス画面で、この挑戦での増減を出すのに使う
+    slots: o.slots || 3,
     stage: o.stage || 0,
     t: 0,
     wave: 0,
