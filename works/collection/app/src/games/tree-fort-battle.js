@@ -6,6 +6,7 @@
 import { createWeapons, WEAPON, MAX_LEVEL, maxLevelOf } from './tree-fort-weapons.js';
 import { makeOptions, applyOption, xpNeed, autoPick } from './tree-fort-run.js';
 import { odConfig, defaultOd } from './tree-fort-od.js';
+import { ATTR_TAGS } from './tree-fort-data.js';
 import { combineMods, applyRelic, relicOptions, RELIC, CONTRACTS, CONTRACT, CONTRACT_WAVES } from './tree-fort-meta.js';
 
 export const ARENA = { W: 240, H: 320, cx: 120, cy: 172, towerR: 11 };
@@ -61,6 +62,12 @@ export const ENEMY_INFO = {
 };
 
 // 自動の攻撃（主砲・武器・状態異常）は弱め、タップ（手動）の攻撃を強くする。放置では勝ちにくく、触るほど強い。
+// ツリーの「属性」の枝（stats.tfire など）から、タグごとのダメージ倍率を作る
+export function tagMulOf(stats) {
+  const out = {};
+  for (const [key, tags] of Object.entries(ATTR_TAGS)) if (stats[key] > 0) for (const t of tags) out[t] = (out[t] || 1) * (1 + stats[key]);
+  return out;
+}
 export const AUTO_K = 0.7;
 export const TAP_K = 2; // タップ 1 回の威力（攻撃力の何倍か）
 export const TAP_CD = 0.22; // タップの間隔（秒）
@@ -124,7 +131,7 @@ export function createBattle(stats0, rng = Math.random, opts = {}) {
     event: null, // 契約の選択肢（あれば戦闘は止まる）
     eventDone: new Set(),
     contracts: [], // 結んだ契約の id
-    tagMul: {}, dotMul: 1, frozenMul: 1, // 遺物による属性ごとのダメージ倍率
+    tagMul: tagMulOf(stats), dotMul: 1, frozenMul: 1, // 属性ごとのダメージ倍率（ツリーの「属性」の枝。遺物でさらに重なる）
     toast: null, // 取得したものの一言表示 { icon, title, sub, color, t }
     jamK: 1, // 妨害兵の近くにいる間の、待ち時間の倍率（小さいほど遅い）
     seenTypes: new Set(), // この挑戦で出た新しい敵（初めて出たときに一言を出す）

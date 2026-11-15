@@ -208,7 +208,7 @@ export function drawWeaponPanel(g, sc) {
   kit.text(g, `Lv ${lv} / 10${lv >= 10 ? '  MAX' : ''}`, p.x + 10, p.y + 25, 11, lv >= 10 ? sk.gold : sk.text, 'left', lv >= 10 ? 5 : 0);
   // 属性
   const cw = attrChips(g, kit, p.x + 90, p.y + 24, def.tags);
-  kit.text(g, '属性', p.x + 90 + cw + 4, p.y + 26, 8.5, sk.dim);
+  kit.text(g, def.tags.map((t) => `${TAG_NAME[t] || t}×${Math.round((b.tagMul[t] || 1) * 100) / 100}`).join(' '), p.x + 90 + cw + 4, p.y + 26, 8.5, def.tags.some((t) => (b.tagMul[t] || 1) > 1) ? sk.gold : sk.dim);
   // 要素 5 つ
   const rows = weaponElements(id, lv, b.stats);
   const y0 = p.y + 46;

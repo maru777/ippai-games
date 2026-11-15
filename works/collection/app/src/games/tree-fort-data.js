@@ -27,6 +27,8 @@ export const BASE_STATS = {
   wsize: 0, // 範囲 +%
   wcount: 0, // 数 +（弾数・本数・機数・刃の数など）
   wtime: 0, // 持続 +%
+  // 属性（ツリーの「属性」の枝）: その属性の与ダメージ +%（0.2 = +20%）。対応するタグは ATTR_TAGS
+  tfire: 0, tice: 0, tlightning: 0, tpoison: 0, tlight: 0, tgravity: 0,
   choices: 3, // レベルアップの選択肢の数
 };
 
@@ -87,11 +89,23 @@ const TREE_BASE = [
   { id: 'arm8', name: '範囲 II', desc: '全武器の範囲 +10%（さらに）', cost: 104, gx: -3, gy: -4, req: ['arm3', 'arm7'], fx: { wsize: 0.1 }, mark: '範' },
   { id: 'arm9', name: '数 II', desc: '全武器の数 +1（さらに）', cost: 160, gx: -4, gy: -5, req: ['arm4', 'arm8'], fx: { wcount: 1 }, mark: '数' },
   { id: 'arm10', name: '持続 II', desc: '全武器の持続 +15%（さらに）', cost: 112, gx: -5, gy: -6, req: ['arm5', 'arm9'], fx: { wtime: 0.15 }, mark: '持' },
+  // 属性: その属性の武器のダメージ +20%（遺物と重なる）。右上へ斜めに伸びる
+  { id: 'elem1', name: '火の祝福', desc: '火属性のダメージ +20%（爆弾・火炎放射・ミサイル・流星）', cost: 60, gx: 1, gy: -1, req: ['core'], fx: { tfire: 0.2 }, mark: '火' },
+  { id: 'elem2', name: '氷の祝福', desc: '氷属性のダメージ +20%（氷結弾）', cost: 60, gx: 2, gy: -2, req: ['elem1'], fx: { tice: 0.2 }, mark: '氷' },
+  { id: 'elem3', name: '雷の祝福', desc: '雷属性のダメージ +20%（雷撃）', cost: 60, gx: 3, gy: -3, req: ['elem2'], fx: { tlightning: 0.2 }, mark: '雷' },
+  { id: 'elem4', name: '毒の祝福', desc: '毒属性のダメージ +20%（毒霧）', cost: 60, gx: 4, gy: -4, req: ['elem3'], fx: { tpoison: 0.2 }, mark: '毒' },
+  { id: 'elem5', name: '光・機械の祝福', desc: '光・機械属性のダメージ +20%（レーザー・ドローン）', cost: 60, gx: 5, gy: -5, req: ['elem4'], fx: { tlight: 0.2 }, mark: '光' },
+  { id: 'elem6', name: '重力・物理の祝福', desc: '重力・物理属性のダメージ +20%（重力井戸・地雷・回転刃・ミサイル・タップ）', cost: 60, gx: 6, gy: -6, req: ['elem5'], fx: { tgravity: 0.2 }, mark: '重' },
   { id: 'grw5', name: '経験値 II', desc: '経験値 +35%', cost: 220, gx: 5, gy: 5, req: ['grw4'], fx: { xpMul: 0.35 }, mark: '経' },
 ];
 
 export const TREE = TREE_BASE.map((n) => ({ ...n, cost: Math.round((n.cost * COST_MUL) / 5) * 5 }));
 export const NODE = Object.fromEntries(TREE.map((n) => [n.id, n]));
+
+// 属性の枝の能力値 → 効くダメージのタグ（燃焼・毒は、その属性の継続ダメージ）
+export const ATTR_TAGS = {
+  tfire: ['fire', 'burn'], tice: ['ice'], tlightning: ['lightning'], tpoison: ['poison', 'toxic'], tlight: ['light', 'machine'], tgravity: ['gravity', 'physical'],
+};
 
 export const START_OWNED = ['core'];
 
