@@ -49,9 +49,9 @@ test('tree: 位置の重複がなく、fx は既知の能力値だけを指す',
 test('stats: 何も取らなければ基本値、全部取れば全攻撃が解放される', () => {
   const base = computeStats(START_OWNED);
   assert.equal(base.dmg, BASE_STATS.dmg);
-  assert.deepEqual(base.weapons, { bomb: false, lightning: false, blade: false });
+  assert.ok(Object.values(base.weapons).every((v) => v === false) && Object.keys(base.weapons).length === 12, '12 武器すべて未解放');
   const all = computeStats(TREE.map((n) => n.id));
-  assert.deepEqual(all.weapons, { bomb: true, lightning: true, blade: true });
+  assert.ok(Object.values(all.weapons).every((v) => v === true), '全ノードで 12 武器すべて解放');
   assert.ok(all.dmg > base.dmg && all.hp > base.hp && all.rate > base.rate);
   assert.ok(all.crit <= 1 && all.reduce <= 0.8);
 });
@@ -88,7 +88,8 @@ test('battle: タップ攻撃は近い敵にだけ当たり、クールダウン
 });
 
 // ツリーで解放した武器を Lv1 で装備した状態にする
-const loadoutOf = (st) => Object.entries(st.weapons).filter(([, v]) => v).map(([id]) => ({ id, level: 1 }));
+// バランスの確認は、以前と同じ 3 武器（爆弾・雷撃・回転刃）を出撃時に持つ想定（開始枠の少ない状態）
+const loadoutOf = (st) => Object.entries(st.weapons).filter(([id, v]) => v && ['bomb', 'lightning', 'blade'].includes(id)).map(([id]) => ({ id, level: 1 }));
 
 // 強化ごとの到達波（バランス確認）。乱数のばらつきを避けるため複数回の平均で比べる。
 const avgWave = (ids, n = 6) => {

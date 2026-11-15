@@ -7,7 +7,8 @@
 // データ: tree-fort-data / -weapons / -meta / -run、戦闘: -battle、見た目: -skins / -view / -wview / -rview。
 import { inside } from '../core/draw.js';
 import { Store } from '../core/storage.js';
-import { NODE, TREE, START_OWNED, computeStats, canBuy, canRefund, TREE_WEAPON_NODE } from './tree-fort-data.js';
+import { NODE, TREE, START_OWNED, computeStats, canBuy, canRefund, TREE_WEAPON_NODE, startSelectable, unlockedWeapons, startSlotCount, startWeapons } from './tree-fort-data.js';
+import { loadoutCards, drawLoadout } from './tree-fort-loadoutview.js';
 import { WEAPON, SYNERGIES, SLOT_BASE, SLOT_MAX, SLOT_COST } from './tree-fort-weapons.js';
 import { startLevel } from './tree-fort-run.js';
 import { sanitizeOd, odConfig, odInfoToast, odAct } from './tree-fort-od.js';
@@ -116,6 +117,7 @@ function loadSave() {
     bestCombo: num(raw?.bestCombo),
     bestRelics: num(raw?.bestRelics),
     od: sanitizeOd(raw?.od),
+    startWeapons: Array.isArray(raw?.startWeapons) ? raw.startWeapons.filter((id) => TREE_WEAPON_NODE[id]) : [], // 前回選んだ開始装備
   };
 }
 
@@ -149,7 +151,7 @@ export default function create(env) {
       owned: [...s.owned], points: s.points, bestWave: s.bestWave, runs: s.runs,
       skinsOwned: [...s.skinsOwned], fxOwned: [...s.fxOwned], skin: s.skin, fx: s.fx,
       slots: s.slots, discovered: s.discovered, stageClear: s.stageClear, stars: s.stars, speed: s.speed, daily: s.daily,
-      ach: s.ach, bestCombo: s.bestCombo, bestRelics: s.bestRelics, od: s.od,
+      ach: s.ach, bestCombo: s.bestCombo, bestRelics: s.bestRelics, od: s.od, startWeapons: s.startWeapons,
     });
   };
 
@@ -365,14 +367,33 @@ export default function create(env) {
   }
 
   // ---- ステージ選択 ----
-  function startRun(entry) {
+  // 出撃ボタン: 開始装備の選択肢が、枠より多いときだけ、選ぶ画面を挟む
+  function beginRun(entry) {
+    const sv = sc.save;
+    if (startSelectable(sv.owned)) {
+      const stats = computeStats(sv.owned);
+      const un = unlockedWeapons(sv.owned);
+      const slots = startSlotCount(sv.owned, stats);
+      if (un.length > slots) {
+        sc.loadout = { entry, sel: startWeapons(sv.owned, sv.startWeapons, stats), slots, info: null };
+        screen = 'loadout';
+        sound.beep(700, 0.06, 'square', 0.05);
+        return;
+      }
+      startRun(entry, un);
+      return;
+    }
+    startRun(entry);
+  }
+
+  function startRun(entry, ids = null) {
     const sv = sc.save;
     const stage = entry.stage; // 1〜10 / 0 無限 / -1 今日の挑戦
     const daily = stage === -1;
     const mods = daily ? sc.daily.mods : stage > 0 ? STAGE_INFO[stage].mods : [];
     const stats = computeStats(sv.owned);
-    // ツリーで「最初から装備する」武器
-    const loadout = Object.entries(TREE_WEAPON_NODE).filter(([, node]) => sv.owned.has(node)).map(([id]) => ({ id, level: startLevel(id, stats) }));
+    // ツリーで解放した武器のうち、出撃時に持つもの（武器庫があれば、選んだもの）
+    const loadout = (ids || startWeapons(sv.owned, sv.startWeapons, stats)).map((id) => ({ id, level: startLevel(id, stats) }));
     const discovered = new Set(sv.discovered.weapons);
     sc.run = createBattle(stats, daily ? seededRng(sc.daily.seed) : Math.random, {
       stage: daily ? 0 : stage, mods, leveling: true, slots: sv.slots, discovered, loadout, od: odConfig(sv.od),
@@ -398,7 +419,7 @@ export default function create(env) {
     }
     const entry = sc.stageList.find((e) => e.id === sc.stageSel);
     if (inside(x, y, BTN_ST_GO)) {
-      if (entry && !entry.locked) startRun(entry);
+      if (entry && !entry.locked) beginRun(entry);
       else sound.beep(200, 0.08, 'sawtooth', 0.05);
       return;
     }
@@ -416,6 +437,47 @@ export default function create(env) {
   function updateStages(dt) {
     sc.msgT -= dt;
     updateList(ST_LIST, () => sc.stageScroll, (v) => { sc.stageScroll = v; }, stageMaxScroll(sc.stageList.length), onStageTap);
+  }
+
+  // ---- 開始装備を選ぶ（出撃の前）----
+  function updateLoadout(dt) {
+    sc.msgT -= dt;
+    if (!input.pressed) return;
+    const { x, y } = input;
+    const lo = sc.loadout;
+    if (inside(x, y, BTN_GO)) {
+      screen = 'stages';
+      sound.beep(500, 0.05, 'square', 0.05);
+      return;
+    }
+    if (inside(x, y, BTN_BUY)) {
+      if (!lo.sel.length) {
+        sound.beep(200, 0.08, 'sawtooth', 0.05);
+        return;
+      }
+      sc.save.startWeapons = lo.sel.slice();
+      persist();
+      startRun(lo.entry, lo.sel);
+      return;
+    }
+    for (const c of loadoutCards(sc)) {
+      if (!inside(x, y, c.rect)) continue;
+      lo.info = c.id;
+      if (!c.unlocked) {
+        say('ツリーの「武器庫」の枝で解放できます');
+        sound.beep(200, 0.06, 'sawtooth', 0.04);
+      } else if (lo.sel.includes(c.id)) {
+        lo.sel = lo.sel.filter((id) => id !== c.id);
+        sound.beep(520, 0.04, 'sine', 0.04);
+      } else if (lo.sel.length >= lo.slots) {
+        say(`装備できるのは ${lo.slots} つまで。外してから選んでください`);
+        sound.beep(200, 0.06, 'sawtooth', 0.04);
+      } else {
+        lo.sel.push(c.id);
+        sound.beep(720, 0.05, 'sine', 0.05);
+      }
+      return;
+    }
   }
 
   // ---- 図鑑 ----
@@ -936,6 +998,7 @@ export default function create(env) {
     else if (screen === 'codex') updateCodex(dt);
     else if (screen === 'shop') updateShop(dt);
     else if (screen === 'od') updateOd(dt);
+    else if (screen === 'loadout') updateLoadout(dt);
     else if (screen === 'battle') updateBattle(dt);
   }
 
@@ -954,6 +1017,7 @@ export default function create(env) {
     else if (screen === 'codex') drawCodex(g, sc);
     else if (screen === 'shop') drawShop(g, sc);
     else if (screen === 'od') drawOdShop(g, sc);
+    else if (screen === 'loadout') drawLoadout(g, sc);
     else drawTree(g, sc);
   }
 
