@@ -1,6 +1,8 @@
 // ツリー砦の武器: データ（12 種・各 Lv1〜10・組み合わせ効果）と、戦闘中の動き。
 // 武器の追加は WEAPONS に 1 件足し、下の upd に動きを書く。組み合わせ効果は SYNERGIES に足す。
 // 戦闘本体（tree-fort-battle.js）は api（敵・ダメージ・演出の道具）を渡して createWeapons を呼ぶだけ。
+import { EV, bladeShock } from './tree-fort-elements.js';
+
 export const SLOT_BASE = 3;
 export const SLOT_MAX = 6;
 export const SLOT_COST = { 4: 300, 5: 750, 6: 1500 };
@@ -165,24 +167,25 @@ export function createWeapons(api, loadout) {
         return;
       }
       const k = syn.has('compress') ? 1.4 : 1;
-      const r = (30 + 4 * (L - 1)) * k;
-      const dmg = D() * (2.2 + 0.35 * (L - 1)) * (syn.has('compress') ? 1.6 : 1);
+      const r = EV.bomb.radius(L) * k;
+      const dmg = D() * EV.bomb.dmg(L) * (syn.has('compress') ? 1.6 : 1);
       const { x, y } = t;
       explode(x, y, r, dmg, 'fire');
       if (syn.has('compress')) synText('compress', x, y);
-      if (L >= 3) later(0.35, () => explode(x, y, r, dmg * 0.6, 'fire'));
-      if (L >= 9) later(0.7, () => explode(x, y, r, dmg * 0.5, 'fire'));
-      if (L >= 5) {
-        const kids = L >= 7 ? 6 : 4;
+      const rep = EV.bomb.repeat(L);
+      if (rep >= 2) later(0.35, () => explode(x, y, r, dmg * 0.6, 'fire'));
+      if (rep >= 3) later(0.7, () => explode(x, y, r, dmg * 0.5, 'fire'));
+      const kids = EV.bomb.kids(L);
+      if (kids > 0) {
         for (let i = 0; i < kids; i++) {
           const a = (i / kids) * Math.PI * 2 + 0.4;
           const kx = x + Math.cos(a) * 26;
           const ky = y + Math.sin(a) * 26;
           later(0.2 + i * 0.07, () => explode(kx, ky, 18, dmg * 0.5, 'fire'));
-          if (L >= 7) later(0.5 + i * 0.07, () => explode(kx + Math.cos(a) * 14, ky + Math.sin(a) * 14, 14, dmg * 0.3, 'fire')); // 子爆弾が連鎖
+          if (kids >= 6) later(0.5 + i * 0.07, () => explode(kx + Math.cos(a) * 14, ky + Math.sin(a) * 14, 14, dmg * 0.3, 'fire')); // 子爆弾が連鎖
         }
       }
-      cd.bomb += Math.max(0.9, 2.6 - 0.2 * (L - 1) - (L >= 8 ? 0.2 : 0)) / speedUp();
+      cd.bomb += EV.bomb.cd(L) / speedUp();
     },
 
     lightning(dt, L) {
@@ -194,11 +197,11 @@ export function createWeapons(api, loadout) {
       }
       const hit = [cur];
       const pts = [{ x: cx, y: cy }, { x: cur.x, y: cur.y }];
-      const base = D() * (1.5 + 0.2 * (L - 1));
+      const base = D() * EV.lightning.dmg(L);
       hurt(cur, base, { tag: 'lightning' });
-      const chains = 3 + Math.floor(L / 2) + (L >= 7 ? 2 : 0);
+      const chains = EV.lightning.chains(L);
       for (let i = 1; i <= chains; i++) {
-        const nx = nearestTo(cur.x, cur.y, 48, hit);
+        const nx = nearestTo(cur.x, cur.y, EV.lightning.reach(L), hit);
         if (!nx) break;
         hurt(nx, base * 0.75 ** i, { tag: 'lightning' });
         hit.push(nx);
@@ -206,21 +209,22 @@ export function createWeapons(api, loadout) {
         cur = nx;
       }
       addFx({ kind: 'bolt', life: 0.3, pts });
-      if (L >= 5) {
+      const strikes = EV.lightning.strikes(L);
+      if (strikes > 0) {
         const pool = inRange(stats.range * 1.1).filter((e) => !hit.includes(e));
-        for (let i = 0; i < (L >= 9 ? 6 : 3) && pool.length; i++) {
+        for (let i = 0; i < strikes && pool.length; i++) {
           const e = pool.splice(Math.floor(rng() * pool.length), 1)[0];
           hurt(e, D() * 1.2, { tag: 'lightning' });
           addFx({ kind: 'bolt', life: 0.25, pts: [{ x: e.x + 6, y: e.y - 70 }, { x: e.x, y: e.y }] });
         }
       }
-      cd.lightning += Math.max(0.7, 1.7 - 0.1 * (L - 1) - (L >= 8 ? 0.1 : 0)) / speedUp();
+      cd.lightning += EV.lightning.cd(L) / speedUp();
     },
 
     blade(dt, L, mx) {
-      const n = L >= 9 ? 6 : L >= 7 ? 5 : L >= 5 ? 4 : L >= 3 ? 3 : 2;
-      const R = Math.min(70, 34 + 6 * (L - 1));
-      w.angle = (w.angle || 0) + (3.2 + 0.2 * L) * dt;
+      const n = EV.blade.count(L);
+      const R = EV.blade.radius(L);
+      w.angle = (w.angle || 0) + EV.blade.spin(L) * dt;
       w.blades = Array.from({ length: n }, (_, k) => {
         const a = w.angle + (k * Math.PI * 2) / n;
         return { x: cx + Math.cos(a) * R, y: cy + Math.sin(a) * R, a };
@@ -233,7 +237,7 @@ export function createWeapons(api, loadout) {
           w.blades.push({ x: cx + Math.cos(a) * R2, y: cy + Math.sin(a) * R2, a });
         }
       }
-      const dmg = D() * (0.9 + 0.22 * (L - 1)) * (b.t < (w.bladeBoost || 0) ? 2 : 1); // 大技の間は 2 倍
+      const dmg = D() * EV.blade.dmg(L) * (b.t < (w.bladeBoost || 0) ? 2 : 1); // 大技の間は 2 倍
       for (const e of alive()) {
         if (e.bladeCd > 0) continue;
         if (w.blades.some((bl) => dist(bl.x, bl.y, e.x, e.y) <= 8 + e.r)) {
@@ -241,19 +245,20 @@ export function createWeapons(api, loadout) {
           e.bladeCd = 0.35;
         }
       }
-      if (L >= 5) {
-        cd.blade = (cd.blade ?? 2.5) - dt;
+      const sh = bladeShock(L);
+      if (sh) {
+        cd.blade = (cd.blade ?? sh.every) - dt;
         if (cd.blade <= 0) {
-          cd.blade += L >= 8 ? 1.8 : 2.5;
-          const sr = 56 + (L >= 8 ? 14 : 0);
-          for (const e of alive()) if (dist(e.x, e.y, cx, cy) <= sr + e.r) hurt(e, D() * (L >= 8 ? 2.4 : 1.8), { tag: 'physical' });
+          cd.blade += sh.every;
+          const sr = sh.r;
+          for (const e of alive()) if (dist(e.x, e.y, cx, cy) <= sr + e.r) hurt(e, D() * sh.dmg, { tag: 'physical' });
           addFx({ kind: 'ring', life: 0.4, x: cx, y: cy, r: sr, tag: 'physical' });
         }
       }
     },
 
     flame(dt, L, mx) {
-      const range = Math.min(110, 62 + 6 * (L - 1));
+      const range = EV.flame.range(L);
       if ((cd.flame -= dt) > 0) return;
       const t = nearest(range + 12);
       if (!t) {
@@ -261,18 +266,18 @@ export function createWeapons(api, loadout) {
         return;
       }
       const a = Math.atan2(t.y - cy, t.x - cx);
-      const half = mx ? Math.PI : 0.5 + (L >= 3 ? 0.15 : 0) + (L >= 7 ? 0.2 : 0);
+      const half = EV.flame.arc(mx ? 10 : L);
       for (const e of alive()) {
         const d = dist(e.x, e.y, cx, cy);
         if (d > range + e.r) continue;
         let da = Math.atan2(e.y - cy, e.x - cx) - a;
         da = Math.atan2(Math.sin(da), Math.cos(da));
         if (Math.abs(da) > half) continue;
-        hurt(e, D() * (0.9 + 0.12 * (L - 1)), { tag: 'fire' });
-        applyStatus(e, 'burn', 2.5, D() * 0.5 * (1 + 0.25 * (L - 1)) * (L >= 4 ? 1.3 : 1) * (L >= 8 ? 1.3 : 1));
+        hurt(e, D() * EV.flame.dmg(L), { tag: 'fire' });
+        applyStatus(e, 'burn', 2.5, D() * EV.flame.burn(L));
       }
       w.flames.push({ a, range, half, t: 0, life: 0.3, max: curMax });
-      cd.flame += Math.max(0.4, 0.9 - 0.05 * L) / speedUp();
+      cd.flame += EV.flame.cd(L) / speedUp();
     },
 
     frost(dt, L) {
@@ -283,10 +288,10 @@ export function createWeapons(api, loadout) {
         return;
       }
       const a0 = Math.atan2(t.y - cy, t.x - cx);
-      const spread = L >= 9 ? [-0.5, -0.25, 0, 0.25, 0.5] : L >= 7 ? [-0.45, -0.15, 0.15, 0.45] : L >= 5 ? [-0.3, 0, 0.3] : [0];
+      const spread = { 1: [0], 3: [-0.3, 0, 0.3], 4: [-0.45, -0.15, 0.15, 0.45], 5: [-0.5, -0.25, 0, 0.25, 0.5] }[EV.frost.count(L)];
       for (const da of spread) {
         const a = a0 + da;
-        w.proj.push({ kind: 'frost', x: cx, y: cy, vx: Math.cos(a) * 240, vy: Math.sin(a) * 240, life: 1.2, L, dmg: D() * (0.9 + 0.2 * (L - 1)) * (L >= 8 ? 1.2 : 1), t: 0, max: curMax });
+        w.proj.push({ kind: 'frost', x: cx, y: cy, vx: Math.cos(a) * 240, vy: Math.sin(a) * 240, life: 1.2, L, dmg: D() * EV.frost.dmg(L), t: 0, max: curMax });
       }
       cd.frost += Math.max(0.55, 1.3 - 0.1 * L) / speedUp();
     },
@@ -299,14 +304,15 @@ export function createWeapons(api, loadout) {
         return;
       }
       const make = (x, y) => w.zones.push({
-        kind: 'poison', x, y, r: (30 + 3 * L) * (L >= 9 ? 1.25 : 1), life: 4 + 0.5 * L, t: 0,
-        dps: D() * 0.7 * (1 + 0.2 * (L - 1)) * (L >= 4 ? 1.2 : 1) * (L >= 8 ? 1.3 : 1), drift: L >= 5, driftSpd: L >= 9 ? 30 : 14, max: curMax,
+        kind: 'poison', x, y, r: EV.poison.size(L), life: EV.poison.time(L), t: 0,
+        dps: D() * EV.poison.dps(L), drift: EV.poison.drift(L) > 0, driftSpd: EV.poison.drift(L) || 14, max: curMax,
       });
       make(t.x, t.y);
-      if (L >= 3) {
+      const pc = EV.poison.count(L);
+      if (pc >= 2) {
         const os = alive().filter((e) => dist(e.x, e.y, t.x, t.y) > 40);
         if (os[0]) make(os[0].x, os[0].y);
-        if (L >= 7 && os.length > 1) make(os[os.length - 1].x, os[os.length - 1].y);
+        if (pc >= 3 && os.length > 1) make(os[os.length - 1].x, os[os.length - 1].y);
       }
       cd.poison += 3.5 / speedUp();
     },
@@ -318,16 +324,16 @@ export function createWeapons(api, loadout) {
         cd.missile = 0;
         return;
       }
-      const n = L >= 9 ? 10 : L >= 7 ? 8 : L >= 5 ? 6 : L >= 3 ? 4 : 2;
+      const n = EV.missile.count(L);
       const mx = curMax;
       for (let i = 0; i < n; i++) {
         const a = Math.atan2(t.y - cy, t.x - cx) + (i - (n - 1) / 2) * (n > 6 ? 0.28 : 0.5);
         later(i * 0.07, () => w.proj.push({
           kind: 'missile', x: cx, y: cy, vx: Math.cos(a) * 130, vy: Math.sin(a) * 130, life: 3, L, t: 0,
-          dmg: D() * (1.6 + 0.25 * (L - 1)), aoe: L >= 8 ? 30 : L >= 5 ? 24 : 14, max: mx, split: false,
+          dmg: D() * EV.missile.dmg(L), aoe: EV.missile.aoe(L), max: mx, split: false,
         }));
       }
-      cd.missile += Math.max(1.2, 3.0 - 0.2 * L) / speedUp();
+      cd.missile += EV.missile.cd(L) / speedUp();
     },
 
     laser(dt, L) {
@@ -338,13 +344,14 @@ export function createWeapons(api, loadout) {
         return;
       }
       const a = Math.atan2(t.y - cy, t.x - cx);
-      const life = L >= 8 ? 1.0 : L >= 5 ? 0.7 : 0.3;
-      const total = D() * (1.4 + 0.25 * (L - 1)) * (L >= 5 ? 1.5 : 1) * (L >= 8 ? 1.2 : 1);
-      const angles = syn.has('prism') ? [a, a - 0.24, a + 0.24] : L >= 9 ? [a - 0.36, a - 0.12, a + 0.12, a + 0.36] : L >= 7 ? [a - 0.25, a, a + 0.25] : L >= 3 ? [a - 0.18, a + 0.18] : [a];
+      const life = EV.laser.time(L);
+      const total = D() * EV.laser.dmg(L);
+      const ANG = { 1: [0], 2: [-0.18, 0.18], 3: [-0.25, 0, 0.25], 4: [-0.36, -0.12, 0.12, 0.36] };
+      const angles = syn.has('prism') ? [a, a - 0.24, a + 0.24] : ANG[EV.laser.count(L)].map((d) => a + d);
       const k = syn.has('prism') ? 0.7 : 1;
       if (syn.has('prism')) synText('prism', cx + Math.cos(a) * 40, cy + Math.sin(a) * 40);
-      for (const ang of angles) w.beams.push({ a: ang, w: Math.min(11, 5 + L), t: 0, life, total: total * k, tick: 0, ticks: Math.max(1, Math.round(life / 0.2)), max: curMax });
-      cd.laser += Math.max(1.2, 3.2 - 0.2 * L) / speedUp();
+      for (const ang of angles) w.beams.push({ a: ang, w: EV.laser.width(L), t: 0, life, total: total * k, tick: 0, ticks: Math.max(1, Math.round(life / 0.2)), max: curMax });
+      cd.laser += EV.laser.cd(L) / speedUp();
     },
 
     mine(dt, L, mx) {
@@ -356,13 +363,13 @@ export function createWeapons(api, loadout) {
       }
       const t = nearest(stats.range * 1.5);
       const base = t ? Math.atan2(t.y - cy, t.x - cx) : rng() * Math.PI * 2;
-      const n = mx ? 5 : L >= 7 ? 3 : L >= 3 ? 2 : 1;
+      const n = EV.mine.count(mx ? 10 : L);
       for (let i = 0; i < n; i++) {
         const a = base + (rng() - 0.5) * (n > 3 ? 1.6 : 0.9);
         const d = 42 + rng() * 28;
         w.mines.push({ x: cx + Math.cos(a) * d, y: cy + Math.sin(a) * d, arm: 0.5, t: 0, boom: false, max: curMax });
       }
-      cd.mine += (mx ? 1.2 : L >= 9 ? 1.6 : 2.2) / speedUp();
+      cd.mine += EV.mine.interval(mx ? 10 : L) / speedUp();
     },
 
     gravity(dt, L) {
@@ -373,8 +380,8 @@ export function createWeapons(api, loadout) {
         return;
       }
       const make = (s, big) => w.wells.push({
-        x: s.x, y: s.y, r: Math.min(150, (44 + 4 * L + (L >= 3 ? 10 : 0)) * (big ? 1.8 : 1)), life: (2.2 + 0.3 * L) * (big ? 1.5 : 1), t: 0,
-        pull: (55 + 5 * L + (L >= 4 ? 15 : 0)) * (big ? 2 : 1), L, tickT: 0, dpsK: L >= 8 ? 1.6 : 1, big, max: curMax,
+        x: s.x, y: s.y, r: Math.min(150, EV.gravity.radius(L) * (big ? 1.8 : 1)), life: EV.gravity.time(L) * (big ? 1.5 : 1), t: 0,
+        pull: EV.gravity.pull(L) * (big ? 2 : 1), L, tickT: 0, dpsK: EV.gravity.dot(L) / 0.35, big, max: curMax,
       });
       make(spot, false);
       if (L >= 7) {
@@ -391,26 +398,26 @@ export function createWeapons(api, loadout) {
         cd.meteor = 0;
         return;
       }
-      const n = L >= 9 ? 5 : L >= 7 ? 4 : L >= 5 ? 3 : L >= 3 ? 2 : 1;
+      const n = EV.meteor.count(L);
       const mx = curMax;
       const drop = (count, t0) => {
         for (let i = 0; i < count; i++) {
           const e = pool[Math.floor(rng() * pool.length)];
           w.meteors.push({
-            x: e.x + (rng() - 0.5) * 14, y: e.y + (rng() - 0.5) * 14, t: t0 - i * 0.18, delay: 0.7,
-            r: 34 + 3 * L + (L >= 8 ? 8 : 0), dmg: D() * (3.2 + 0.6 * (L - 1)), max: mx,
+            x: e.x + (rng() - 0.5) * 14, y: e.y + (rng() - 0.5) * 14, t: t0 - i * 0.18, delay: EV.meteor.delay(L),
+            r: EV.meteor.radius(L), dmg: D() * EV.meteor.dmg(L), max: mx,
           });
         }
       };
       drop(n, 0);
-      cd.meteor += Math.max(1.4, 3.4 - 0.25 * L) / speedUp();
+      cd.meteor += EV.meteor.cd(L) / speedUp();
     },
 
     drone(dt, L, mx) {
-      const n = 1 + Math.floor(L / 2);
+      const n = EV.drone.count(L);
       while (w.drones.length < n) w.drones.push({ a: (w.drones.length / n) * Math.PI * 2, cd: rng() * 0.5, x: cx, y: cy });
       w.drones.length = n;
-      const dmg = D() * 0.7 * (1 + 0.2 * (L - 1)) * (L >= 3 ? 1.15 : 1) * (L >= 7 ? 1.2 : 1);
+      const dmg = D() * EV.drone.dmg(L);
       w.droneA = (w.droneA || 0) + dt * 1.6;
       w.drones.forEach((d, k) => {
         const a = w.droneA + (k / n) * Math.PI * 2;
@@ -418,12 +425,12 @@ export function createWeapons(api, loadout) {
         d.y = cy + Math.sin(a) * 32 * 0.8;
         d.cd -= dt;
         if (d.cd > 0) return;
-        const t = nearestTo(d.x, d.y, stats.range * 0.95);
+        const t = nearestTo(d.x, d.y, stats.range * EV.drone.reach(L));
         if (!t) {
           d.cd = 0.1;
           return;
         }
-        const shots = mx ? 4 : L >= 9 ? 3 : L >= 5 ? 2 : 1;
+        const shots = EV.drone.shots(mx ? 10 : L);
         for (let s = 0; s < shots; s++) {
           later(s * 0.1, () => {
             if (t.dead) return;
@@ -448,7 +455,7 @@ export function createWeapons(api, loadout) {
             });
           });
         }
-        d.cd = mx ? 0.5 : 0.9;
+        d.cd = EV.drone.cd(mx ? 10 : L);
       });
     },
   };
@@ -626,7 +633,7 @@ export function createWeapons(api, loadout) {
           const cur = Math.atan2(p.vy, p.vx);
           let da = want - cur;
           da = Math.atan2(Math.sin(da), Math.cos(da));
-          const turn = (p.L >= 9 ? 6 : 4) * dt;
+          const turn = EV.missile.turn(p.L) * dt;
           const na = cur + Math.max(-turn, Math.min(turn, da));
           const sp = Math.min(220, Math.hypot(p.vx, p.vy) + 120 * dt);
           p.vx = Math.cos(na) * sp;
@@ -652,9 +659,9 @@ export function createWeapons(api, loadout) {
           }
           p.life = 0;
         } else if (p.kind === 'frost') {
-          const mul = 0.6 - 0.03 * (p.L - 1);
-          const fr = Math.min(0.85, 0.1 + 0.08 * (p.L - 1));
-          const dur = p.L >= 8 ? 2.8 : p.L >= 5 ? 2.0 : 1.2;
+          const mul = 1 - EV.frost.slow(p.L);
+          const fr = EV.frost.chance(p.L);
+          const dur = EV.frost.time(p.L);
           // Lv9〜: すでに凍っている敵に当たると砕けて、氷片が飛ぶ
           if (p.L >= 9 && e.freeze > 0) explode(e.x, e.y, 30, p.dmg * 0.8, 'ice');
           const apply = (t, chance) => {
@@ -742,13 +749,13 @@ export function createWeapons(api, loadout) {
     }
     const L9 = lvOf('mine');
     for (const m of w.mines.filter((x) => x.boom)) {
-      const r = (26 + 2 * L9) * (syn.has('lure') ? 1.4 : 1) * (m.max ? 1.3 : 1);
+      const r = EV.mine.radius(L9) * (syn.has('lure') ? 1.4 : 1) * (m.max ? 1.3 : 1);
       curMax = !!m.max;
-      explode(m.x, m.y, r, D() * (2.5 + 0.4 * (L9 - 1)) * (syn.has('lure') ? 1.3 : 1), 'physical');
+      explode(m.x, m.y, r, D() * EV.mine.dmg(L9) * (syn.has('lure') ? 1.3 : 1), 'physical');
       curMax = false;
       if (syn.has('lure')) synText('lure', m.x, m.y);
-      const chain = L9 >= MAX_LEVEL ? 90 : L9 >= 8 ? 70 : 48;
-      if (L9 >= 5) for (const o of w.mines) if (o !== m && dist(o.x, o.y, m.x, m.y) <= chain) o.boom = true;
+      const chain = EV.mine.chain(L9);
+      if (chain > 0) for (const o of w.mines) if (o !== m && dist(o.x, o.y, m.x, m.y) <= chain) o.boom = true;
     }
     w.mines = w.mines.filter((m) => !m.boom);
 
@@ -772,7 +779,7 @@ export function createWeapons(api, loadout) {
       if (wl.t >= wl.life && wl.L >= 5 && !wl.collapsed) {
         wl.collapsed = true;
         curMax = !!wl.max;
-        explode(wl.x, wl.y, wl.r * (wl.big ? 1.1 : 0.8), D() * (wl.big ? 10 : wl.L >= 9 ? 6 : 3), 'gravity');
+        explode(wl.x, wl.y, wl.r * (wl.big ? 1.1 : 0.8), D() * (wl.big ? 10 : EV.gravity.collapse(wl.L)), 'gravity');
         if (wl.big) addFx({ kind: 'maxPulse', life: 0.5 });
         curMax = false;
       }
