@@ -12,6 +12,12 @@ const GOLDEN = Math.PI * (3 - Math.sqrt(5)); // 黄金角（約 137.5 度）
 
 export const STEP = 44;
 export const NODE_R = 15;
+// ツリーの全体表示（縮小）: ノードが 70 個を超えたので、全体を見渡せるようにする
+export const ZOOM_OUT = 0.4;
+export const PAN_LIMIT = 300; // ふだんの表示で、ツリーを動かせる範囲
+export const BTN_ZOOM = { x: 202, y: 34, w: 34, h: 18 };
+// 全体表示のとき、ツリーの範囲（x: −5〜6、y: −6〜5）が画面の真ん中に来る位置
+export const overviewPan = () => ({ x: -0.5 * 44 * ZOOM_OUT, y: 0.5 * 44 * ZOOM_OUT });
 export const MAP = { x: 0, y: 30, w: 240, h: 208 };
 export const MAP_CX = 120;
 export const BTN_BUY = { x: 8, y: 288, w: 108, h: 28 };
@@ -1209,7 +1215,7 @@ export function drawBattle(g, sc) {
 }
 
 // ---- ツリー画面 ----
-const nodePos = (sc, n) => ({ x: MAP_CX + sc.pan.x + n.gx * STEP, y: MAP.y + MAP.h / 2 + sc.pan.y + n.gy * STEP });
+const nodePos = (sc, n) => ({ x: MAP_CX + sc.pan.x + n.gx * STEP * (sc.zoom || 1), y: MAP.y + MAP.h / 2 + sc.pan.y + n.gy * STEP * (sc.zoom || 1) });
 export const nodeScreenPos = nodePos;
 
 export function nodeState(sc, n) {
@@ -1288,7 +1294,8 @@ export function drawTree(g, sc) {
     const pulse = 0.5 + 0.5 * Math.sin(clock * 5 + n.gx);
     g.save();
     g.translate(p.x, p.y);
-    g.scale(pop, pop);
+    const zoom = sc.zoom || 1; // 全体表示では、ノードも小さく描く
+    g.scale(pop * zoom, pop * zoom);
     const markSize = 14;
     const big = n.unlock ? NODE_R + 2 : NODE_R;
     if (st === 'owned') {
@@ -1375,7 +1382,7 @@ export function drawTree(g, sc) {
       g.stroke();
       g.shadowBlur = 0;
       kit.text(g, n.mark, 0, -markSize / 2 - 1, markSize, rgba(st === 'buyable' ? c : dim ? sk.dim : c, dim ? 0.55 : 1), 'center');
-      kit.text(g, `${n.cost}`, 0, big + 3, 9, st === 'buyable' ? sk.gold : st === 'available' ? sk.bad : rgba(sk.dim, 0.7), 'center');
+      if (zoom >= 0.7) kit.text(g, `${n.cost}`, 0, big + 3, 9, st === 'buyable' ? sk.gold : st === 'available' ? sk.bad : rgba(sk.dim, 0.7), 'center');
     }
     if (n.id === sc.sel) {
       g.strokeStyle = sk.text;
@@ -1404,6 +1411,7 @@ export function drawTree(g, sc) {
   kit.button(g, BTN_ARMORY, '図鑑', { color: sk.me, size: 11 });
   kit.button(g, BTN_ODSHOP, 'OD', { color: sk.gold, size: 11 });
   kit.button(g, BTN_SHOP, 'ショップ', { color: sk.op, size: 10 });
+  kit.button(g, BTN_ZOOM, (sc.zoom || 1) < 1 ? '拡大' : '全体', { color: sk.dim, size: 9 });
 
   // 下のパネル
   const n = NODE[sc.sel];

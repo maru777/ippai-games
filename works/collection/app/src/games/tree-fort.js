@@ -18,7 +18,7 @@ import { createBattle, ARENA, STAGE_COUNT, STAGE_WAVES } from './tree-fort-battl
 import { STAGE_INFO, RELICS, ACHIEVEMENTS, dailyChallenge } from './tree-fort-meta.js';
 import { SKINS, EFFECTS, makeKit } from './tree-fort-skins.js';
 import {
-  MAP, NODE_R, BTN_BUY, BTN_GO, BTN_SHOP, BTN_ODSHOP, BTN_ARMORY, BTN_MENU, BTN_RETREAT, shopLayout, nodeScreenPos,
+  MAP, NODE_R, STEP, ZOOM_OUT, PAN_LIMIT, BTN_ZOOM, overviewPan, BTN_BUY, BTN_GO, BTN_SHOP, BTN_ODSHOP, BTN_ARMORY, BTN_MENU, BTN_RETREAT, shopLayout, nodeScreenPos,
   drawTree, drawBattle, drawShop, spawnFx, layoutView, battleOffset,
 } from './tree-fort-view.js';
 import {
@@ -28,7 +28,6 @@ import {
 } from './tree-fort-rview.js';
 
 const SAVE_ID = 'tree-fort-save';
-const PAN_LIMIT = 300; // ツリーを動かせる範囲（枝が増えたので広げた）
 const kits = {};
 const kitOf = (skinId) => {
   if (!kits[skinId]) kits[skinId] = makeKit(SKINS.find((s) => s.id === skinId) || SKINS[0]);
@@ -179,6 +178,7 @@ export default function create(env) {
     sc.save = loadSave();
     sc.sel = 'core';
     sc.pan = { x: 0, y: 0 };
+    sc.zoom = 1;
     sc.msg = '';
     sc.msgT = 0;
     sc.t = 0;
@@ -227,6 +227,18 @@ export default function create(env) {
     sc.flash.col = col;
     sc.flash.a = Math.max(sc.flash.a, a);
   };
+  // ツリーの全体表示（縮小）の切り替え。縮小中にノードをタップすると、そのノードを真ん中にして、元の大きさに戻る
+  function setZoom(out, focus = null) {
+    if (out) {
+      sc.panBack = { x: sc.pan.x, y: sc.pan.y };
+      sc.zoom = ZOOM_OUT;
+      sc.pan = overviewPan();
+    } else {
+      sc.zoom = 1;
+      sc.pan = focus ? { x: -focus.gx * STEP, y: -focus.gy * STEP } : sc.panBack || { x: 0, y: 0 };
+      clampPan();
+    }
+  }
   const clampPan = () => {
     sc.pan.x = Math.max(-PAN_LIMIT, Math.min(PAN_LIMIT, sc.pan.x));
     sc.pan.y = Math.max(-PAN_LIMIT, Math.min(PAN_LIMIT, sc.pan.y));
@@ -309,9 +321,14 @@ export default function create(env) {
       else buy();
       return;
     }
+    if (inside(x, y, BTN_ZOOM)) {
+      setZoom(sc.zoom === 1);
+      sound.beep(sc.zoom === 1 ? 600 : 800, 0.05, 'square', 0.05);
+      return;
+    }
     if (!inside(x, y, MAP)) return;
     let best = null;
-    let bd = NODE_R * 1.5;
+    let bd = Math.max(11, NODE_R * 1.5 * sc.zoom);
     for (const n of TREE) {
       const p = nodeScreenPos(sc, n);
       const d = Math.hypot(p.x - x, p.y - y);
@@ -324,6 +341,7 @@ export default function create(env) {
       sc.sel = best.id;
       sc.msg = '';
       sound.beep(520 + TREE.indexOf(best) * 8, 0.04, 'sine', 0.04);
+      if (sc.zoom < 1) setZoom(false, best);
     }
   }
 
@@ -335,7 +353,7 @@ export default function create(env) {
     }
     if (drag && input.pointerDown) {
       if (Math.hypot(input.x - drag.sx, input.y - drag.sy) > 6) drag.moved = true;
-      if (drag.moved && drag.inMap) {
+      if (drag.moved && drag.inMap && sc.zoom === 1) {
         sc.pan.x += input.x - drag.lx;
         sc.pan.y += input.y - drag.ly;
         clampPan();
