@@ -8,8 +8,9 @@ import { Store } from '../app/src/core/storage.js';
 import { SKINS, EFFECTS } from '../app/src/games/tree-fort-skins.js';
 import { BTN_SHOP, BTN_ODSHOP, BTN_GO, BTN_BUY, BTN_RETREAT, BTN_ARMORY, shopLayout, MAP } from '../app/src/games/tree-fort-view.js';
 import { odRows } from '../app/src/games/tree-fort-odview.js';
+import { closeRect } from '../app/src/games/tree-fort-panelview.js';
 import {
-  BTN_ST_BACK, BTN_ST_GO, ST_LIST, cardRects, BTN_REROLL, BTN_SPEED, BTN_OD, CX_TABS, CX_LIST, BTN_CX_BACK, slotRect,
+  BTN_ST_BACK, BTN_ST_GO, ST_LIST, cardRects, BTN_REROLL, BTN_SPEED, BTN_STATUS, BTN_OD, CX_TABS, CX_LIST, BTN_CX_BACK, slotRect,
 } from '../app/src/games/tree-fort-rview.js';
 import { WEAPONS } from '../app/src/games/tree-fort-weapons.js';
 import create from '../app/src/games/tree-fort.js';
@@ -112,6 +113,15 @@ for (const H of [320, 520]) {
       for (let a = 0; a < 40 && ended() === 0; a++) {
         for (let k = 0; k < 40; k++) frame(game, input, 1 / 60);
         frame(game, input, 1 / 60, mid(cardRects(3)[0]));
+        if (a === 0 && ended() === 0) {
+          // ステータス画面（開く → 絵が描ける → 閉じる）と、武器の要素パネル（武器アイコンをタップ → 閉じる）
+          frame(game, input, 1 / 60, mid(BTN_STATUS));
+          for (let k = 0; k < 4; k++) frame(game, input, 1 / 60);
+          frame(game, input, 1 / 60, mid(closeRect({ W: 240, H })));
+          frame(game, input, 1 / 60, { x: 102, y: 297 + (H - 320) });
+          for (let k = 0; k < 4; k++) frame(game, input, 1 / 60);
+          frame(game, input, 1 / 60, { x: 120, y: 160 }); // どこをタップしても閉じる
+        }
         frame(game, input, 1 / 60, mid(BTN_RETREAT));
         assert.equal(ended(), 0, '1 回のタップで撤退してしまう');
         for (let k = 0; k < 24; k++) frame(game, input, 1 / 60);

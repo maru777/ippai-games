@@ -12,6 +12,7 @@ import { WEAPON, SYNERGIES, SLOT_BASE, SLOT_MAX, SLOT_COST } from './tree-fort-w
 import { startLevel } from './tree-fort-run.js';
 import { sanitizeOd, odConfig, odInfoToast, odAct } from './tree-fort-od.js';
 import { odRows, drawOdShop } from './tree-fort-odview.js';
+import { drawStatusPanel, drawWeaponPanel, closeRect, listRect, statusHeight, statusLayout } from './tree-fort-panelview.js';
 import { createBattle, ARENA, STAGE_COUNT } from './tree-fort-battle.js';
 import { STAGE_INFO, RELICS, ACHIEVEMENTS, dailyChallenge } from './tree-fort-meta.js';
 import { SKINS, EFFECTS, makeKit } from './tree-fort-skins.js';
@@ -21,7 +22,7 @@ import {
 } from './tree-fort-view.js';
 import {
   ST_LIST, ST_ROW_H, BTN_ST_BACK, BTN_ST_GO, stageEntries, stageRows, stageMaxScroll, drawStageSelect,
-  cardRects, BTN_REROLL, drawChoice, BTN_SPEED, BTN_OD, hudToast, hudHit, speedUnlocked, BASE_SPEED,
+  cardRects, BTN_REROLL, drawChoice, BTN_SPEED, BTN_STATUS, BTN_OD, hudHit, speedUnlocked, BASE_SPEED,
   CX_TABS, CX_LIST, BTN_CX_BACK, SLOT_STRIP, slotRect, codexItems, codexRows, codexMaxScroll, achProgress, drawCodex, drawResultNew, layoutRview,
 } from './tree-fort-rview.js';
 
@@ -126,7 +127,7 @@ export default function create(env) {
   const sc = {
     W, H, clock: 0, t: 0, kit: kitOf('neon'), fx: 'standard', effects: [], shake: 0, flash: { a: 0, col: '#ffffff' },
     combo: { n: 0, t: 0, pop: 0 }, save: null, sel: 'core', pan: { x: 0, y: 0 }, nodePop: {}, shownPts: 0, msg: '', msgT: 0,
-    shop: { sel: 'skin:neon', skin: 'neon', fx: 'standard' }, run: null, res: null,
+    shop: { sel: 'skin:neon', skin: 'neon', fx: 'standard' }, run: null, res: null, panel: null,
     codex: { tab: 'weapons', sel: 'bomb', scroll: 0, slotAsk: 0, slotAskT: 0 },
     stageList: [], stageSel: null, stageScroll: 0, choiceT: 0, daily: dailyChallenge(),
   };
@@ -380,6 +381,7 @@ export default function create(env) {
     sc.effects = [];
     sc.combo = { n: 0, t: 0, pop: 0 };
     sc.choiceT = 0;
+    sc.panel = null;
     lastFxId = 0;
     lastOpts = null;
     screen = 'battle';
@@ -766,6 +768,33 @@ export default function create(env) {
     return null;
   }
 
+  // 武器の要素パネル（タップで閉じる）と、ステータス画面（ドラッグでスクロール。「とじる」で閉じる）
+  function updatePanel(b) {
+    const p = sc.panel;
+    if (p.type === 'weapon') {
+      if (input.pressed) {
+        sc.panel = p.back || null;
+        sound.beep(500, 0.04, 'square', 0.04);
+      }
+      return;
+    }
+    const lr = listRect(sc);
+    updateList(lr, () => p.scroll, (v) => { p.scroll = v; }, Math.max(0, statusHeight(b) - lr.h), (x, y) => {
+      if (inside(x, y, closeRect(sc))) {
+        sc.panel = null;
+        sound.beep(500, 0.04, 'square', 0.04);
+        return;
+      }
+      for (const row of statusLayout(sc, b, p.scroll)) {
+        if (row.t === 'weapon' && inside(x, y, row.rect)) {
+          sc.panel = { type: 'weapon', id: row.id, back: p };
+          sound.beep(760, 0.05, 'square', 0.04);
+          return;
+        }
+      }
+    });
+  }
+
   function updateBattle(dt) {
     const { b } = sc.run;
     // 連打の途中で選択画面が出ても、うっかり選ばないよう、最後に押してから 0.5 秒あくまで選べない
@@ -773,6 +802,11 @@ export default function create(env) {
     if (input.pressed) sc.lastPressT = sc.t;
     const locked = sc.choiceT < 0.4 || quiet < 0.5;
     sc.choiceLocked = !!(b.options || b.relicOpts || b.event) && locked;
+    // 武器の要素パネル・ステータス画面が開いている間は、戦闘が止まる
+    if (sc.panel) {
+      updatePanel(b);
+      return;
+    }
     // 選択が出ている間は、戦闘が止まる
     if (b.options) {
       if (lastOpts !== b.options) {
@@ -840,14 +874,20 @@ export default function create(env) {
         if (!sc.run.overdrive()) b.toast = odInfoToast(b.od);
         return;
       }
+      if (inside(input.x, input.y, BTN_STATUS)) {
+        sc.panel = { type: 'status', scroll: 0 };
+        sound.beep(700, 0.05, 'square', 0.04);
+        return;
+      }
       const hit = hudHit(b, input.x, input.y);
       if (hit) {
-        // MAX の武器のアイコンは、ゲージが満タンなら大技を発動する。そうでなければ説明を出す
-        if (hit.kind === 'weapon' && sc.run.ultimate(hit.id)) {
+        // MAX の武器のアイコンは、ゲージが満タンなら大技を発動する。そうでなければ、その武器の要素の一覧を開く
+        if (sc.run.ultimate(hit.id)) {
           handleFx();
           return;
         }
-        b.toast = hudToast(b, input.x, input.y);
+        sc.panel = { type: 'weapon', id: hit.id };
+        sound.beep(760, 0.05, 'square', 0.04);
         return;
       }
       if (sc.run.tap(input.x, input.y - battleOffset(sc))) snd('tap', 0.05, () => sound.beep(1100, 0.04, 'square', 0.04));
@@ -899,6 +939,10 @@ export default function create(env) {
       if (b.options) drawChoice(g, sc, 'levelup');
       else if (b.relicOpts) drawChoice(g, sc, 'relic');
       else if (b.event) drawChoice(g, sc, 'contract');
+      if (sc.panel) {
+        if (sc.panel.type === 'status') drawStatusPanel(g, sc);
+        else drawWeaponPanel(g, sc);
+      }
     } else if (screen === 'stages') drawStageSelect(g, sc);
     else if (screen === 'codex') drawCodex(g, sc);
     else if (screen === 'shop') drawShop(g, sc);
