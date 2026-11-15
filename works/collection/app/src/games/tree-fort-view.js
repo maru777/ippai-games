@@ -333,7 +333,7 @@ function drawEnemyBody(g, kit, e, t) {
 }
 
 // 新しい種類の敵の体（小群・分裂・装甲・射手・癒し手・障壁・幽霊・ボス）
-const SIDES = { swarm: 3, splitter: 4, armor: 8, shooter: 4, healer: 0, shield: 0, phantom: 0, boss: 8 };
+const SIDES = { swarm: 3, splitter: 4, armor: 8, shooter: 4, healer: 0, shield: 0, phantom: 0, boss: 8, weaver: 4, bomber: 0, charger: 3, guard: 6, firebeast: 5, icebeast: 6, parasite: 0, summoner: 5, regenerator: 0, jammer: 0 };
 function drawNewEnemy(g, kit, e, t) {
   const sk = kit.skin;
   const { cx, cy } = ARENA;
@@ -342,7 +342,7 @@ function drawNewEnemy(g, kit, e, t) {
   const body = flash ? '#ffffff' : col;
   const r = e.r;
   const sides = SIDES[e.type];
-  const rot = e.type === 'shooter' || e.type === 'splitter' ? Math.PI / 4 : e.type === 'swarm' ? Math.atan2(cy - e.y, cx - e.x) : t * (e.type === 'boss' ? 0.4 : 0.6) + e.x * 0.05;
+  const rot = e.type === 'shooter' || e.type === 'splitter' ? Math.PI / 4 : e.type === 'swarm' || e.type === 'charger' ? Math.atan2(cy - e.y, cx - e.x) : t * (e.type === 'boss' ? 0.4 : 0.6) + e.x * 0.05;
   g.save();
   g.translate(e.x, e.y);
   if (sk.enemy === 'geo') {
@@ -392,6 +392,75 @@ function drawNewEnemy(g, kit, e, t) {
     g.moveTo(-r * 0.7, -r * 0.7);
     g.lineTo(r * 0.7, r * 0.7);
     g.stroke();
+  } else if (e.type === 'bomber') {
+    // 導火線の火花（近づくと速く点滅し、爆発の範囲を示す）
+    const near = Math.hypot(e.x - cx, e.y - cy) < 80;
+    g.fillStyle = Math.sin(t * (near ? 24 : 9)) > 0 ? '#ffffff' : '#ffd84a';
+    g.beginPath();
+    g.arc(0, -r - 2.5, 2, 0, TAU);
+    g.fill();
+    if (near) {
+      g.strokeStyle = rgba('#ff3a2a', 0.35);
+      g.setLineDash([3, 3]);
+      g.beginPath();
+      g.arc(0, 0, 38, 0, TAU);
+      g.stroke();
+      g.setLineDash([]);
+    }
+  } else if (e.type === 'charger') {
+    if (e.chS === 'wind') {
+      // 溜め: 砦への線を出して光る
+      g.strokeStyle = rgba('#ff3a2a', 0.5 + 0.4 * Math.sin(t * 30));
+      g.lineWidth = 1.2;
+      const a = Math.atan2(cy - e.y, cx - e.x);
+      g.beginPath();
+      g.moveTo(0, 0);
+      g.lineTo(Math.cos(a) * 60, Math.sin(a) * 60);
+      g.stroke();
+    }
+  } else if (e.type === 'guard') {
+    g.strokeStyle = rgba(col, 0.3);
+    g.setLineDash([3, 4]);
+    g.lineDashOffset = -t * 10;
+    g.beginPath();
+    g.arc(0, 0, 50, 0, TAU);
+    g.stroke();
+    g.setLineDash([]);
+  } else if (e.type === 'firebeast' || e.type === 'icebeast') {
+    g.lineWidth = 1.4;
+    for (let i = 0; i < 3; i++) {
+      g.beginPath();
+      g.moveTo((i - 1) * 3.5, -r + 1);
+      g.lineTo((i - 1) * 3.5 + (e.type === 'firebeast' ? Math.sin(t * 8 + i) * 1.5 : 0), -r - 5 - (i === 1 ? 2 : 0));
+      g.stroke();
+    }
+  } else if (e.type === 'parasite') {
+    g.lineWidth = 1.2;
+    for (let i = 0; i < 6; i++) {
+      const a = (i / 6) * TAU + t * 3;
+      g.beginPath();
+      g.moveTo(Math.cos(a) * r, Math.sin(a) * r);
+      g.lineTo(Math.cos(a) * (r + 3), Math.sin(a) * (r + 3));
+      g.stroke();
+    }
+  } else if (e.type === 'summoner') {
+    for (let i = 0; i < 3; i++) {
+      const a = t * 2 + (i / 3) * TAU;
+      g.beginPath();
+      g.arc(Math.cos(a) * (r + 3), Math.sin(a) * (r + 3), 1.4, 0, TAU);
+      g.fill();
+    }
+  } else if (e.type === 'regenerator') {
+    g.fillRect(-1, -r * 0.5, 2, r);
+    g.fillRect(-r * 0.5, -1, r, 2);
+  } else if (e.type === 'jammer') {
+    g.strokeStyle = rgba(col, 0.55);
+    g.lineWidth = 1;
+    for (let k = 1; k <= 2; k++) {
+      g.beginPath();
+      g.arc(0, 0, r + 2 + ((t * 8 + k * 4) % 8), 0, TAU);
+      g.stroke();
+    }
   } else if (e.type === 'boss') {
     // 王冠のトゲと、回る外輪
     g.fillStyle = sk.enemy === 'ink' ? '#c0392b' : kit.c(sk.gold, 4);
@@ -411,7 +480,7 @@ function drawNewEnemy(g, kit, e, t) {
     g.stroke();
     g.setLineDash([]);
   }
-  if (e.type !== 'swarm' && e.type !== 'healer') {
+  if (e.type !== 'swarm' && e.type !== 'healer' && e.type !== 'regenerator' && e.type !== 'parasite') {
     g.fillStyle = sk.enemy === 'ink' ? '#f6eede' : '#ffffff';
     g.beginPath();
     g.arc(-r * 0.32, -r * 0.1, Math.max(1, r * 0.13), 0, TAU);

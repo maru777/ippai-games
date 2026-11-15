@@ -29,10 +29,35 @@ export const TYPES = {
   healer: { hp: 14, spd: 19, dmg: 4, r: 6, pts: 3, from: 13, w: 5, heal: 0.07, bump: 6 },
   shield: { hp: 16, spd: 20, dmg: 6, r: 6.5, pts: 3, from: 15, w: 6, shield: 0.9, bump: 4 },
   phantom: { hp: 12, spd: 30, dmg: 6, r: 5.5, pts: 3, from: 18, w: 5, phase: true, bump: 6 },
+  // 新しい敵 10 種（特徴は、下の「敵の移動・特徴・接触」と hurt に書いてある）
+  weaver: { hp: 9, spd: 30, dmg: 4, r: 5, pts: 1.5, from: 2, w: 12, bump: 8, weave: 32 }, // 蛇行: ジグザグに進む（狙いにくい）
+  bomber: { hp: 8, spd: 38, dmg: 9, r: 5, pts: 2, from: 6, w: 10, bump: 99, blast: 2.4, blastR: 38 }, // 自爆兵: 近づくと自爆して砦に大ダメージ
+  charger: { hp: 14, spd: 16, dmg: 8, r: 6, pts: 2.5, from: 7, w: 9, bump: 5, charge: { every: 3.5, wind: 0.6, dash: 0.7, mul: 4.2 } }, // 突進兵: 溜めてから突進
+  guard: { hp: 20, spd: 16, dmg: 7, r: 7, pts: 3, from: 8, w: 7, bump: 3.5, guard: 50 }, // 護衛兵: まわりの味方のダメージを 30% 減らす
+  firebeast: { hp: 20, spd: 22, dmg: 7, r: 6.5, pts: 3, from: 9, w: 6, bump: 5, resist: { fire: 0.2, burn: 0 }, weak: { ice: 1.5 } }, // 火の獣: 火に強く、氷に弱い
+  icebeast: { hp: 20, spd: 22, dmg: 7, r: 6.5, pts: 3, from: 9, w: 6, bump: 5, resist: { ice: 0.2 }, weak: { fire: 1.5 }, noChill: true }, // 氷の獣: 氷に強く（鈍足・凍結も効かない）、火に弱い
+  parasite: { hp: 10, spd: 24, dmg: 1.2, r: 4.5, pts: 3, from: 10, w: 8, bump: 0, stick: 2 }, // 寄生体: 砦に取り付いて、倒すまで毎秒ダメージ
+  summoner: { hp: 18, spd: 14, dmg: 3, r: 7, pts: 4, from: 11, w: 5, bump: 4, summon: { every: 6, type: 'swarm', n: 2, max: 14 } }, // 召喚師: 小群を呼ぶ
+  regenerator: { hp: 28, spd: 15, dmg: 8, r: 7, pts: 4, from: 12, w: 6, bump: 3, regen: 0.06 }, // 再生兵: 1.5 秒攻撃されないと、毎秒 6% 回復
+  jammer: { hp: 12, spd: 20, dmg: 3, r: 6, pts: 3.5, from: 13, w: 5, bump: 6, jam: 100 }, // 妨害兵: 近くにいる間、主砲と武器の待ち時間が延びる
   boss: { hp: 110, spd: 11, dmg: 24, r: 15, pts: 40, from: 999, w: 0, bump: 5 }, // 大ボス。中ボスは同じ type で tier = 'mid'（HP 55%・2 段階）
 };
 export const ENEMY_NAME = {
   grunt: 'ザコ', runner: '疾走', swarm: '小群', tank: '重装', splitter: '分裂体', armor: '装甲兵', shooter: '射手', healer: '癒し手', shield: '障壁兵', phantom: '幽霊', boss: 'ボス',
+  weaver: '蛇行', bomber: '自爆兵', charger: '突進兵', guard: '護衛兵', firebeast: '火の獣', icebeast: '氷の獣', parasite: '寄生体', summoner: '召喚師', regenerator: '再生兵', jammer: '妨害兵',
+};
+// 新しい敵が初めて出たときの一言（その挑戦の間に 1 回）
+export const ENEMY_INFO = {
+  weaver: 'ジグザグに進んで、狙いにくい',
+  bomber: '近づくと自爆して、砦に大ダメージ。早めに倒す',
+  charger: '少し溜めてから、一気に突進してくる',
+  guard: 'まわりの敵のダメージを 30% 減らす。先に倒す',
+  firebeast: '火に強い。氷や雷で倒す',
+  icebeast: '氷に強く、凍らない。火で倒す',
+  parasite: '砦に取り付いて、毎秒ダメージ。タップで剥がす',
+  summoner: '小群を呼び続ける。先に倒す',
+  regenerator: '攻撃されないと回復する。一気に倒す',
+  jammer: '近くにいる間、主砲と武器が遅くなる',
 };
 
 // 自動の攻撃（主砲・武器・状態異常）は弱め、タップ（手動）の攻撃を強くする。放置では勝ちにくく、触るほど強い。
@@ -101,6 +126,8 @@ export function createBattle(stats0, rng = Math.random, opts = {}) {
     contracts: [], // 結んだ契約の id
     tagMul: {}, dotMul: 1, frozenMul: 1, // 遺物による属性ごとのダメージ倍率
     toast: null, // 取得したものの一言表示 { icon, title, sub, color, t }
+    jamK: 1, // 妨害兵の近くにいる間の、待ち時間の倍率（小さいほど遅い）
+    seenTypes: new Set(), // この挑戦で出た新しい敵（初めて出たときに一言を出す）
     od: { gauge: 0, active: 0, cfg: o.od || odConfig(defaultOd()), dur: (o.od || odConfig(defaultOd())).dur }, // オーバードライブ（撃破でたまり、使うと数秒間強くなる。タイプと強化は OD 工房で選ぶ）
     combo: { n: 0, t: 0, best: 0 },
     hits: 0, // 砦が攻撃を受けた回数（星の評価に使う）
@@ -128,6 +155,9 @@ export function createBattle(stats0, rng = Math.random, opts = {}) {
   // 状態異常: burn（燃焼）/ poison（毒）/ slow（鈍足）/ freeze（凍結）
   function applyStatus(e, kind, dur, power) {
     if (e.dead) return;
+    const d0 = TYPES[e.type];
+    if ((kind === 'slow' || kind === 'freeze') && d0.noChill) return;
+    if (kind === 'burn' && d0.resist && d0.resist.burn === 0) return;
     if (kind === 'burn' || kind === 'poison') {
       const cur = e[kind];
       if (!cur || cur.t <= 0 || power >= cur.dps) e[kind] = { t: Math.max(dur, cur ? cur.t : 0), dps: power };
@@ -183,6 +213,8 @@ export function createBattle(stats0, rng = Math.random, opts = {}) {
       elite, burn: null, poison: null, slow: null, freeze: 0, thaw: 0, armor: (def.armor || 0) + (type === 'boss' ? 0 : b.rt.armor),
       shootT: def.shoot ? def.shoot * (0.5 + rng()) : 0, phaseT: rng() * 3.4, phased: false, shield: 0, shieldMax: 0, shieldT: 0,
       summonT: type === 'boss' ? 4 : 0,
+      chT: def.charge ? def.charge.every * (0.4 + rng()) : 0, chS: '', sumT: def.summon ? def.summon.every * (0.4 + rng() * 0.6) : 0,
+      wob: rng() * 6.28, guarded: 0, regenT: 0, stuck: false, stuckA: 0,
     };
     if (def.shield) {
       e.shieldMax = e.max * def.shield;
@@ -216,6 +248,10 @@ export function createBattle(stats0, rng = Math.random, opts = {}) {
     const elite = b.leveling && type !== 'boss' && type !== 'swarm' && g >= 4 && rng() < Math.min(0.06, (0.012 + 0.0007 * g) * b.rt.elite);
     const e = makeEnemy(type, cx + Math.cos(a) * R, cy + Math.sin(a) * R, g, elite, kind === 'midboss' ? 'mid' : null);
     b.enemies.push(e);
+    if (ENEMY_INFO[type] && !b.seenTypes.has(type)) {
+      b.seenTypes.add(type);
+      b.toast = { icon: 'dmg', title: `新しい敵: ${ENEMY_NAME[type]}`, sub: ENEMY_INFO[type], color: '#ff8a8a', t: 4.5 };
+    }
     if (type === 'boss') {
       b.boss = e;
       addFx({ kind: 'bossIn', life: 1.6 });
@@ -311,6 +347,11 @@ export function createBattle(stats0, rng = Math.random, opts = {}) {
     if (e.dead || e.phased || e.invul > 0) return;
     let a = W ? W.modify(e, amount, op) : amount;
     a *= b.tagMul[op.tag] || 1; // 遺物: 属性ごとの強化
+    const dE = TYPES[e.type];
+    if (dE.resist && dE.resist[op.tag] !== undefined) a *= dE.resist[op.tag]; // 火の獣・氷の獣: 同じ属性に強い
+    if (dE.weak && dE.weak[op.tag]) a *= dE.weak[op.tag]; // 反対の属性に弱い
+    if (e.guarded > 0) a *= 0.7; // 護衛兵のそば: ダメージ 30% 減
+    if (dE.regen) e.regenT = 1.5; // 再生兵: 攻撃されると、しばらく回復しない
     if (op.dot) a *= b.dotMul;
     if (b.frozenMul > 1 && (e.freeze > 0 || (e.slow && e.slow.t > 0))) a *= b.frozenMul;
     if (b.od.active > 0) {
@@ -456,6 +497,7 @@ export function createBattle(stats0, rng = Math.random, opts = {}) {
     }
 
     // 敵の移動・特徴・接触
+    let jam = 0;
     for (const e of b.enemies) {
       if (e.dead) continue;
       tickStatus(e, dt);
@@ -464,6 +506,54 @@ export function createBattle(stats0, rng = Math.random, opts = {}) {
       if (e.contactCd > 0) e.contactCd -= dt;
       const def = TYPES[e.type];
       const d = dist(e.x, e.y, cx, cy);
+      // ---- 新しい敵の特徴 ----
+      if (e.guarded > 0) e.guarded -= dt;
+      if (def.guard) for (const n of b.enemies) if (n !== e && !n.dead && dist(n.x, n.y, e.x, e.y) <= def.guard) n.guarded = 0.25;
+      if (def.regen) {
+        if (e.regenT > 0) e.regenT -= dt;
+        else e.hp = Math.min(e.max, e.hp + e.max * def.regen * dt);
+      }
+      if (def.jam && d <= def.jam) jam++;
+      if (def.summon) {
+        e.sumT -= dt;
+        if (e.sumT <= 0) {
+          e.sumT = def.summon.every;
+          if (b.enemies.filter((n) => !n.dead && n.type === def.summon.type).length < def.summon.max) {
+            for (let i = 0; i < def.summon.n; i++) {
+              const a = rng() * Math.PI * 2;
+              b.enemies.push(makeEnemy(def.summon.type, e.x + Math.cos(a) * 10, e.y + Math.sin(a) * 10, eff()));
+            }
+            addFx({ kind: 'summon', life: 0.6, x: e.x, y: e.y });
+          }
+        }
+      }
+      if (def.stick) {
+        // 寄生体: 砦に取り付いたら、動かず、倒すまで毎秒ダメージ（接触で倒れない）
+        if (!e.stuck && d <= towerR + e.r + 1) {
+          e.stuck = true;
+          e.stuckA = Math.atan2(e.y - cy, e.x - cx);
+          b.hits++;
+        }
+        if (e.stuck) {
+          e.x = cx + Math.cos(e.stuckA) * (towerR + e.r - 1);
+          e.y = cy + Math.sin(e.stuckA) * (towerR + e.r - 1);
+          const dps = e.dmg * def.stick * (1 - stats.reduce) * (b.od.active > 0 ? b.od.cfg.reduceK : 1);
+          b.tower.hp -= dps * dt;
+          b.tower.flash = 0.1;
+          continue;
+        }
+      }
+      if (def.blast && d <= def.blastR) {
+        // 自爆兵: 近づいたら自爆して、砦に大ダメージ
+        const dmg = e.dmg * def.blast * (1 - stats.reduce) * (b.od.active > 0 ? b.od.cfg.reduceK : 1);
+        b.tower.hp -= dmg;
+        b.tower.flash = 0.25;
+        b.hits++;
+        e.dead = true;
+        addFx({ kind: 'boom', life: 0.5, x: e.x, y: e.y, r: def.blastR, tag: 'fire' });
+        addFx({ kind: 'towerHit', life: 0.4, x: e.x, y: e.y, dmg });
+        continue;
+      }
       // 癒し手: 近くの味方を回復する
       if (def.heal) {
         for (const n of b.enemies) if (n !== e && !n.dead && dist(n.x, n.y, e.x, e.y) <= 46) n.hp = Math.min(n.max, n.hp + n.max * def.heal * dt);
@@ -489,6 +579,27 @@ export function createBattle(stats0, rng = Math.random, opts = {}) {
         e.y += e.kb.vy * dt;
         moving = false;
       }
+      let dashMul = 1;
+      if (def.charge) {
+        // 突進兵: 距離 40〜150 のとき、溜めて（止まって光る）、一気に突進する
+        e.chT -= dt;
+        if (e.chS === 'wind') {
+          moving = false;
+          if (e.chT <= 0) {
+            e.chS = 'dash';
+            e.chT = def.charge.dash;
+          }
+        } else if (e.chS === 'dash') {
+          dashMul = def.charge.mul;
+          if (e.chT <= 0) {
+            e.chS = '';
+            e.chT = def.charge.every;
+          }
+        } else if (e.chT <= 0 && d < 150 && d > 40) {
+          e.chS = 'wind';
+          e.chT = def.charge.wind;
+        }
+      }
       if (moving && def.range && d <= def.range) {
         moving = false;
         e.shootT -= dt;
@@ -504,9 +615,15 @@ export function createBattle(stats0, rng = Math.random, opts = {}) {
         const fz = e.freeze > 0 ? 0 : 1;
         const sl = e.slow && e.slow.t > 0 ? e.slow.mul : 1;
         const odSlow = b.od.active > 0 ? b.od.cfg.slowK : 1; // OD「氷結」: 敵が遅くなる
-        const mv = (e.spd * aura * fz * sl * odSlow * dt) / Math.max(d, 0.001);
+        const mv = (e.spd * dashMul * aura * fz * sl * odSlow * dt) / Math.max(d, 0.001);
         e.x += (cx - e.x) * mv;
         e.y += (cy - e.y) * mv;
+        if (def.weave && fz) {
+          // 蛇行: 進む向きと直角に、左右に揺れる
+          const w = Math.sin(b.t * 3.2 + e.wob) * def.weave * dt;
+          e.x += (-(cy - e.y) / Math.max(d, 1)) * w;
+          e.y += ((cx - e.x) / Math.max(d, 1)) * w;
+        }
       }
       if (d <= towerR + e.r && !(e.contactCd > 0) && !(e.kbT > 0)) {
         // 接触: 砦も、敵も、ダメージを受ける。雑魚は、受けたダメージで倒れなければ、小さく弾かれる。ボスは、大きく弾かれる
@@ -533,6 +650,8 @@ export function createBattle(stats0, rng = Math.random, opts = {}) {
         }
       }
     }
+
+    b.jamK = Math.max(0.55, 1 - 0.15 * jam); // 妨害兵: 近くに多いほど、主砲と武器が遅くなる（最大 45%）
 
     // 敵の弾
     for (const s of b.eshots) {
@@ -564,13 +683,13 @@ export function createBattle(stats0, rng = Math.random, opts = {}) {
     }
 
     // 主砲
-    b.cd.bullet -= dt * speedK;
+    b.cd.bullet -= dt * speedK * b.jamK;
     if (b.cd.bullet <= 0) {
       if (fireBullets()) b.cd.bullet += 1 / stats.rate;
       else b.cd.bullet = 0;
     }
     // 装備した武器
-    W.update(dt * speedK * b.cdRate);
+    W.update(dt * speedK * b.cdRate * b.jamK);
 
     // 主砲の弾の移動と命中
     for (const s of b.shots) {
@@ -712,7 +831,7 @@ export function createBattle(stats0, rng = Math.random, opts = {}) {
     if (b.over || b.options) return false;
     return W.ultimate(id);
   }
-  return { b, step, tap, pick, reroll, chooseRelic, chooseContract, overdrive, ultimate, remaining, earned: () => Math.floor(b.earnedF) };
+  return { b, hurt, step, tap, pick, reroll, chooseRelic, chooseContract, overdrive, ultimate, remaining, earned: () => Math.floor(b.earnedF) };
 }
 
 // 画面なしで 1 回の挑戦を最後まで進める（バランス確認用）。レベルアップは autoPick が代わりに選ぶ。
