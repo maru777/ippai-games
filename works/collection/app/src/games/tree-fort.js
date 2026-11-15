@@ -13,7 +13,7 @@ import { startLevel } from './tree-fort-run.js';
 import { sanitizeOd, odConfig, odInfoToast, odAct } from './tree-fort-od.js';
 import { odRows, drawOdShop } from './tree-fort-odview.js';
 import { drawStatusPanel, drawWeaponPanel, closeRect, listRect, statusHeight, statusLayout } from './tree-fort-panelview.js';
-import { createBattle, ARENA, STAGE_COUNT } from './tree-fort-battle.js';
+import { createBattle, ARENA, STAGE_COUNT, STAGE_WAVES } from './tree-fort-battle.js';
 import { STAGE_INFO, RELICS, ACHIEVEMENTS, dailyChallenge } from './tree-fort-meta.js';
 import { SKINS, EFFECTS, makeKit } from './tree-fort-skins.js';
 import {
@@ -619,7 +619,7 @@ export default function create(env) {
       t: 0, stage, wave: b.wave, level: b.level, earned, bonus, cleared: b.cleared, stars: b.stars, retreat, relics: b.relics.length,
       combo: b.combo.best, total: s.points, found: runInfo.found, ach: got, newBest: stage <= 0 && b.wave >= s.bestWave,
     };
-    waveScore = b.cleared ? stage * 10 : stage > 0 ? (stage - 1) * 10 + b.wave : b.wave;
+    waveScore = b.cleared ? stage * STAGE_WAVES : stage > 0 ? (stage - 1) * STAGE_WAVES + b.wave : b.wave;
     screen = 'result';
     resumeStages = true;
     sc.shownPts = s.points;
@@ -742,6 +742,13 @@ export default function create(env) {
         [330, 495, 660, 990].forEach((hz, i) => setTimeout(() => sound.beep(hz, 0.15, 'sawtooth', 0.05), i * 50));
       } else if (f.kind === 'bossIn') {
         sc.shake = Math.max(sc.shake, 6);
+      } else if (f.kind === 'bossBreak') {
+        // ボスの HP を 1 段階削り切って、外へ弾いた
+        flash('#ffffff', 0.4);
+        sc.shake = Math.max(sc.shake, 8);
+        sc.kit.burst(f.x, f.y, [sk.gold, sk.bad, '#ffffff'], 60, 180, 40);
+        sound.noise(0.4, 0.1, 500);
+        fanfare([523, 659, 784]);
       } else if (f.kind === 'bossDown') {
         flash('#ffffff', 0.5);
         sc.shake = 10;

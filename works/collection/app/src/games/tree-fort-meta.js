@@ -124,7 +124,7 @@ export const CONTRACTS = [
   },
 ];
 export const CONTRACT = Object.fromEntries(CONTRACTS.map((x) => [x.id, x]));
-export const CONTRACT_WAVES = [3, 6]; // この波の直前に契約が出る（ステージ制のみ）
+export const CONTRACT_WAVES = [5, 15, 25]; // この波の直前に契約が出る（ステージ制のみ。10・20・30 波のボスの前に準備できる）
 
 // ---- 実績 ----
 // check(p): p = { stageClear, stars, discoveredWeapons, discoveredSyn, bestWave, runs, bestCombo, relics }

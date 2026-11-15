@@ -1,7 +1,7 @@
 // ツリー砦の描画。スキン（kit）と演出パック（fx: standard / geometry / mandala）の組み合わせで見た目が決まる。
 // 状態は持たない（画面の状態 sc を読んで描くだけ）。論理座標は幅 240 × 高さ H（既定 320。縦長の端末では最大 520 まで伸びる）。
 // 上端起点の部品は y を変えず、下端起点の部品（ボタン・説明パネル）は layoutView(H) で下へずらし、中央の領域を伸ばす。
-import { ARENA } from './tree-fort-battle.js';
+import { ARENA, STAGE_WAVES } from './tree-fort-battle.js';
 import { drawWeaponsUnder, drawWeaponsOver, drawBlades, drawStatus, TAG_COLOR } from './tree-fort-wview.js';
 import { drawBattleHud } from './tree-fort-rview.js';
 import { TREE, NODE, UNLOCKS, canBuy, canRefund } from './tree-fort-data.js';
@@ -962,7 +962,7 @@ export function drawBattle(g, sc) {
         spiroPath(g, 0, 0, 80, 5, 3.4, u * 3);
         g.stroke();
       }
-      const label = f.boss ? (sk.id === 'wa' ? '大将の波' : 'BOSS WAVE') : sk.id === 'wa' ? `第${f.wave}波` : `WAVE ${f.wave}`;
+      const label = f.boss ? (sk.id === 'wa' ? (f.mid ? '中将の波' : '大将の波') : f.mid ? 'MID BOSS' : 'BOSS WAVE') : sk.id === 'wa' ? `第${f.wave}波` : `WAVE ${f.wave}`;
       const sc2 = 1 + (1 - Math.min(1, u * 6)) * 0.6;
       g.scale(sc2, sc2);
       kit.text(g, label, 0, -14, 26, kit.c(sk.me, 0), 'center', 14);
@@ -1024,6 +1024,18 @@ export function drawBattle(g, sc) {
       g.globalAlpha = Math.max(0, 1 - u);
       kit.text(g, 'OVERDRIVE!!', W / 2, 150 - u * 20, 24 + u * 8, kit.c(sk.gold, 3), 'center', 16);
       g.restore();
+    } else if (f.kind === 'bossBreak') {
+      // ボスの HP を 1 段階削り切った: 広がる輪と、段階の表示
+      g.save();
+      g.globalAlpha = Math.max(0, Math.min(1, (1 - u) * 2));
+      g.strokeStyle = sk.gold;
+      g.lineWidth = 4 * (1 - u) + 1;
+      if (sk.glow) kit.glow(g, sk.gold, 14);
+      g.beginPath();
+      g.arc(f.x, f.y, 14 + u * 90, 0, TAU);
+      g.stroke();
+      kit.text(g, `BREAK!  ${f.phase}/${f.phases}`, f.x, f.y - 26 - u * 10, 14, kit.c(sk.gold, 3), 'center', 10);
+      g.restore();
     } else if (f.kind === 'summon' || f.kind === 'split') {
       g.save();
       g.globalAlpha = Math.max(0, 1 - u);
@@ -1072,7 +1084,7 @@ export function drawBattle(g, sc) {
 
   // 上のバー
   kit.panel(g, { x: 4, y: 3, w: W - 8, h: 24 }, { stroke: kit.c(sk.me, 0), glow: kit.c(sk.me, 0), blur: 5, radius: 8 });
-  kit.text(g, sk.id === 'wa' ? `第${b.wave}波` : `W${b.wave}`, 12, 9, 12, sk.text);
+  kit.text(g, sk.id === 'wa' ? `第${b.wave}波` : b.stage > 0 ? `W${b.wave}/${STAGE_WAVES}` : `W${b.wave}`, 12, b.stage > 0 ? 10 : 9, b.stage > 0 ? 9.5 : 12, sk.text);
   const bx = 52;
   const bw = 78;
   g.save();

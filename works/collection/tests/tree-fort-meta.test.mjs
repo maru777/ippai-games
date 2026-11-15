@@ -122,10 +122,10 @@ test('relics: 精鋭の敵が宝箱を落とし、選ぶと効果が反映され
   assert.ok(s2.b.dotMul > 1);
 });
 
-test('contracts: ステージの 3 波・6 波の前に契約が出て、選ぶと効果が出る。見送りもできる', () => {
+test('contracts: ステージの 5 波・15 波・25 波の前に契約が出て、選ぶと効果が出る。見送りもできる', () => {
   const sim = run({ stage: 1 }, 7, 600, (s) => s.b.event);
   assert.ok(sim.b.event && sim.b.event.options.length === 2, '契約が出ない');
-  assert.equal(sim.b.event.wave, 3);
+  assert.equal(sim.b.event.wave, 5);
   const t0 = sim.b.t;
   for (let i = 0; i < 10; i++) sim.step(1 / 30);
   assert.equal(sim.b.t, t0, '契約の選択中は止まる');
