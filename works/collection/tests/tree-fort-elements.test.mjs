@@ -4,7 +4,8 @@ import assert from 'node:assert/strict';
 import { ELEMENTS, EV, MAX_K, weaponElements, upgradeChanges, shown, makeEV } from '../app/src/games/tree-fort-elements.js';
 import { WEAPONS } from '../app/src/games/tree-fort-weapons.js';
 import { TREE, NODE, computeStats, canBuy } from '../app/src/games/tree-fort-data.js';
-import { createBattle } from '../app/src/games/tree-fort-battle.js';
+import { createBattle, tagMulOf } from '../app/src/games/tree-fort-battle.js';
+import { RELIC } from '../app/src/games/tree-fort-meta.js';
 
 let passed = 0;
 const test = (name, fn) => {
@@ -143,6 +144,49 @@ test('arm: 数が増えても、氷結弾・レーザー・毒霧・全武器が
       assert.ok(sim.b.kills > 0, `${w.id} Lv${level} が動かない`);
     }
   }
+});
+
+test('elem: ツリーの「属性」の枝 6 ノードが、位置・前提・効果どおりにそろう', () => {
+  const nodes = TREE.filter((n) => n.id.startsWith('elem'));
+  assert.equal(nodes.length, 6);
+  assert.equal(new Set(TREE.map((n) => `${n.gx},${n.gy}`)).size, TREE.length, 'ノードの位置が重なる');
+  for (const n of nodes) {
+    assert.equal(n.cost, 150, `${n.id} は 150 P`);
+    for (const r of n.req) assert.ok(NODE[r]);
+  }
+  assert.equal(canBuy(new Set(['core']), 9999, 'elem2').ok, false);
+  assert.equal(canBuy(new Set(['core']), 9999, 'elem1').ok, true);
+  const st = computeStats(nodes.map((n) => n.id).concat('core'));
+  for (const k of ['tfire', 'tice', 'tlightning', 'tpoison', 'tlight', 'tgravity']) assert.ok(Math.abs(st[k] - 0.2) < 1e-9, k);
+  assert.deepEqual(computeStats(['core']).tfire, 0);
+});
+
+test('elem: 属性の枝は、その属性（と継続ダメージ）の与ダメージだけを +20% し、遺物と重なる', () => {
+  const tm = tagMulOf({ tfire: 0.2, tgravity: 0.2, tice: 0 });
+  assert.ok(Math.abs(tm.fire - 1.2) < 1e-9 && Math.abs(tm.burn - 1.2) < 1e-9, '火は燃焼も');
+  assert.ok(Math.abs(tm.gravity - 1.2) < 1e-9 && Math.abs(tm.physical - 1.2) < 1e-9, '重力・物理');
+  assert.equal(tm.ice, undefined);
+  assert.deepEqual(tagMulOf(computeStats(['core'])), {});
+  const dmgOf = (owned, tag, relic) => {
+    let s = 3;
+    const rng = () => ((s = (s * 16807) % 2147483647) / 2147483647);
+    const sim = createBattle(computeStats(owned), rng, { stage: 0, onlyTypes: ['tank'], leveling: false });
+    sim.b.tower.hp = sim.b.tower.max = 99999;
+    for (let i = 0; i < 30 * 12 && !sim.b.enemies.length; i++) sim.step(1 / 30);
+    const e = sim.b.enemies[0];
+    e.hp = e.max = 100000;
+    if (relic) {
+      sim.b.relicOpts = [RELIC.ember];
+      sim.chooseRelic(0);
+    }
+    const h = e.hp;
+    sim.hurt(e, 100, { tag, noCrit: true, manual: true });
+    return h - e.hp;
+  };
+  const base = dmgOf(['core'], 'fire');
+  assert.ok(Math.abs(dmgOf(['core', 'elem1'], 'fire') / base - 1.2) < 1e-6, '火 +20%');
+  assert.ok(Math.abs(dmgOf(['core', 'elem1'], 'ice') / dmgOf(['core'], 'ice') - 1) < 1e-6, '氷は変わらない');
+  assert.ok(Math.abs(dmgOf(['core', 'elem1'], 'fire', true) / base - 1.2 * 1.3) < 1e-6, '遺物（火 +30%）と重なる');
 });
 
 console.log(`\n${passed} 件すべて成功`);
