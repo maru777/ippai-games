@@ -6,7 +6,8 @@
 import assert from 'node:assert/strict';
 import { Store } from '../app/src/core/storage.js';
 import { SKINS, EFFECTS } from '../app/src/games/tree-fort-skins.js';
-import { BTN_SHOP, BTN_ODSHOP, BTN_GO, BTN_BUY, BTN_RETREAT, BTN_ARMORY, shopLayout, MAP } from '../app/src/games/tree-fort-view.js';
+import { BTN_SHOP, BTN_ODSHOP, BTN_GO, BTN_BUY, BTN_RETREAT, BTN_ARMORY, BTN_ZOOM, ZOOM_OUT, overviewPan, nodeScreenPos, shopLayout, MAP } from '../app/src/games/tree-fort-view.js';
+import { NODE } from '../app/src/games/tree-fort-data.js';
 import { odRows } from '../app/src/games/tree-fort-odview.js';
 import { closeRect } from '../app/src/games/tree-fort-panelview.js';
 import { loadoutCards } from '../app/src/games/tree-fort-loadoutview.js';
@@ -68,6 +69,13 @@ for (const H of [320, 520]) {
       const { env, input, ended } = makeEnv(H);
       const game = create(env);
       for (let i = 0; i < 20; i++) frame(game, input, 1 / 60);
+      // ツリーの全体表示: 縮小 → 端のノードをタップして、そこへ拡大 → もう一度、縮小して、戻る
+      frame(game, input, 1 / 60, mid(BTN_ZOOM));
+      for (let i = 0; i < 4; i++) frame(game, input, 1 / 60);
+      frame(game, input, 1 / 60, nodeScreenPos({ pan: overviewPan(), zoom: ZOOM_OUT }, NODE.arm10));
+      for (let i = 0; i < 4; i++) frame(game, input, 1 / 60);
+      frame(game, input, 1 / 60, mid(BTN_ZOOM));
+      frame(game, input, 1 / 60, mid(BTN_ZOOM));
       // ショップ
       frame(game, input, 1 / 60, mid(BTN_SHOP));
       for (let i = 0; i < 6; i++) frame(game, input, 1 / 60);

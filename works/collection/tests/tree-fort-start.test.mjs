@@ -6,7 +6,7 @@ import {
 } from '../app/src/games/tree-fort-data.js';
 import { WEAPONS } from '../app/src/games/tree-fort-weapons.js';
 import { Store } from '../app/src/core/storage.js';
-import { BTN_GO, BTN_BUY } from '../app/src/games/tree-fort-view.js';
+import { BTN_GO, BTN_BUY, MAP, STEP, NODE_R, ZOOM_OUT, PAN_LIMIT, overviewPan, nodeScreenPos } from '../app/src/games/tree-fort-view.js';
 import { BTN_ST_GO } from '../app/src/games/tree-fort-rview.js';
 import { loadoutCards } from '../app/src/games/tree-fort-loadoutview.js';
 import create from '../app/src/games/tree-fort.js';
@@ -123,6 +123,26 @@ test('flow: 開始装備が枠より多いとき、出撃の前に選ぶ画面�
   assert.ok(!s2.includes('開始装備を選ぶ'), '戦闘が始まる');
   assert.ok(/W\d+\/30|WAVE|波/.test(s2), '戦闘の画面');
   assert.deepEqual(Store.load('tree-fort-save').startWeapons, ['flame'], '選んだ開始装備が保存される');
+});
+
+test('zoom: ツリー全体が、全体表示で画面に収まり、ふだんの表示では端のノードまでドラッグで届く', () => {
+  // 全体表示: すべてのノードが、地図の枠の中（ノードの半径ぶんの余白つき）に入る
+  const over = { pan: overviewPan(), zoom: ZOOM_OUT };
+  for (const n of TREE) {
+    const p = nodeScreenPos(over, n);
+    const r = NODE_R * ZOOM_OUT;
+    assert.ok(p.x - r >= MAP.x && p.x + r <= MAP.x + MAP.w, `${n.id} が横に収まらない（${p.x}）`);
+    assert.ok(p.y - r >= MAP.y && p.y + r <= MAP.y + MAP.h, `${n.id} が縦に収まらない（${p.y}）`);
+  }
+  // ふだんの表示: どのノードも、ドラッグの範囲内で、画面の真ん中に持ってこられる
+  for (const n of TREE) {
+    assert.ok(Math.abs(n.gx * STEP) <= PAN_LIMIT && Math.abs(n.gy * STEP) <= PAN_LIMIT, `${n.id} に届かない`);
+  }
+  // 拡大に戻るとき、タップしたノードが真ん中に来る
+  const n = NODE.arm10;
+  const back = { pan: { x: -n.gx * STEP, y: -n.gy * STEP }, zoom: 1 };
+  const p = nodeScreenPos(back, n);
+  assert.ok(Math.abs(p.x - 120) < 1e-9 && Math.abs(p.y - (MAP.y + MAP.h / 2)) < 1e-9, '真ん中に来る');
 });
 
 console.log(`\n${passed} 件すべて成功`);
