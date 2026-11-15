@@ -4,7 +4,7 @@ import {
   STAGE_INFO, MODS, RELICS, RELIC, ACHIEVEMENTS, ENDLESS_UNLOCK,
 } from './tree-fort-meta.js';
 import { WEAPONS, WEAPON, SYNERGIES, SYNERGY, SLOT_MAX, MAX_LEVEL, maxLevelOf } from './tree-fort-weapons.js';
-import { STAGE_COUNT } from './tree-fort-battle.js';
+import { STAGE_COUNT, STAGE_WAVES } from './tree-fort-battle.js';
 import { rgba, rr } from './tree-fort-skins.js';
 import { TAG_NAME, TAG_COLOR } from './tree-fort-wview.js';
 import { attrChips } from './tree-fort-panelview.js';
@@ -267,8 +267,13 @@ export function drawBattleHud(g, sc) {
     kit.glow(g, sk.bad, 8);
     g.fillStyle = sk.bad;
     g.fill();
+    // 段階の区切り（1 段階削るたびに、外へ弾かれる）
+    g.shadowBlur = 0;
+    g.fillStyle = 'rgba(255,255,255,0.8)';
+    for (let k = 1; k < e.phases; k++) g.fillRect(10 + ((W - 20) * k) / e.phases - 0.7, y - 1, 1.4, 9);
     g.restore();
-    kit.text(g, `BOSS  ${info.boss}`, 12, y + 9, 8.5, sk.bad, 'left', 4);
+    const kind = e.tier === 'mid' ? '中ボス' : 'BOSS';
+    kit.text(g, `${kind} ${e.phases > 1 ? `${e.phase + 1}/${e.phases}　` : ''}${info.boss}`, 12, y + 9, 8.5, sk.bad, 'left', 4);
     y += 20;
   }
   // 特色
@@ -561,7 +566,7 @@ export function drawResultNew(g, sc, ui) {
     const shown = Math.min(res.stars, Math.floor(res.t * 3));
     kit.text(g, '★'.repeat(shown) + '☆'.repeat(3 - shown), W / 2, 50, 22, sk.gold, 'center', 10);
   } else {
-    kit.text(g, res.stage > 0 ? `WAVE ${res.wave} / 10` : `WAVE ${Math.round(res.wave * k)}`, W / 2, 52, 18, sk.text, 'center', 6);
+    kit.text(g, res.stage > 0 ? `WAVE ${res.wave} / ${STAGE_WAVES}` : `WAVE ${Math.round(res.wave * k)}`, W / 2, 52, 18, sk.text, 'center', 6);
   }
   kit.text(g, `Lv ${res.level}`, W / 2 - 62, 84, 10.5, sk.me, 'center');
   kit.text(g, `遺物 ${res.relics}`, W / 2, 84, 10.5, sk.gold, 'center');

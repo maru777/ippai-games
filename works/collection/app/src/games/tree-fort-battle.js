@@ -9,7 +9,8 @@ import { odConfig, defaultOd } from './tree-fort-od.js';
 import { combineMods, applyRelic, relicOptions, RELIC, CONTRACTS, CONTRACT, CONTRACT_WAVES } from './tree-fort-meta.js';
 
 export const ARENA = { W: 240, H: 320, cx: 120, cy: 172, towerR: 11 };
-export const STAGE_WAVES = 10;
+export const STAGE_WAVES = 30; // ステージは 30 波。10 波ごとに中ボス（HP 2 段階）、30 波で大ボス（HP 3 段階）。無限モードも同じ
+export const MID_BOSS_EVERY = 10;
 export const STAGE_COUNT = 10;
 export const GSTEP = 5; // ステージが 1 つ進むごとの難しさ（無限モードの波に換算）。放置では勝ちにくくするため、以前の 3.1 から上げた
 const G_FIRST = 4.5; // ステージ 1 の最後の波（ボス）の難しさ（レベルアップを遅くした分、元の 8 から下げた）
@@ -17,17 +18,18 @@ const G_START = 0.6; // ステージが進むごとの、最初の波の難し�
 
 // 敵の種類。from = この難しさから登場、w = 出やすさ、armor/shield/phase などが特徴
 export const TYPES = {
-  grunt: { hp: 6, spd: 24, dmg: 4, r: 5, pts: 1, from: 0, w: 40 },
-  runner: { hp: 3.5, spd: 46, dmg: 3, r: 4, pts: 1, from: 3, w: 20 },
-  swarm: { hp: 2.2, spd: 34, dmg: 1.5, r: 3, pts: 0.5, from: 4, w: 10, group: 5 },
-  tank: { hp: 30, spd: 15, dmg: 12, r: 8, pts: 4, from: 5, w: 12 },
-  splitter: { hp: 12, spd: 20, dmg: 5, r: 6.5, pts: 2, from: 7, w: 9 },
-  armor: { hp: 22, spd: 17, dmg: 9, r: 7, pts: 3, from: 9, w: 8, armor: 2.5 },
-  shooter: { hp: 10, spd: 22, dmg: 3.5, r: 5.5, pts: 3, from: 11, w: 7, range: 87, shoot: 2.4 },
-  healer: { hp: 14, spd: 19, dmg: 4, r: 6, pts: 3, from: 13, w: 5, heal: 0.07 },
-  shield: { hp: 16, spd: 20, dmg: 6, r: 6.5, pts: 3, from: 15, w: 6, shield: 0.9 },
-  phantom: { hp: 12, spd: 30, dmg: 6, r: 5.5, pts: 3, from: 18, w: 5, phase: true },
-  boss: { hp: 110, spd: 11, dmg: 24, r: 15, pts: 40, from: 999, w: 0 },
+  // bump = 砦にぶつかったとき、敵自身が受けるダメージ（砦の攻撃力の何倍か）。生き残れば、小さく弾かれる
+  grunt: { hp: 6, spd: 24, dmg: 4, r: 5, pts: 1, from: 0, w: 40, bump: 8 },
+  runner: { hp: 3.5, spd: 46, dmg: 3, r: 4, pts: 1, from: 3, w: 20, bump: 8 },
+  swarm: { hp: 2.2, spd: 34, dmg: 1.5, r: 3, pts: 0.5, from: 4, w: 10, group: 5, bump: 8 },
+  tank: { hp: 30, spd: 15, dmg: 12, r: 8, pts: 4, from: 5, w: 12, bump: 3 },
+  splitter: { hp: 12, spd: 20, dmg: 5, r: 6.5, pts: 2, from: 7, w: 9, bump: 5 },
+  armor: { hp: 22, spd: 17, dmg: 9, r: 7, pts: 3, from: 9, w: 8, armor: 2.5, bump: 2.5 },
+  shooter: { hp: 10, spd: 22, dmg: 3.5, r: 5.5, pts: 3, from: 11, w: 7, range: 87, shoot: 2.4, bump: 6 },
+  healer: { hp: 14, spd: 19, dmg: 4, r: 6, pts: 3, from: 13, w: 5, heal: 0.07, bump: 6 },
+  shield: { hp: 16, spd: 20, dmg: 6, r: 6.5, pts: 3, from: 15, w: 6, shield: 0.9, bump: 4 },
+  phantom: { hp: 12, spd: 30, dmg: 6, r: 5.5, pts: 3, from: 18, w: 5, phase: true, bump: 6 },
+  boss: { hp: 110, spd: 11, dmg: 24, r: 15, pts: 40, from: 999, w: 0, bump: 5 }, // 大ボス。中ボスは同じ type で tier = 'mid'（HP 55%・2 段階）
 };
 export const ENEMY_NAME = {
   grunt: 'ザコ', runner: '疾走', swarm: '小群', tank: '重装', splitter: '分裂体', armor: '装甲兵', shooter: '射手', healer: '癒し手', shield: '障壁兵', phantom: '幽霊', boss: 'ボス',
@@ -155,8 +157,10 @@ export function createBattle(stats0, rng = Math.random, opts = {}) {
     const g = eff();
     const n = Math.min(70, Math.round((5 + 2 * Math.floor(g)) * b.rt.count));
     b.queue = [];
-    const bossWave = b.stage > 0 && b.wave >= STAGE_WAVES;
-    if (bossWave) b.queue.push('boss');
+    // 10 波ごとに中ボス、30 波ごとに大ボス（ステージ制は 30 波が最後）
+    const bossKind = b.wave % STAGE_WAVES === 0 ? 'boss' : b.wave % MID_BOSS_EVERY === 0 ? 'midboss' : null;
+    const bossWave = !!bossKind;
+    if (bossWave) b.queue.push(bossKind);
     const units = bossWave ? Math.max(6, Math.floor(n * 0.5)) : n;
     while (b.queue.length < units + (bossWave ? 1 : 0)) {
       const type = pickType(g);
@@ -167,10 +171,10 @@ export function createBattle(stats0, rng = Math.random, opts = {}) {
     b.spawnInterval = Math.max(0.24, (0.9 - 0.02 * g) * b.rt.spawn);
     b.spawnT = 0;
     b.phase = 'spawn';
-    addFx({ kind: 'wave', life: 1.6, wave: b.wave, boss: bossWave, stage: b.stage });
+    addFx({ kind: 'wave', life: 1.6, wave: b.wave, boss: bossWave, mid: bossKind === 'midboss', stage: b.stage });
   }
 
-  function makeEnemy(type, x, y, g, elite = false) {
+  function makeEnemy(type, x, y, g, elite = false, tier = null) {
     const def = TYPES[type];
     const hpMul = 1.15 ** (g - 1) * b.rt.hp * (elite ? 3.5 : 1);
     const e = {
@@ -184,16 +188,33 @@ export function createBattle(stats0, rng = Math.random, opts = {}) {
       e.shieldMax = e.max * def.shield;
       e.shield = e.shieldMax;
     }
+    if (type === 'boss') {
+      // 中ボスは HP が 2 段階、大ボスは 3 段階。1 段階削るたびに、外へ弾かれる
+      const mid = tier === 'mid';
+      e.tier = mid ? 'mid' : 'big';
+      e.phases = mid ? 2 : 3;
+      e.phase = 0;
+      e.invul = 0;
+      e.kbT = 0;
+      if (mid) {
+        e.hp *= 0.55;
+        e.max = e.hp;
+        e.r *= 0.8;
+        e.dmg *= 0.7;
+        e.pts *= 0.5;
+      }
+    }
     return e;
   }
 
-  function spawn(type) {
+  function spawn(kind) {
+    const type = kind === 'midboss' ? 'boss' : kind;
     const a = rng() * Math.PI * 2;
     const R = 175;
     const g = eff();
     // 精鋭: 体力が多く大きい。倒すと宝箱（遺物）を落とす
     const elite = b.leveling && type !== 'boss' && type !== 'swarm' && g >= 4 && rng() < Math.min(0.06, (0.012 + 0.0007 * g) * b.rt.elite);
-    const e = makeEnemy(type, cx + Math.cos(a) * R, cy + Math.sin(a) * R, g, elite);
+    const e = makeEnemy(type, cx + Math.cos(a) * R, cy + Math.sin(a) * R, g, elite, kind === 'midboss' ? 'mid' : null);
     b.enemies.push(e);
     if (type === 'boss') {
       b.boss = e;
@@ -237,7 +258,7 @@ export function createBattle(stats0, rng = Math.random, opts = {}) {
       addFx({ kind: 'split', life: 0.4, x: e.x, y: e.y });
     }
     if (e.type === 'boss') addFx({ kind: 'bossDown', life: 1.4, x: e.x, y: e.y });
-    if (e.elite) {
+    if (e.elite || e.tier === 'mid') {
       addFx({ kind: 'chest', life: 1.2, x: e.x, y: e.y });
       b.relicPending++;
       if (!b.relicOpts) {
@@ -258,8 +279,36 @@ export function createBattle(stats0, rng = Math.random, opts = {}) {
   }
 
   // op: { tag（属性）, dot（継続ダメージ）, noCrit, synergy（組み合わせ効果による追加ダメージ）}
+  // ボスの HP の段階。1 段階分を削り切ったら、そこで止めて、外へ弾く（1 回の攻撃で何段階も飛ばさない）
+  function applyDamage(e, a) {
+    e.hp -= a;
+    if (e.phases > 1 && e.phase < e.phases - 1) {
+      const floor = e.max * (1 - (e.phase + 1) / e.phases);
+      if (e.hp <= floor) {
+        e.hp = floor;
+        breakPhase(e);
+      }
+    }
+  }
+  function knockOut(e, dist0, sec) {
+    const a = Math.atan2(e.y - cy, e.x - cx);
+    e.kbT = sec;
+    e.kb = { vx: (Math.cos(a) * dist0) / sec, vy: (Math.sin(a) * dist0) / sec };
+  }
+  function breakPhase(e) {
+    e.phase++;
+    e.invul = 1.0;
+    knockOut(e, 95, 0.7);
+    const n = e.tier === 'mid' ? 2 : 3;
+    for (let i = 0; i < n; i++) {
+      const a = rng() * Math.PI * 2;
+      b.enemies.push(makeEnemy('grunt', e.x + Math.cos(a) * 14, e.y + Math.sin(a) * 14, eff()));
+    }
+    addFx({ kind: 'bossBreak', life: 1.3, x: e.x, y: e.y, phase: e.phase, phases: e.phases });
+  }
+
   function hurt(e, amount, op = {}) {
-    if (e.dead || e.phased) return;
+    if (e.dead || e.phased || e.invul > 0) return;
     let a = W ? W.modify(e, amount, op) : amount;
     a *= b.tagMul[op.tag] || 1; // 遺物: 属性ごとの強化
     if (op.dot) a *= b.dotMul;
@@ -279,7 +328,7 @@ export function createBattle(stats0, rng = Math.random, opts = {}) {
       a -= ab;
     }
     if (!op.dot) addFx({ kind: 'dmg', life: 0.75, x: e.x + (rng() - 0.5) * 8, y: e.y - e.r, amount: a, crit, tag: op.tag });
-    e.hp -= a;
+    applyDamage(e, a);
     e.hit = 0.1;
     if (W) W.onHit(e, a, op); // 倒れる一撃でも、組み合わせ効果（蒸気爆発など）は起きる
     if (e.hp <= 0) kill(e);
@@ -411,6 +460,8 @@ export function createBattle(stats0, rng = Math.random, opts = {}) {
       if (e.dead) continue;
       tickStatus(e, dt);
       if (e.dead) continue;
+      if (e.invul > 0) e.invul -= dt;
+      if (e.contactCd > 0) e.contactCd -= dt;
       const def = TYPES[e.type];
       const d = dist(e.x, e.y, cx, cy);
       // 癒し手: 近くの味方を回復する
@@ -418,11 +469,11 @@ export function createBattle(stats0, rng = Math.random, opts = {}) {
         for (const n of b.enemies) if (n !== e && !n.dead && dist(n.x, n.y, e.x, e.y) <= 46) n.hp = Math.min(n.max, n.hp + n.max * def.heal * dt);
       }
       // ボス: 一定間隔で手下を呼ぶ
-      if (e.type === 'boss') {
+      if (e.type === 'boss' && !(e.kbT > 0)) {
         e.summonT -= dt;
         if (e.summonT <= 0) {
           e.summonT = 6;
-          for (let i = 0; i < 3; i++) {
+          for (let i = 0; i < (e.tier === 'mid' ? 2 : 3); i++) {
             const a = rng() * Math.PI * 2;
             b.enemies.push(makeEnemy('grunt', e.x + Math.cos(a) * 14, e.y + Math.sin(a) * 14, eff()));
           }
@@ -431,7 +482,14 @@ export function createBattle(stats0, rng = Math.random, opts = {}) {
       }
       // 射手: 射程に入ったら止まって、砦を撃つ
       let moving = true;
-      if (def.range && d <= def.range) {
+      if (e.kbT > 0) {
+        // 弾かれている間は、押された向きに動き、自分では動かない
+        e.kbT -= dt;
+        e.x += e.kb.vx * dt;
+        e.y += e.kb.vy * dt;
+        moving = false;
+      }
+      if (moving && def.range && d <= def.range) {
         moving = false;
         e.shootT -= dt;
         if (e.shootT <= 0) {
@@ -450,19 +508,28 @@ export function createBattle(stats0, rng = Math.random, opts = {}) {
         e.x += (cx - e.x) * mv;
         e.y += (cy - e.y) * mv;
       }
-      if (d <= towerR + e.r) {
+      if (d <= towerR + e.r && !(e.contactCd > 0) && !(e.kbT > 0)) {
+        // 接触: 砦も、敵も、ダメージを受ける。雑魚は、受けたダメージで倒れなければ、小さく弾かれる。ボスは、大きく弾かれる
         const dmg = e.dmg * (1 - stats.reduce) * (b.od.active > 0 ? b.od.cfg.reduceK : 1); // OD「再生」: 受けるダメージが減る
         b.tower.hp -= dmg;
         b.tower.flash = 0.15;
         b.hits++;
         addFx({ kind: 'towerHit', life: 0.4, x: e.x, y: e.y, dmg });
+        const self = stats.dmg * (def.bump ?? 6);
+        addFx({ kind: 'dmg', life: 0.75, x: e.x, y: e.y - e.r, amount: self, crit: false, tag: 'physical' });
+        e.hit = 0.1;
         if (e.type !== 'boss') {
-          e.dead = true;
-          addFx({ kind: 'pop', life: 0.45, x: e.x, y: e.y, r: e.r, type: e.type, kill: false });
+          e.hp -= self;
+          e.contactCd = 0.8;
+          if (e.hp <= 0) {
+            e.dead = true;
+            addFx({ kind: 'pop', life: 0.45, x: e.x, y: e.y, r: e.r, type: e.type, kill: false });
+          } else knockOut(e, 30, 0.3);
         } else {
-          // ボスは触れても倒れず、体当たりのあと少し押し戻される
-          e.x -= (cx - e.x) * 0.9;
-          e.y -= (cy - e.y) * 0.9;
+          e.contactCd = 1.6;
+          applyDamage(e, self); // 段階を削り切ると、そこで外へ弾かれる
+          if (e.hp <= 0) kill(e);
+          else if (!(e.kbT > 0)) knockOut(e, 70, 0.6);
         }
       }
     }
