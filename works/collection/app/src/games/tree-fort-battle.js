@@ -13,8 +13,17 @@ export const ARENA = { W: 240, H: 320, cx: 120, cy: 172, towerR: 11 };
 export const STAGE_WAVES = 30; // ステージは 30 波。10 波ごとに中ボス（HP 2 段階）、30 波で大ボス（HP 3 段階）。無限モードも同じ
 export const MID_BOSS_EVERY = 10;
 export const STAGE_COUNT = 10;
-export const GSTEP = 5; // ステージが 1 つ進むごとの難しさ（無限モードの波に換算）。放置では勝ちにくくするため、以前の 3.1 から上げた
-const G_FIRST = 4.5; // ステージ 1 の最後の波（ボス）の難しさ（レベルアップを遅くした分、元の 8 から下げた）
+// 難しさの調整値（tests/bot-compare.mjs が、ここを書き換えて測る）。方針: 通常の波は、放置でも進める。山場（中ボス・大ボス）は、放置では厳しく、介入（タップ・大技・OD）で突破する。
+export const TUNE = {
+  autoK: 1.0, // 自動の攻撃（主砲・武器・状態異常）の威力の倍率
+  bossAutoK: 0.15, // ボスへの自動の攻撃の、さらなる倍率（手動の攻撃は、そのまま通る）
+  bossHp: 4, // ボスの体力の倍率
+  bossGrow: 0.8, // ステージが進むごとの、ボスの体力の増え方（1 + bossGrow × (ステージ − 1) 倍）
+  gstep: 3.5, // ステージが 1 つ進むごとの難しさ（無限モードの波に換算）
+  gfirst: 4.5, // ステージ 1 の最後の波の難しさ
+  waveCap: 70, // 1 波の敵の数の上限（下げると、ステージが短く、ポイントも少なくなる）
+  pointK: 0.15, // 撃破・波・ステージのポイントの倍率（30 波になって増えた分を、全体で戻す）。介入ボーナスには掛けない
+};
 const G_START = 0.6; // ステージが進むごとの、最初の波の難しさの増え方（最初の波はやさしい）
 
 // 敵の種類。from = この難しさから登場、w = 出やすさ、armor/shield/phase などが特徴
@@ -41,7 +50,7 @@ export const TYPES = {
   summoner: { hp: 18, spd: 14, dmg: 3, r: 7, pts: 4, from: 11, w: 5, bump: 4, summon: { every: 6, type: 'swarm', n: 2, max: 14 } }, // 召喚師: 小群を呼ぶ
   regenerator: { hp: 28, spd: 15, dmg: 8, r: 7, pts: 4, from: 12, w: 6, bump: 3, regen: 0.06 }, // 再生兵: 1.5 秒攻撃されないと、毎秒 6% 回復
   jammer: { hp: 12, spd: 20, dmg: 3, r: 6, pts: 3.5, from: 13, w: 5, bump: 6, jam: 100 }, // 妨害兵: 近くにいる間、主砲と武器の待ち時間が延びる
-  boss: { hp: 110, spd: 11, dmg: 24, r: 15, pts: 40, from: 999, w: 0, bump: 5 }, // 大ボス。中ボスは同じ type で tier = 'mid'（HP 55%・2 段階）
+  boss: { hp: 110, spd: 11, dmg: 24, r: 15, pts: 40, from: 999, w: 0, bump: 1.5 }, // 大ボス。中ボスは同じ type で tier = 'mid'（HP 55%・2 段階）
 };
 export const ENEMY_NAME = {
   grunt: 'ザコ', runner: '疾走', swarm: '小群', tank: '重装', splitter: '分裂体', armor: '装甲兵', shooter: '射手', healer: '癒し手', shield: '障壁兵', phantom: '幽霊', boss: 'ボス',
@@ -68,7 +77,6 @@ export function tagMulOf(stats) {
   for (const [key, tags] of Object.entries(ATTR_TAGS)) if (stats[key] > 0) for (const t of tags) out[t] = (out[t] || 1) * (1 + stats[key]);
   return out;
 }
-export const AUTO_K = 0.7;
 export const TAP_K = 2; // タップ 1 回の威力（攻撃力の何倍か）
 export const TAP_CD = 0.22; // タップの間隔（秒）
 const BULLET_SPEED = 280;
@@ -132,6 +140,7 @@ export function createBattle(stats0, rng = Math.random, opts = {}) {
     eventDone: new Set(),
     contracts: [], // 結んだ契約の id
     tagMul: tagMulOf(stats), dotMul: 1, frozenMul: 1, // 属性ごとのダメージ倍率（ツリーの「属性」の枝。遺物でさらに重なる）
+    act: { tapKill: 0, ult: 0, od: 0, pts: 0 }, // 介入（タップで倒した数・大技・OD の回数）と、そのボーナスポイント
     toast: null, // 取得したものの一言表示 { icon, title, sub, color, t }
     jamK: 1, // 妨害兵の近くにいる間の、待ち時間の倍率（小さいほど遅い）
     seenTypes: new Set(), // この挑戦で出た新しい敵（初めて出たときに一言を出す）
@@ -154,7 +163,7 @@ export function createBattle(stats0, rng = Math.random, opts = {}) {
   // ステージ内は、最初の波がやさしく、最後の波（ボス）に向けてだんだん難しくなる（挑戦ごとに武器が 0 から育つため）
   const eff = () => {
     if (b.stage <= 0) return b.wave;
-    const gEnd = G_FIRST + (b.stage - 1) * GSTEP;
+    const gEnd = TUNE.gfirst + (b.stage - 1) * TUNE.gstep;
     const gStart = 1 + (b.stage - 1) * G_START;
     return gStart + ((gEnd - gStart) * (Math.min(b.wave, STAGE_WAVES) - 1)) / (STAGE_WAVES - 1);
   };
@@ -192,10 +201,10 @@ export function createBattle(stats0, rng = Math.random, opts = {}) {
   function startWave() {
     b.wave++;
     const g = eff();
-    const n = Math.min(70, Math.round((5 + 2 * Math.floor(g)) * b.rt.count));
+    const n = Math.min(TUNE.waveCap, Math.round((5 + 2 * Math.floor(g)) * b.rt.count));
     b.queue = [];
     // 10 波ごとに中ボス、30 波ごとに大ボス（ステージ制は 30 波が最後）
-    const bossKind = b.wave % STAGE_WAVES === 0 ? 'boss' : b.wave % MID_BOSS_EVERY === 0 ? 'midboss' : null;
+    const bossKind = o.noBoss ? null : b.wave % STAGE_WAVES === 0 ? 'boss' : b.wave % MID_BOSS_EVERY === 0 ? 'midboss' : null; // o.noBoss: 通常の波だけを測るための印
     const bossWave = !!bossKind;
     if (bossWave) b.queue.push(bossKind);
     const units = bossWave ? Math.max(6, Math.floor(n * 0.5)) : n;
@@ -230,6 +239,8 @@ export function createBattle(stats0, rng = Math.random, opts = {}) {
     if (type === 'boss') {
       // 中ボスは HP が 2 段階、大ボスは 3 段階。1 段階削るたびに、外へ弾かれる
       const mid = tier === 'mid';
+      e.hp *= TUNE.bossHp * (1 + TUNE.bossGrow * Math.max(0, b.stage - 1));
+      e.max = e.hp;
       e.tier = mid ? 'mid' : 'big';
       e.phases = mid ? 2 : 3;
       e.phase = 0;
@@ -285,11 +296,19 @@ export function createBattle(stats0, rng = Math.random, opts = {}) {
     offer();
   }
 
+  // 介入のボーナスポイント: 大技・OD・タップでの撃破・コンボの節目で、ポイントが増える（ステージが進むほど多い）
+  function bonusPoints(v) {
+    const amt = v * (1 + 0.3 * Math.max(0, b.stage)) * (1 + stats.pointMul);
+    b.earnedF += amt;
+    b.act.pts += amt;
+    addFx({ kind: 'bonus', life: 1.0, x: cx + (rng() - 0.5) * 40, y: cy - 24, amount: amt });
+  }
+
   function kill(e) {
     if (e.dead) return;
     e.dead = true;
     b.kills++;
-    b.earnedF += e.pts * (1 + stats.pointMul);
+    b.earnedF += e.pts * (1 + stats.pointMul) * TUNE.pointK;
     b.tower.hp = Math.min(b.tower.max, b.tower.hp + stats.leech);
     addFx({ kind: 'pop', life: 0.45, x: e.x, y: e.y, r: e.r, type: e.type, kill: true });
     if (W) W.onKill(e);
@@ -318,6 +337,11 @@ export function createBattle(stats0, rng = Math.random, opts = {}) {
     b.combo.n = b.combo.t > 0 ? b.combo.n + 1 : 1;
     b.combo.t = 1.3;
     b.combo.best = Math.max(b.combo.best, b.combo.n);
+    if (b.combo.n % 10 === 0 && b.combo.n <= 100) bonusPoints(2); // コンボの節目
+    if (e.lastTap) {
+      b.act.tapKill++;
+      bonusPoints(0.3); // タップで倒した
+    }
     gainXp(e.pts);
   }
 
@@ -365,7 +389,7 @@ export function createBattle(stats0, rng = Math.random, opts = {}) {
       a *= b.od.cfg.dmgK;
       if (op.tag === 'fire') a *= b.od.cfg.fireK;
     }
-    if (!op.manual) a *= AUTO_K;
+    if (!op.manual) a *= TUNE.autoK * (e.type === 'boss' ? TUNE.bossAutoK : 1);
     const crit = !op.noCrit && !op.dot && rng() < stats.crit;
     if (crit) a *= 2;
     if (e.armor) a = Math.max(a * 0.2, a - e.armor); // 装甲: 小さなダメージを大きく減らす
@@ -487,15 +511,17 @@ export function createBattle(stats0, rng = Math.random, opts = {}) {
       if (!b.queue.length) b.phase = 'clear';
     }
     if (b.phase === 'clear' && b.enemies.every((e) => e.dead)) {
-      const bonus = (stats.waveBonus + b.wave) * (1 + stats.pointMul);
+      const bonus = (stats.waveBonus + b.wave) * (1 + stats.pointMul) * TUNE.pointK;
       b.earnedF += bonus;
       addFx({ kind: 'clear', life: 1.5, bonus: Math.round(bonus) });
       if (b.stage > 0 && b.wave >= STAGE_WAVES) {
-        const sb = 40 * b.stage * (1 + stats.pointMul);
+        const sb = 40 * b.stage * (1 + stats.pointMul) * TUNE.pointK;
         b.earnedF += sb;
         b.cleared = true;
         b.over = true;
-        b.stars = 1 + (b.tower.hp >= b.tower.max * 0.5 ? 1 : 0) + (b.hits <= 3 ? 1 : 0); // ★1 クリア / ★2 耐久が半分以上 / ★3 被弾 3 回以内
+        // ★1 クリア / ★2 耐久が半分以上 / ★3 被弾 3 回以内 かつ 介入（大技・OD を合わせて 3 回以上、またはタップで 30 体以上）
+        const acted = b.act.ult + b.act.od >= 3 || b.act.tapKill >= 30;
+        b.stars = 1 + (b.tower.hp >= b.tower.max * 0.5 ? 1 : 0) + (b.hits <= 3 && acted ? 1 : 0);
         addFx({ kind: 'stageClear', life: 2, bonus: Math.round(sb) });
         return;
       }
@@ -729,7 +755,9 @@ export function createBattle(stats0, rng = Math.random, opts = {}) {
     if (b.over || b.options || b.cd.tap > 0) return false;
     const e = nearestTo(x, y, 40);
     if (!e) return false;
+    e.lastTap = true; // この一撃で倒れたら、タップでの撃破（kill が見る）
     hurt(e, stats.dmg * TAP_K, { tag: 'physical', manual: true });
+    e.lastTap = false;
     b.cd.tap = TAP_CD;
     if (b.od.active <= 0) b.od.gauge = Math.min(100, b.od.gauge + 0.8 * b.od.cfg.chargeK); // タップで OD ゲージも少したまる
     W.addCharge(0.012); // MAX の大技ゲージも少したまる
@@ -805,6 +833,8 @@ export function createBattle(stats0, rng = Math.random, opts = {}) {
     if (b.over || b.options || b.od.gauge < 100 || b.od.active > 0) return false;
     b.od.gauge = 0;
     b.od.active = b.od.dur;
+    b.act.od++;
+    bonusPoints(4);
     addFx({ kind: 'overdrive', life: 1.0 });
     // タイプごとの、発動の瞬間の効果（強化の「威力」で強くなる）
     const cfg = b.od.cfg;
@@ -836,7 +866,12 @@ export function createBattle(stats0, rng = Math.random, opts = {}) {
   // MAX の武器の大技（ゲージが満タンのとき、その武器の HUD アイコンをタップして発動）
   function ultimate(id) {
     if (b.over || b.options) return false;
-    return W.ultimate(id);
+    const ok = W.ultimate(id);
+    if (ok) {
+      b.act.ult++;
+      bonusPoints(8);
+    }
+    return ok;
   }
   return { b, hurt, step, tap, pick, reroll, chooseRelic, chooseContract, overdrive, ultimate, remaining, earned: () => Math.floor(b.earnedF) };
 }

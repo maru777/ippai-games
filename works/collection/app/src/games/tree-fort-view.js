@@ -1099,6 +1099,12 @@ export function drawBattle(g, sc) {
       g.globalAlpha = Math.max(0, 1 - u);
       kit.text(g, 'OVERDRIVE!!', W / 2, 150 - u * 20, 24 + u * 8, kit.c(sk.gold, 3), 'center', 16);
       g.restore();
+    } else if (f.kind === 'bonus') {
+      // 介入のボーナスポイント: 砦の上に、浮かぶ「+○P」
+      g.save();
+      g.globalAlpha = Math.max(0, 1 - u * u);
+      kit.text(g, `+${Math.round(f.amount * 10) / 10}P`, f.x, f.y - u * 16, 9.5, sk.gold, 'center', 4);
+      g.restore();
     } else if (f.kind === 'bossBreak') {
       // ボスの HP を 1 段階削り切った: 広がる輪と、段階の表示
       g.save();

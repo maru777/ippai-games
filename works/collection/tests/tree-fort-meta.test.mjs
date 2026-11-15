@@ -5,7 +5,7 @@ import {
   STAGE_INFO, MODS, combineMods, dailyChallenge, RELICS, RELIC, relicOptions, CONTRACTS, ACHIEVEMENTS,
 } from '../app/src/games/tree-fort-meta.js';
 import { computeStats } from '../app/src/games/tree-fort-data.js';
-import { createBattle, simulate, STAGE_COUNT } from '../app/src/games/tree-fort-battle.js';
+import { createBattle, simulate, STAGE_COUNT, TUNE } from '../app/src/games/tree-fort-battle.js';
 import { autoPick } from '../app/src/games/tree-fort-run.js';
 import { WEAPONS } from '../app/src/games/tree-fort-weapons.js';
 
@@ -157,7 +157,7 @@ test('overdrive: 撃破でゲージがたまり、満タンで使うと 8 秒間
 test('stars: ステージクリアで星が決まる（★1 クリア / ★2 耐久が半分以上 / ★3 被弾 3 回以内）', () => {
   let got = null;
   for (let seed = 1; seed <= 6 && !got; seed++) {
-    const r = simulate(BASE, seeded(seed), { stage: 1, leveling: true, slots: 3, discovered: new Set(ALL) });
+    const r = simulate(BASE, seeded(seed), { stage: 1, leveling: true, slots: 3, discovered: new Set(ALL), noBoss: true }); // ボスは放置では倒せない設計なので、通常の波だけで測る
     if (r.cleared) got = r;
   }
   assert.ok(got, 'ステージ 1 をクリアできない');

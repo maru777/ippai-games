@@ -30,7 +30,7 @@ const battle = (od, seed = 3) => createBattle(BASE, seeded(seed), { stage: 0, od
 // 敵を数体出して、OD を満タンにして発動する
 function ready(od) {
   const sim = battle(od);
-  for (let i = 0; i < 30 * 12; i++) sim.step(1 / 30); // 敵を集める
+  for (let i = 0; i < 30 * 6; i++) sim.step(1 / 30); // 敵を集める
   sim.b.od.gauge = 100;
   return sim;
 }

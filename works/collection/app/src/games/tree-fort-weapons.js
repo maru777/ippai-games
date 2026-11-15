@@ -107,7 +107,9 @@ export const weaponCost = (id, level) => WEAPON[id].cost[level - 1];
 // ---------------------------------------------------------------------------------------------
 // 戦闘中の動き。api は battle から渡される道具、loadout は [{ id, level }]。
 export function createWeapons(api, loadout) {
-  const { b, stats, rng, ARENA, dist, alive, nearestTo, hurt, applyStatus } = api;
+  const { b, stats, rng, ARENA, dist, alive, nearestTo, hurt: hurt0, applyStatus } = api;
+  let ultMode = false; // 大技の発動中は、手動の攻撃として扱う
+  const hurt = (e, a, op = {}) => hurt0(e, a, ultMode ? { ...op, manual: true } : op);
   let curMax = false; // いま動かしている武器が MAX か（その演出に max を付けて、描画側が金色にする）
   const addFx = (f) => api.addFx(curMax ? { ...f, max: true } : f);
   const { cx, cy } = ARENA;
@@ -126,7 +128,7 @@ export function createWeapons(api, loadout) {
   b.w = w;
   const cd = {};
   for (const x of loadout) cd[x.id] = 0.6 + rng() * 0.6;
-  const later = (t, fn) => w.later.push({ t, fn });
+  const later = (t, fn) => w.later.push({ t, fn: ultMode ? () => { const p = ultMode; ultMode = true; fn(); ultMode = p; } : fn });
   let lastSynText = -9;
   const synText = (id, x, y) => {
     if (b.t - lastSynText < 0.7) return;
@@ -598,7 +600,9 @@ export function createWeapons(api, loadout) {
     if (!x || x.level < MAX_LEVEL || !u || u.charge < 1) return false;
     curMax = true;
     curK = 1.25;
+    ultMode = true;
     const ok = ults[id]();
+    ultMode = false;
     curMax = false;
     curK = 1;
     if (!ok) return false;
