@@ -1,7 +1,7 @@
 // ツリー砦の武器: データ（12 種・各 Lv1〜10・組み合わせ効果）と、戦闘中の動き。
 // 武器の追加は WEAPONS に 1 件足し、下の upd に動きを書く。組み合わせ効果は SYNERGIES に足す。
 // 戦闘本体（tree-fort-battle.js）は api（敵・ダメージ・演出の道具）を渡して createWeapons を呼ぶだけ。
-import { EV, bladeShock } from './tree-fort-elements.js';
+import { makeEV, bladeShock } from './tree-fort-elements.js';
 
 export const SLOT_BASE = 3;
 export const SLOT_MAX = 6;
@@ -111,6 +111,7 @@ export function createWeapons(api, loadout) {
   let curMax = false; // いま動かしている武器が MAX か（その演出に max を付けて、描画側が金色にする）
   const addFx = (f) => api.addFx(curMax ? { ...f, max: true } : f);
   const { cx, cy } = ARENA;
+  const EV = makeEV(stats); // 要素の値（ツリーの「武器強化」の底上げ込み）
   let syn = activeSynergies(new Set(loadout.map((w) => w.id)));
   const lvOf = (id) => loadout.find((w) => w.id === id)?.level || 0;
   let curK = 1; // MAX の武器を動かしている間だけ 1.25（MAX のレベル特典）
@@ -251,7 +252,7 @@ export function createWeapons(api, loadout) {
         if (cd.blade <= 0) {
           cd.blade += sh.every;
           const sr = sh.r;
-          for (const e of alive()) if (dist(e.x, e.y, cx, cy) <= sr + e.r) hurt(e, D() * sh.dmg, { tag: 'physical' });
+          for (const e of alive()) if (dist(e.x, e.y, cx, cy) <= sr + e.r) hurt(e, D() * EV.blade.shock(L), { tag: 'physical' });
           addFx({ kind: 'ring', life: 0.4, x: cx, y: cy, r: sr, tag: 'physical' });
         }
       }
@@ -288,7 +289,9 @@ export function createWeapons(api, loadout) {
         return;
       }
       const a0 = Math.atan2(t.y - cy, t.x - cx);
-      const spread = { 1: [0], 3: [-0.3, 0, 0.3], 4: [-0.45, -0.15, 0.15, 0.45], 5: [-0.5, -0.25, 0, 0.25, 0.5] }[EV.frost.count(L)];
+      const fc = EV.frost.count(L);
+      const fstep = fc <= 4 ? 0.3 : 0.25;
+      const spread = Array.from({ length: fc }, (_, i) => (i - (fc - 1) / 2) * fstep); // 数が増えても、等間隔に広がる
       for (const da of spread) {
         const a = a0 + da;
         w.proj.push({ kind: 'frost', x: cx, y: cy, vx: Math.cos(a) * 240, vy: Math.sin(a) * 240, life: 1.2, L, dmg: D() * EV.frost.dmg(L), t: 0, max: curMax });
@@ -311,8 +314,10 @@ export function createWeapons(api, loadout) {
       const pc = EV.poison.count(L);
       if (pc >= 2) {
         const os = alive().filter((e) => dist(e.x, e.y, t.x, t.y) > 40);
-        if (os[0]) make(os[0].x, os[0].y);
-        if (pc >= 3 && os.length > 1) make(os[os.length - 1].x, os[os.length - 1].y);
+        for (let k = 0; k < pc - 1 && k < os.length; k++) {
+          const o2 = os[k === 0 ? 0 : Math.floor((os.length * k) / (pc - 1))] || os[os.length - 1];
+          make(o2.x, o2.y);
+        }
       }
       cd.poison += 3.5 / speedUp();
     },
@@ -346,8 +351,9 @@ export function createWeapons(api, loadout) {
       const a = Math.atan2(t.y - cy, t.x - cx);
       const life = EV.laser.time(L);
       const total = D() * EV.laser.dmg(L);
-      const ANG = { 1: [0], 2: [-0.18, 0.18], 3: [-0.25, 0, 0.25], 4: [-0.36, -0.12, 0.12, 0.36] };
-      const angles = syn.has('prism') ? [a, a - 0.24, a + 0.24] : ANG[EV.laser.count(L)].map((d) => a + d);
+      const lc = EV.laser.count(L);
+      const lstep = lc === 2 ? 0.36 : 0.25;
+      const angles = syn.has('prism') ? [a, a - 0.24, a + 0.24] : Array.from({ length: lc }, (_, i) => a + (i - (lc - 1) / 2) * lstep);
       const k = syn.has('prism') ? 0.7 : 1;
       if (syn.has('prism')) synText('prism', cx + Math.cos(a) * 40, cy + Math.sin(a) * 40);
       for (const ang of angles) w.beams.push({ a: ang, w: EV.laser.width(L), t: 0, life, total: total * k, tick: 0, ticks: Math.max(1, Math.round(life / 0.2)), max: curMax });

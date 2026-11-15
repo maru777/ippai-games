@@ -183,7 +183,7 @@ export function drawChoice(g, sc, kind) {
       card(g, kit, r, { name: o.name, color: o.color, icon, tag, tagColor: o.star ? sk.gold : sk.dim, star: o.star });
       const tight = r.h < 50;
       kit.text(g, o.kind === 'weapon-up' ? `${o.label}：${o.desc}` : o.desc, r.x + 42, r.y + (tight ? 19 : 25), 10, sk.text);
-      const note = o.kind === 'weapon-up' ? upgradeChanges(o.id, o.level - 1, 2).join(' / ') : o.note || '';
+      const note = o.kind === 'weapon-up' ? upgradeChanges(o.id, o.level - 1, 2, b.stats).join(' / ') : o.note || '';
       if (note) kit.text(g, note, r.x + 42, r.y + (tight ? 32 : 40), 9, o.star || o.unknown ? rgba(sk.gold, 0.95) : sk.dim);
       if (o.kind === 'weapon-new' || o.kind === 'weapon-up') attrChips(g, kit, r.x + 42 + kit.measure(g, o.name, 13) + 6, r.y + (tight ? 4 : 7) + 1, WEAPON[o.id].tags, 8);
     });

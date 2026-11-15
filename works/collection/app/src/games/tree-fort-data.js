@@ -21,6 +21,12 @@ export const BASE_STATS = {
   rerolls: 1, // レベルアップの選び直しの回数（1 回の挑戦あたり）
   startPicks: 0, // 挑戦の開始時に行えるレベルアップの回数
   weaponLv: 0, // 新しく手に入れる武器（と最初から持つ武器）の、最初のレベルの上乗せ
+  // 武器強化（ツリーの「武器強化」の枝）: 要素の分類ごとの底上げ。tree-fort-elements.js の CAT を参照
+  wdmg: 0, // 威力 +%（0.1 = +10%）
+  wrate: 0, // 連射: 間隔 −%
+  wsize: 0, // 範囲 +%
+  wcount: 0, // 数 +（弾数・本数・機数・刃の数など）
+  wtime: 0, // 持続 +%
   choices: 3, // レベルアップの選択肢の数
 };
 
@@ -70,6 +76,17 @@ const TREE_BASE = [
   { id: 'grw4', name: '選択肢 +1', desc: 'レベルアップの選択肢が 4 つになる', cost: 160, gx: 4, gy: 4, req: ['grw3'], fx: { choices: 1 }, mark: '四' },
   { id: 'wlv1', name: '武器の素質 I', desc: '武器を最初から Lv2 で手に入れる', cost: 120, gx: 2, gy: 3, req: ['grw2'], fx: { weaponLv: 1 }, mark: '武' },
   { id: 'wlv2', name: '武器の素質 II', desc: '武器を最初から Lv3 で手に入れる', cost: 400, gx: 3, gy: 4, req: ['wlv1', 'grw3'], fx: { weaponLv: 1 }, mark: '武' },
+  // 武器強化: 全武器を、威力・連射・範囲・数・持続の 5 分類で底上げする（I → II）。左上へ斜めに伸びる
+  { id: 'arm1', name: '威力 I', desc: '全武器の威力 +10%', cost: 24, gx: -1, gy: -1, req: ['core'], fx: { wdmg: 0.1 }, mark: '威' },
+  { id: 'arm2', name: '連射 I', desc: '全武器の待ち時間 −10%', cost: 32, gx: -2, gy: -2, req: ['arm1'], fx: { wrate: 0.1 }, mark: '連' },
+  { id: 'arm3', name: '範囲 I', desc: '全武器の範囲（爆発・射程・太さ）+10%', cost: 40, gx: -3, gy: -3, req: ['arm2'], fx: { wsize: 0.1 }, mark: '範' },
+  { id: 'arm4', name: '数 I', desc: '全武器の数（弾数・本数・機数・刃の数）+1', cost: 80, gx: -4, gy: -4, req: ['arm3'], fx: { wcount: 1 }, mark: '数' },
+  { id: 'arm5', name: '持続 I', desc: '全武器の持続（雲・井戸・凍結・照射）+15%', cost: 48, gx: -5, gy: -5, req: ['arm4'], fx: { wtime: 0.15 }, mark: '持' },
+  { id: 'arm6', name: '威力 II', desc: '全武器の威力 +10%（さらに）', cost: 72, gx: -1, gy: -2, req: ['arm1'], fx: { wdmg: 0.1 }, mark: '威' },
+  { id: 'arm7', name: '連射 II', desc: '全武器の待ち時間 −10%（さらに）', cost: 88, gx: -2, gy: -3, req: ['arm2', 'arm6'], fx: { wrate: 0.1 }, mark: '連' },
+  { id: 'arm8', name: '範囲 II', desc: '全武器の範囲 +10%（さらに）', cost: 104, gx: -3, gy: -4, req: ['arm3', 'arm7'], fx: { wsize: 0.1 }, mark: '範' },
+  { id: 'arm9', name: '数 II', desc: '全武器の数 +1（さらに）', cost: 160, gx: -4, gy: -5, req: ['arm4', 'arm8'], fx: { wcount: 1 }, mark: '数' },
+  { id: 'arm10', name: '持続 II', desc: '全武器の持続 +15%（さらに）', cost: 112, gx: -5, gy: -6, req: ['arm5', 'arm9'], fx: { wtime: 0.15 }, mark: '持' },
   { id: 'grw5', name: '経験値 II', desc: '経験値 +35%', cost: 220, gx: 5, gy: 5, req: ['grw4'], fx: { xpMul: 0.35 }, mark: '経' },
 ];
 

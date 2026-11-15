@@ -210,7 +210,7 @@ export function drawWeaponPanel(g, sc) {
   const cw = attrChips(g, kit, p.x + 90, p.y + 24, def.tags);
   kit.text(g, '属性', p.x + 90 + cw + 4, p.y + 26, 8.5, sk.dim);
   // 要素 5 つ
-  const rows = weaponElements(id, lv);
+  const rows = weaponElements(id, lv, b.stats);
   const y0 = p.y + 46;
   const rh = 36;
   rows.forEach((e, i) => {
