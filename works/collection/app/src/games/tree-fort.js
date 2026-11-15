@@ -27,7 +27,7 @@ import {
 } from './tree-fort-rview.js';
 
 const SAVE_ID = 'tree-fort-save';
-const PAN_LIMIT = 140;
+const PAN_LIMIT = 300; // ツリーを動かせる範囲（枝が増えたので広げた）
 const kits = {};
 const kitOf = (skinId) => {
   if (!kits[skinId]) kits[skinId] = makeKit(SKINS.find((s) => s.id === skinId) || SKINS[0]);

@@ -1,8 +1,10 @@
 // 武器の要素（5 つ × 12 武器）の検証: 式がそろい、レベルとともに強くなり、画面用の値が正しく出る（描画なし）。
 // 実行: node works/collection/tests/tree-fort-elements.test.mjs
 import assert from 'node:assert/strict';
-import { ELEMENTS, EV, MAX_K, weaponElements, upgradeChanges, shown } from '../app/src/games/tree-fort-elements.js';
+import { ELEMENTS, EV, MAX_K, weaponElements, upgradeChanges, shown, makeEV } from '../app/src/games/tree-fort-elements.js';
 import { WEAPONS } from '../app/src/games/tree-fort-weapons.js';
+import { TREE, NODE, computeStats, canBuy } from '../app/src/games/tree-fort-data.js';
+import { createBattle } from '../app/src/games/tree-fort-battle.js';
 
 let passed = 0;
 const test = (name, fn) => {
@@ -79,6 +81,68 @@ test('screen: 強化カード用に、次のレベルで変わる要素が短い
   assert.ok(ch.length >= 1 && ch.length <= 3);
   assert.ok(ch.every((s) => s.includes('→')));
   assert.deepEqual(upgradeChanges('missile', 10), [], 'Lv10 の次はない');
+});
+
+test('arm: 要素の分類。威力・連射・範囲・数・持続に振り分けられ、効果が極端になる要素は対象外', () => {
+  for (const w of WEAPONS) assert.ok(ELEMENTS[w.id].some((e) => e.cat === 'dmg'), `${w.id} に威力の分類がない`);
+  const cat = (id, key) => ELEMENTS[id].find((e) => e.key === key).cat;
+  assert.equal(cat('missile', 'count'), 'count');
+  assert.equal(cat('missile', 'cd'), 'rate');
+  assert.equal(cat('missile', 'aoe'), 'size');
+  assert.equal(cat('frost', 'time'), 'time');
+  for (const [id, key] of [['bomb', 'repeat'], ['bomb', 'kids'], ['lightning', 'strikes'], ['drone', 'shots'], ['meteor', 'delay'], ['frost', 'slow'], ['blade', 'spin']]) {
+    assert.equal(cat(id, key), null, `${id}.${key} は対象外`);
+  }
+});
+
+test('arm: ツリーの底上げが、分類ごとに要素へ掛かる（威力 ×、連射 間隔 −、範囲 ×、数 +、持続 ×）', () => {
+  const st = { wdmg: 0.2, wrate: 0.2, wsize: 0.2, wcount: 2, wtime: 0.3 };
+  const ev = makeEV(st);
+  assert.ok(Math.abs(ev.missile.dmg(5) - EV.missile.dmg(5) * 1.2) < 1e-9);
+  assert.ok(Math.abs(ev.missile.cd(5) - EV.missile.cd(5) * 0.8) < 1e-9);
+  assert.ok(Math.abs(ev.missile.aoe(5) - EV.missile.aoe(5) * 1.2) < 1e-9);
+  assert.equal(ev.missile.count(5), EV.missile.count(5) + 2);
+  assert.ok(Math.abs(ev.frost.time(5) - EV.frost.time(5) * 1.3) < 1e-9);
+  assert.equal(ev.bomb.repeat(9), EV.bomb.repeat(9), '対象外は変わらない');
+  assert.equal(ev.bomb.kids(1), 0, '0 の要素（なし）は、数が足されて現れない');
+  assert.ok(ev.flame.arc(10) <= Math.PI + 1e-9, '扇は 360° まで');
+  assert.equal(makeEV({ wrate: 5 }).missile.cd(5), EV.missile.cd(5) * 0.4, '連射の短縮は 60% まで');
+  // 画面用の値にも掛かる
+  const a = weaponElements('missile', 5).find((r) => r.key === 'count');
+  const b = weaponElements('missile', 5, st).find((r) => r.key === 'count');
+  assert.equal(a.cur, '6 発');
+  assert.equal(b.cur, '8 発');
+});
+
+test('arm: ツリーの 10 ノード（武器強化）が、位置・前提・効果どおりにそろい、全部取ると +20% / −20% / +20% / +2 / +30%', () => {
+  const arms = TREE.filter((n) => n.id.startsWith('arm'));
+  assert.equal(arms.length, 10);
+  const pos = new Set(TREE.map((n) => `${n.gx},${n.gy}`));
+  assert.equal(pos.size, TREE.length, 'ノードの位置が重なる');
+  for (const n of arms) for (const r of n.req) assert.ok(NODE[r], `${n.id} の前提 ${r}`);
+  const st = computeStats(TREE.map((n) => n.id));
+  assert.ok(Math.abs(st.wdmg - 0.2) < 1e-9 && Math.abs(st.wrate - 0.2) < 1e-9 && Math.abs(st.wsize - 0.2) < 1e-9 && st.wcount === 2 && Math.abs(st.wtime - 0.3) < 1e-9);
+  // 前の枝が必要
+  assert.equal(canBuy(new Set(['core']), 9999, 'arm2').ok, false);
+  assert.equal(canBuy(new Set(['core']), 9999, 'arm1').ok, true);
+  // 費用（2.5 倍済み）
+  assert.equal(NODE.arm1.cost, 60);
+  assert.equal(NODE.arm4.cost, 200);
+  assert.equal(NODE.arm9.cost, 400);
+});
+
+test('arm: 数が増えても、氷結弾・レーザー・毒霧・全武器が例外なく動く（Lv1・5・10）', () => {
+  const stats = { ...computeStats(['core', 'atk1', 'def1', 'def2', 'def3']), wdmg: 0.2, wrate: 0.2, wsize: 0.2, wcount: 2, wtime: 0.3 };
+  for (const w of WEAPONS) {
+    for (const level of [1, 5, 10]) {
+      let s = 5;
+      const rng = () => ((s = (s * 16807) % 2147483647) / 2147483647);
+      const sim = createBattle(stats, rng, { stage: 0, loadout: [{ id: w.id, level }] });
+      sim.b.tower.hp = sim.b.tower.max = 99999;
+      for (let i = 0; i < 30 * 25; i++) sim.step(1 / 30);
+      assert.ok(sim.b.kills > 0, `${w.id} Lv${level} が動かない`);
+    }
+  }
 });
 
 console.log(`\n${passed} 件すべて成功`);

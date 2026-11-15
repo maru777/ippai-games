@@ -100,12 +100,38 @@ export const ELEMENTS = {
   ],
 };
 
-// 戦闘が読む式: EV.bomb.dmg(level)
-export const EV = Object.fromEntries(Object.entries(ELEMENTS).map(([id, list]) => [id, Object.fromEntries(list.map((e) => [e.key, e.get]))]));
+// 要素の分類。ツリーの「武器強化」が、分類ごとに効く（stats.wdmg / wrate / wsize / wcount / wtime）。
+//   dmg = 威力 / rate = 連射（間隔が短くなる）/ size = 範囲 / count = 数 / time = 持続。ここにない要素（追撃爆発・子爆弾・落雷・連射数・予告時間・速さ・確率など）は、ツリーでは変わらない。
+const CAT = {
+  dmg: 'dmg', dps: 'dmg', burn: 'dmg', dot: 'dmg', collapse: 'dmg', shock: 'dmg',
+  cd: 'rate', interval: 'rate',
+  radius: 'size', size: 'size', aoe: 'size', range: 'size', arc: 'size', width: 'size', reach: 'size',
+  count: 'count', chains: 'count',
+  time: 'time',
+};
+for (const list of Object.values(ELEMENTS)) for (const e of list) e.cat = CAT[e.key] || null;
+export const CATEGORIES = { dmg: '威力', rate: '連射', size: '範囲', count: '数', time: '持続' };
+
+// ツリーの底上げを掛ける（stats がなければ、そのまま）
+export function modValue(e, v, stats) {
+  if (!stats || !e.cat) return v;
+  switch (e.cat) {
+    case 'dmg': return v * (1 + (stats.wdmg || 0));
+    case 'rate': return v * (1 - Math.min(0.6, stats.wrate || 0)); // 間隔 −X%（最大 60%）
+    case 'size': return e.key === 'arc' ? Math.min(Math.PI, v * (1 + (stats.wsize || 0))) : v * (1 + (stats.wsize || 0));
+    case 'count': return v > 0 ? v + Math.floor(stats.wcount || 0) : v;
+    case 'time': return v * (1 + (stats.wtime || 0));
+    default: return v;
+  }
+}
+
+// 戦闘が読む式: EV.bomb.dmg(level)。stats を渡すと、ツリーの底上げが掛かった値になる
+export const makeEV = (stats) => Object.fromEntries(Object.entries(ELEMENTS).map(([id, list]) => [id, Object.fromEntries(list.map((e) => [e.key, (L) => modValue(e, e.get(L), stats)]))]));
+export const EV = makeEV(null);
 
 const isAtk = (e) => e.kind === 'atk';
 // 表示用の値（攻撃力の倍率は、MAX のとき ×1.25 を含める）
-export const shown = (e, L) => (isAtk(e) && L >= 10 ? e.get(L) * MAX_K : e.get(L));
+export const shown = (e, L, stats = null) => modValue(e, isAtk(e) && L >= 10 ? e.get(L) * MAX_K : e.get(L), stats);
 
 // 値の表示（long = 一覧用、short = 強化カードの 1 行用）
 export function fmtValue(e, v, short = false) {
@@ -122,13 +148,13 @@ export function fmtValue(e, v, short = false) {
 }
 
 // その武器の、レベル L の要素の一覧（画面用）。前のレベルからの増減・次のレベルの値・Lv10 までの進み具合つき。
-export function weaponElements(id, L) {
+export function weaponElements(id, L, stats = null) {
   return ELEMENTS[id].map((e) => {
-    const cur = shown(e, L);
-    const prev = L > 1 ? shown(e, L - 1) : null;
-    const next = L < 10 ? shown(e, L + 1) : null;
-    const v1 = shown(e, 1);
-    const v10 = shown(e, 10);
+    const cur = shown(e, L, stats);
+    const prev = L > 1 ? shown(e, L - 1, stats) : null;
+    const next = L < 10 ? shown(e, L + 1, stats) : null;
+    const v1 = shown(e, 1, stats);
+    const v10 = shown(e, 10, stats);
     const span = v10 - v1;
     const ratio = span === 0 ? 1 : Math.max(0, Math.min(1, (cur - v1) / span));
     const gain = prev === null ? 0 : cur - prev; // 正 = 数値が増えた
@@ -144,11 +170,11 @@ export function weaponElements(id, L) {
 }
 
 // 強化カード用: Lv(L) → Lv(L+1) で変わる要素を「名前 現在→次」の短い文にする（最大 n 件）
-export function upgradeChanges(id, L, n = 3) {
+export function upgradeChanges(id, L, n = 3, stats = null) {
   const out = [];
   for (const e of ELEMENTS[id]) {
-    const a = shown(e, L);
-    const b = shown(e, L + 1);
+    const a = shown(e, L, stats);
+    const b = shown(e, L + 1, stats);
     if (Math.abs(a - b) > 1e-9) out.push(`${e.name} ${fmtValue(e, a, true)}→${fmtValue(e, b, true)}`);
   }
   return out.slice(0, n);
